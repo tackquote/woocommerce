@@ -200,7 +200,11 @@ class Tack_Widget {
 					'optional'           => __( '(optional)', 'tackquote' ),
 					'firstNameRequired'  => __( 'Please enter your first name.', 'tackquote' ),
 					'companyRequired'    => __( 'Please complete the required company details.', 'tackquote' ),
-					'awaitingApproval'   => __( 'Quote requested. Your company registration is awaiting approval by the seller.', 'tackquote' ),
+					// Neutral on purpose (1.8.1): TackQuote answers awaitingApproval for EVERY
+					// company request, so it no longer says whether a company name matched an
+					// existing account. This text must not claim more than that answer does.
+					'awaitingApproval'   => __( "Request received. If your company account needs approval, we'll email you when it is ready.", 'tackquote' ),
+					'portalLink'         => __( 'Go to your buyer portal', 'tackquote' ),
 					// Company field labels, keyed by the field names the API's
 					// requiredCompanyFields returns. Anything not listed here falls back to a
 					// humanised version of the key, so a new policy field still renders.

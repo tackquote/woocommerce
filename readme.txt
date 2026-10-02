@@ -5,7 +5,7 @@ Requires at least: 6.0
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -237,6 +237,10 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 4. Quote-only mode on the storefront. Add to Cart is withdrawn and the quote buttons remain, so the catalogue still works and only checkout goes away.
 
 == Changelog ==
+
+= 1.8.1 =
+* **The "awaiting approval" message no longer says more than TackQuote knows.** TackQuote now answers "awaiting approval" for every quote request made on behalf of a company, so that a shopper typing a company name can no longer learn whether that company is already a customer of the store. The message used to read "Your company registration is awaiting approval by the seller", which is now false for a company that needs no approval. It reads "Request received. If your company account needs approval, we'll email you when it is ready."
+* After a company request the buyer portal is offered as a link instead of not at all. The automatic redirect still happens only for an individual request; a company shopper may not be able to sign in yet, so they are never dropped onto a login they cannot pass.
 
 = 1.8.0 =
 * **The settings screen is grouped into a setup sequence.** Everything used to sit under a handful of headings in no particular order, with seven unrelated controls filed under "B2B pricing" — four of them about prices and three about hiding checkout methods. The page now reads top to bottom as the order you actually set the plugin up in: connect, choose how customers buy, put the buttons on the storefront, turn on order sync, price your trade customers, then restrict checkout methods. A section that cannot work yet says so where you are reading it, rather than saving happily and doing nothing.

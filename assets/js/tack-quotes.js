@@ -473,6 +473,16 @@
             window.setTimeout(function () {
               window.location.href = portalUrl;
             }, 900);
+          } else if (portalUrl && awaiting) {
+            // A company request may or may not need approval (TackQuote no longer
+            // says which), so the portal is offered as a LINK, never an automatic
+            // redirect onto a login the shopper may not be able to pass yet.
+            $success.append(
+              ' ',
+              $('<a class="tack-quote-portal-link"></a>')
+                .attr('href', portalUrl)
+                .text(TackQuotes.i18n.portalLink || portalUrl)
+            );
           }
         } else {
           $error.text((res && res.data && res.data.message) || TackQuotes.i18n.error).show();
