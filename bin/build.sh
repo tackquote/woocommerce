@@ -10,6 +10,20 @@ STAGE="$DIST/$PLUGIN_SLUG"
 rm -rf "$DIST"
 mkdir -p "$STAGE"
 
+# Stage from git, never from the working tree: the committed tree (HEAD) is
+# extracted to a scratch directory and the exclusions below run against that.
+# Local litter (composer.lock, .php-cs-fixer.cache, an outdir from an earlier
+# scripts/package.sh run, ...) is untracked, so it can never reach the zip, and
+# the exclusion list no longer has to anticipate it. Uncommitted edits are not
+# packed either -- commit first.
+# The tree goes in a subdirectory: rsync copies the source root's mode onto
+# $STAGE (the zip's top-level folder), and mktemp -d is 0700.
+SCRATCH="$(mktemp -d)"
+trap 'rm -rf "$SCRATCH"' EXIT
+SRC="$SCRATCH/tree"
+mkdir "$SRC"
+git -C "$ROOT" archive --format=tar HEAD | tar -x -C "$SRC"
+
 # Copy runtime files only (exclude dev/build artifacts).
 rsync -a --delete \
 	--exclude 'dist' \
@@ -32,7 +46,7 @@ rsync -a --delete \
 	--exclude '*.dist' \
 	--exclude '.DS_Store' \
 	--exclude '*.md' \
-	"$ROOT/" "$STAGE/"
+	"$SRC/" "$STAGE/"
 
 cd "$DIST"
 zip -r -q "$PLUGIN_SLUG.zip" "$PLUGIN_SLUG"
