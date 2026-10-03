@@ -18,7 +18,7 @@ TackQuote's [Terms of Service](https://tackquote.com/terms) and
 
 ## Installation
 
-1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/__REPO_SLUG__/releases) (direct link: [`tackquote.zip`](https://github.com/__REPO_SLUG__/releases/latest/download/tackquote.zip)), or build locally with `bash bin/build.sh`.
+1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/tackquote/woocommerce/releases) (direct link: [`tackquote.zip`](https://github.com/tackquote/woocommerce/releases/latest/download/tackquote.zip)), or build locally with `bash bin/build.sh`.
 2. In WP Admin go to **Plugins → Add New → Upload Plugin** and upload the ZIP.
 3. Activate the plugin.
 4. Go to **TackQuote** in the admin menu and paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**). Click **Test TackQuote connection** to verify.

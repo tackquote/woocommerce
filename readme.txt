@@ -33,7 +33,7 @@ Setup is one field: paste your TackQuote API key. You can [create an account her
 * Order sync is **outbound only** — it does not import quotes as orders, sync your catalogue, or touch inventory.
 * Failed syncs are logged (WooCommerce → Status → Logs, source `tackquote`) and never block checkout.
 
-Source code is developed in the open at [github.com/__REPO_SLUG__](https://github.com/__REPO_SLUG__).
+Source code is developed in the open at [github.com/tackquote/woocommerce](https://github.com/tackquote/woocommerce).
 
 == External services ==
 
@@ -103,7 +103,7 @@ create quotes without sending data to the TackQuote API.
 
 = Manual install =
 
-1. Download `tackquote.zip` from [the releases page](https://github.com/__REPO_SLUG__/releases), or build it from source with `bash bin/build.sh`.
+1. Download `tackquote.zip` from [the releases page](https://github.com/tackquote/woocommerce/releases), or build it from source with `bash bin/build.sh`.
 2. In WP Admin go to **Plugins → Add New → Upload Plugin**, upload the ZIP, and choose **Replace current with uploaded** if an older copy is already installed.
 3. Activate, then follow steps 3–6 above.
 4. Your API key and toggles are stored as WordPress options and are preserved across updates.
