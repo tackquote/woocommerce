@@ -3,7 +3,7 @@
 # Build the installable WooCommerce artifact, reproducibly: dist/tackquote.zip.
 #
 # Split out of the hub repository's scripts/package-all.sh
-# (https://github.com/tackquote/tack-ecommerce-extensions) when this plugin moved to
+# (tackquote/tack-ecommerce-extensions, retired 2026-10-04) when this plugin moved to
 # its own repository. The top-level directory inside the zip MUST be the
 # WordPress.org slug -- `tackquote`, the slug assigned to this submission. WP
 # derives the plugin folder from it, a mismatch breaks updates, and WordPress.org

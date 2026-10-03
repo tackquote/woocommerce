@@ -1,6 +1,6 @@
 # TackQuote for WooCommerce
 
-> Part of the TackQuote integrations family. All platforms are indexed in the hub repository: [tackquote/tack-ecommerce-extensions](https://github.com/tackquote/tack-ecommerce-extensions) (TackQuote integrations index).
+> Part of the TackQuote integrations family. All platforms are listed on the TackQuote GitHub organization page: [github.com/tackquote](https://github.com/tackquote) (TackQuote integrations index).
 
 Add a **Request a Quote** button to your WooCommerce store and sync orders with your [TackQuote](https://tackquote.com) B2B quoting account.
 
