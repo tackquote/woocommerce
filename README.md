@@ -1,5 +1,7 @@
 # TackQuote for WooCommerce
 
+> Part of the TackQuote integrations family. All platforms are indexed in the hub repository: [ackm04/tack-ecommerce-extensions](https://github.com/ackm04/tack-ecommerce-extensions) (TackQuote integrations index).
+
 Add a **Request a Quote** button to your WooCommerce store and sync orders with your [TackQuote](https://tackquote.com) B2B quoting account.
 
 - 🧾 "Add to Quote" and "Request a Quote" buttons on product pages, plus a floating quote list with "Checkout as Quote"
@@ -16,7 +18,7 @@ TackQuote's [Terms of Service](https://tackquote.com/terms) and
 
 ## Installation
 
-1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/ackm04/tack-ecommerce-extensions/releases), or build locally with `bash bin/build.sh`.
+1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/__REPO_SLUG__/releases) (direct link: [`tackquote.zip`](https://github.com/__REPO_SLUG__/releases/latest/download/tackquote.zip)), or build locally with `bash bin/build.sh`.
 2. In WP Admin go to **Plugins → Add New → Upload Plugin** and upload the ZIP.
 3. Activate the plugin.
 4. Go to **TackQuote** in the admin menu and paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**). Click **Test TackQuote connection** to verify.
@@ -79,7 +81,7 @@ composer install && ./vendor/bin/phpcs --standard=WordPress .
 bash bin/build.sh   # produces dist/tackquote.zip
 ```
 
-Releases are built and attached by the GitHub Actions workflow in the repository root `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow calls `scripts/package-all.sh`, which delegates to `bin/build.sh` here, so the two cannot drift.
+Releases are built and attached by the GitHub Actions workflow `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow calls `scripts/package.sh`, which delegates to `bin/build.sh`, so the two cannot drift. `bin/build.sh` leaves the repository scaffolding (`scripts/`, `.github/`, `LICENSE`) out of the zip.
 
 ## License
 
