@@ -18,6 +18,11 @@ rsync -a --delete \
 	--exclude 'vendor' \
 	--exclude 'node_modules' \
 	--exclude 'tests' \
+	`# Repository scaffolding from the standalone repo (scripts/package.sh and`\
+	`# the repo-level LICENSE). Anchored to the plugin root so nothing inside`\
+	`# the plugin with the same name is caught. .github/ is covered by .git*.`\
+	--exclude '/scripts' \
+	--exclude '/LICENSE' \
 	`# WordPress.org listing assets — banners, icons and screenshots. They`\
 	`# belong to the DIRECTORY PAGE, not the plugin: wordpress.org reads them`\
 	`# from the SVN assets/ folder, and every byte shipped here is downloaded`\

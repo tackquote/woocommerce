@@ -1,0 +1,7 @@
+.DS_Store
+# Build output from scripts/package.sh and bin/build.sh.
+dist/
+# Composer dev tooling (phpcs / WordPress Coding Standards), never committed.
+vendor/
+composer.lock
+node_modules/

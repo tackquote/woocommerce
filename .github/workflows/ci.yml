@@ -1,0 +1,38 @@
+name: CI
+
+# Lint every PHP file and run the tests that can run without a live store.
+#
+# tests/run.php is a self-contained runner (WordPress and WooCommerce are
+# stubbed) and pulls in every *-test.php file. tests/test-order-payload.php is
+# NOT run here on purpose: it is a WP-CLI script that needs a real WooCommerce
+# store (wp eval-file ...), as its own header explains.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Lint PHP
+        run: |
+          find . -path ./dist -prune -o -path ./vendor -prune -o -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l
+
+      - name: Run tests
+        run: php tests/run.php
+
+      - name: Build release artifact(s)
+        run: bash scripts/package.sh dist
