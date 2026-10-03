@@ -301,7 +301,7 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 = 1.3.3 =
 * The plugin slug, text domain, plugin folder and distributed ZIP are now all `tackquote`, matching the slug assigned on WordPress.org. WordPress requires the text domain to equal the slug, and a plugin folder that disagrees with either is its own defect. The admin page, the enqueued script/style handles, the Action Scheduler group and the WooCommerce log source move with it, so the log source is now `tackquote`.
 * readme.txt now carries an **External services** section disclosing the TackQuote API: that the plugin cannot function without it, that nothing is sent until an API key is entered, and, endpoint by endpoint, what is sent and when — with links to the Terms of Service and Privacy Policy.
-* Fixed the download links, which pointed at a repository that does not exist. The source now lives at https://github.com/ackm04/tack-ecommerce-extensions.
+* Fixed the download links, which pointed at a repository that does not exist. The source now lives at https://github.com/tackquote/tack-ecommerce-extensions.
 * Note for anyone updating a manually installed 1.3.2: the folder changed from `tackquote-for-woocommerce/` to `tackquote/`, so WordPress treats the new ZIP as a separate plugin. Deactivate and delete the old copy after installing this one. Your API key and toggles are stored as WordPress options and survive both.
 
 = 1.3.2 =
