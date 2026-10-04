@@ -95,5 +95,9 @@ require __DIR__ . '/group-restrictions-test.php';
 echo "\n-- settings page structure + rule editing --\n";
 require __DIR__ . '/settings-page-test.php';
 
+// Order sync stops on a TERMINAL refusal (401/403 from TackQuote) and backs off on 429.
+echo "\n-- order-sync gate: terminal 401/403, 429 back-off, admin notice --\n";
+require __DIR__ . '/sync-gate-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

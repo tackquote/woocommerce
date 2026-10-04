@@ -63,6 +63,9 @@ $tack_quotes_options = array(
 	'tack_quotes_payment_group_map',
 	'tack_quotes_shipping_group_map',
 	'tack_quotes_buyer_group_codes',
+
+	// Order-sync circuit breaker (Tack_Sync_Gate::OPTION) — added after 1.8.1.
+	'tack_quotes_order_sync_block',
 );
 
 /**
