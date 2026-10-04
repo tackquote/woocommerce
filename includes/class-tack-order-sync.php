@@ -38,6 +38,23 @@ class Tack_Order_Sync {
 	const SYNC_KEY_META = '_tack_quotes_sync_key';
 
 	/**
+	 * Action that re-queues the orders skipped while TackQuote refused order sync.
+	 */
+	const REQUEUE_HOOK = 'tack_quotes_requeue_unsynced';
+
+	/**
+	 * Most orders one re-queue will look at. Bounded so a long outage on a busy store
+	 * cannot enqueue thousands of jobs at once; what is left over is logged, and each of
+	 * those orders is still pushed the next time it changes.
+	 */
+	const REQUEUE_LIMIT = 200;
+
+	/**
+	 * How far back a re-queue reaches at most, whatever the block's start time says.
+	 */
+	const REQUEUE_MAX_AGE = 2592000; // 30 days.
+
+	/**
 	 * Whether outbound order sync is switched on.
 	 *
 	 * Single source of truth for the default, because it is consulted both when deciding
@@ -99,6 +116,68 @@ class Tack_Order_Sync {
 		// Registered with the worker, not init(): a merchant who switches sync off while it
 		// is refused still deserves to know why orders stopped arriving.
 		add_action( 'admin_notices', array( 'Tack_Sync_Gate', 'render_admin_notice' ) );
+
+		// A refusal lifted (a push succeeded, or a different key was saved): re-send what
+		// was skipped meanwhile, off the request that lifted it.
+		add_action( Tack_Sync_Gate::UNBLOCKED_ACTION, array( $this, 'schedule_requeue' ), 10, 1 );
+		add_action( self::REQUEUE_HOOK, array( $this, 'requeue_unsynced' ), 10, 1 );
+		add_action( 'update_option_tack_quotes_api_key', array( 'Tack_Sync_Gate', 'on_api_key_changed' ), 10, 2 );
+	}
+
+	/**
+	 * Queue one re-queue job for the orders skipped since `$since`.
+	 *
+	 * @param int $since Unix time pushes started being held.
+	 */
+	public function schedule_requeue( $since ) {
+		$args = array( (int) $since );
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action( self::REQUEUE_HOOK, $args, self::SYNC_GROUP, true );
+			return;
+		}
+		if ( ! wp_next_scheduled( self::REQUEUE_HOOK, $args ) ) {
+			wp_schedule_single_event( time() + 1, self::REQUEUE_HOOK, $args );
+		}
+	}
+
+	/**
+	 * Re-queue the orders modified since `$since`. Each goes through the normal worker,
+	 * which skips an order whose current state was already accepted (its sync key), so
+	 * re-queuing an order that did get through costs one meta read and no request.
+	 *
+	 * `date_modified => '>' . timestamp` is the documented wc_get_orders() form
+	 * (woocommerce/docs/features/orders/wc-get-orders.md).
+	 *
+	 * @param int $since Unix time pushes started being held.
+	 */
+	public function requeue_unsynced( $since ) {
+		if ( ! self::is_enabled() || ! function_exists( 'wc_get_orders' ) ) {
+			return;
+		}
+		$floor = max( (int) $since - 60, time() - self::REQUEUE_MAX_AGE );
+		$ids   = wc_get_orders(
+			array(
+				'type'          => 'shop_order',
+				'date_modified' => '>' . $floor,
+				'orderby'       => 'modified',
+				'order'         => 'ASC',
+				'limit'         => self::REQUEUE_LIMIT + 1,
+				'return'        => 'ids',
+			)
+		);
+		$ids = is_array( $ids ) ? $ids : array();
+		if ( count( $ids ) > self::REQUEUE_LIMIT && function_exists( 'wc_get_logger' ) && wc_get_logger() ) {
+			wc_get_logger()->warning(
+				sprintf(
+					'TackQuote order sync resumed: re-sending the %d oldest orders changed since it was refused; later ones are sent when they next change.',
+					self::REQUEUE_LIMIT
+				),
+				array( 'source' => 'tackquote' )
+			);
+		}
+		foreach ( array_slice( $ids, 0, self::REQUEUE_LIMIT ) as $order_id ) {
+			$this->enqueue( (int) $order_id );
+		}
 	}
 
 	/**

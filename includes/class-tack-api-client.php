@@ -107,6 +107,8 @@ class Tack_Api_Client {
 				array(
 					'status'            => $code,
 					'json'              => is_array( $data ),
+					// TackQuote's own errors echo the status in the body; a proxy's JSON does not.
+					'statusCode'        => is_array( $data ) && isset( $data['statusCode'] ) && is_numeric( $data['statusCode'] ) ? (int) $data['statusCode'] : 0,
 					'code'              => is_array( $data ) && isset( $data['code'] ) && is_string( $data['code'] ) ? $data['code'] : '',
 					'requiredScopes'    => is_array( $data ) && isset( $data['requiredScopes'] ) && is_array( $data['requiredScopes'] )
 						? array_values( array_filter( $data['requiredScopes'], 'is_string' ) )

@@ -100,7 +100,7 @@ check(
 	null === Tack_Sync_Gate::classify( new WP_Error( 'http_request_failed', 'cURL error 28' ), $now )
 );
 
-$slow = tack_gate_push( 429, wp_json_encode( array( 'statusCode' => 429, 'code' => 'insufficient_scope', 'message' => 'slow down', 'retryAfterSeconds' => 120 ) ), array( 'retry-after' => '120' ) );
+$slow = tack_gate_push( 429, wp_json_encode( array( 'statusCode' => 429, 'code' => 'TOO_MANY_REQUESTS', 'message' => 'slow down', 'retryAfterSeconds' => 120 ) ), array( 'retry-after' => '120' ) );
 $b    = Tack_Sync_Gate::classify( $slow, $now );
 check(
 	'a 429 is THROTTLED until Retry-After',
@@ -114,6 +114,37 @@ check(
 	'a 429 Retry-After is capped at one hour',
 	is_array( $b ) && $now + Tack_Sync_Gate::MAX_WAIT === $b['until']
 );
+
+// A 429 that is TackQuote's throttle of a scope refusal is still terminal: same
+// refusal, louder. Held at least an hour so the notice does not flicker.
+$scope429 = tack_gate_push(
+	429,
+	wp_json_encode( array( 'statusCode' => 429, 'code' => 'insufficient_scope', 'message' => 'stop retrying', 'requiredScopes' => array( 'orders:write' ), 'retryAfterSeconds' => 300 ) ),
+	array( 'retry-after' => '300' )
+);
+$b = Tack_Sync_Gate::classify( $scope429, $now );
+check(
+	'a 429 carrying insufficient_scope stays TERMINAL',
+	is_array( $b ) && 'terminal' === $b['kind'] && array( 'orders:write' ) === $b['scopes'],
+	var_export( $b, true )
+);
+check(
+	'... held for max(Retry-After, TERMINAL_REPROBE)',
+	is_array( $b ) && $now + Tack_Sync_Gate::TERMINAL_REPROBE === $b['until']
+);
+
+// Only TackQuote's OWN error body is terminal: JSON whose statusCode matches the
+// HTTP status and which carries a non-empty code.
+$proxy = tack_gate_push( 403, wp_json_encode( array( 'error' => 'forbidden', 'message' => 'Blocked by policy' ) ) );
+check( 'a 403 with a proxy\'s JSON (no statusCode, no code) is TEMPORARY', null === Tack_Sync_Gate::classify( $proxy, $now ) );
+$mismatch = tack_gate_push( 403, wp_json_encode( array( 'statusCode' => 200, 'code' => 'X', 'message' => 'x' ) ) );
+check( 'a 403 whose body statusCode disagrees is TEMPORARY', null === Tack_Sync_Gate::classify( $mismatch, $now ) );
+$nocode = tack_gate_push( 403, wp_json_encode( array( 'statusCode' => 403, 'code' => '', 'message' => 'x' ) ) );
+check( 'a 403 with an empty code is TEMPORARY', null === Tack_Sync_Gate::classify( $nocode, $now ) );
+
+$date429 = tack_gate_push( 429, '{}', array( 'retry-after' => gmdate( 'D, d M Y H:i:s', $now + 90 ) . ' GMT' ) );
+$b       = Tack_Sync_Gate::classify( $date429, $now );
+check( 'Retry-After as an HTTP-date is honoured', is_array( $b ) && $now + 90 === $b['until'], var_export( $b, true ) );
 
 // ── The gate: what stops the storm ──────────────────────────────────────────
 Tack_Sync_Gate::clear();
@@ -148,8 +179,96 @@ Tack_Sync_Gate::record_failure( $down, $key, $now );
 check( 'a temporary failure does not block the next push', null === Tack_Sync_Gate::active_block( $key, $now + 1 ) );
 
 Tack_Sync_Gate::record_failure( $err, $key, $now );
+Tack_Sync_Gate::record_failure( $err, $key, $now + 4000 );
+check(
+	'a re-recorded block keeps the time pushes STARTED being held',
+	$now === ( get_option( Tack_Sync_Gate::OPTION )['since'] ?? null )
+);
+$GLOBALS['TACK_DONE_ACTIONS'] = array();
 Tack_Sync_Gate::record_success();
 check( 'a successful push clears the block', null === get_option( Tack_Sync_Gate::OPTION, null ) );
+check(
+	'... and announces the unblock with that start time (drives the re-queue)',
+	array( array( Tack_Sync_Gate::UNBLOCKED_ACTION, array( $now ) ) ) === $GLOBALS['TACK_DONE_ACTIONS'],
+	var_export( $GLOBALS['TACK_DONE_ACTIONS'], true )
+);
+
+$GLOBALS['TACK_DONE_ACTIONS'] = array();
+Tack_Sync_Gate::record_success();
+check( 'a success with no block announces nothing', array() === $GLOBALS['TACK_DONE_ACTIONS'] );
+
+Tack_Sync_Gate::record_failure( $err, $key, $now );
+Tack_Sync_Gate::on_api_key_changed( $key, 'tk_live_cccccccccccccccccccccccccccccccc' );
+check(
+	'saving a different key lifts the block at once and announces it',
+	null === get_option( Tack_Sync_Gate::OPTION, null )
+		&& array( array( Tack_Sync_Gate::UNBLOCKED_ACTION, array( $now ) ) ) === $GLOBALS['TACK_DONE_ACTIONS']
+);
+$GLOBALS['TACK_DONE_ACTIONS'] = array();
+Tack_Sync_Gate::record_failure( $err, $key, $now );
+Tack_Sync_Gate::on_api_key_changed( $key, $key );
+check( 're-saving the SAME key does not lift it', is_array( get_option( Tack_Sync_Gate::OPTION, null ) ) );
+Tack_Sync_Gate::clear();
+
+// ── The re-queue that follows an unblock ────────────────────────────────────
+require_once TACK_QUOTES_DIR . 'includes/class-tack-order-sync.php';
+require_once __DIR__ . '/wc-stubs.php';
+tack_test_set_option( 'tack_quotes_enable_order_sync', 'yes' );
+$sync                          = new Tack_Order_Sync();
+$GLOBALS['TACK_HOOKS'] = array();
+$sync->register_worker();
+$hooked = array_column( $GLOBALS['TACK_HOOKS'], 'hook' );
+check(
+	'register_worker wires the unblock, the re-queue job and the key-change hook',
+	in_array( Tack_Sync_Gate::UNBLOCKED_ACTION, $hooked, true )
+		&& in_array( Tack_Order_Sync::REQUEUE_HOOK, $hooked, true )
+		&& in_array( 'update_option_tack_quotes_api_key', $hooked, true ),
+	implode( ', ', $hooked )
+);
+$GLOBALS['TACK_AS_ENQUEUED']   = array();
+$GLOBALS['TACK_WC_ORDERS_Q']   = array();
+$GLOBALS['TACK_WC_ORDER_IDS']  = array( 11, 12 );
+$since                         = time() - 600;
+$sync->schedule_requeue( $since );
+check(
+	'an unblock schedules ONE re-queue job off the request',
+	array( array( Tack_Order_Sync::REQUEUE_HOOK, array( $since ), Tack_Order_Sync::SYNC_GROUP, true ) ) === $GLOBALS['TACK_AS_ENQUEUED']
+);
+$GLOBALS['TACK_AS_ENQUEUED'] = array();
+$sync->requeue_unsynced( $since );
+$q = $GLOBALS['TACK_WC_ORDERS_Q'][0] ?? array();
+check(
+	'the re-queue asks WooCommerce for orders modified since the block began',
+	'>' . ( $since - 60 ) === ( $q['date_modified'] ?? null ) && 'ids' === ( $q['return'] ?? null ),
+	var_export( $q, true )
+);
+check(
+	'... and queues each through the normal worker',
+	array( array( 11 ), array( 12 ) ) === array_map(
+		function ( $e ) {
+			return $e[1];
+		},
+		array_values(
+			array_filter(
+				$GLOBALS['TACK_AS_ENQUEUED'],
+				function ( $e ) {
+					return Tack_Order_Sync::SYNC_HOOK === $e[0];
+				}
+			)
+		)
+	)
+);
+$GLOBALS['TACK_WC_ORDERS_Q'] = array();
+$sync->requeue_unsynced( 1 );
+check(
+	'it never reaches back more than 30 days',
+	isset( $GLOBALS['TACK_WC_ORDERS_Q'][0]['date_modified'] )
+		&& (int) substr( $GLOBALS['TACK_WC_ORDERS_Q'][0]['date_modified'], 1 ) >= time() - Tack_Order_Sync::REQUEUE_MAX_AGE - 5
+);
+tack_test_set_option( 'tack_quotes_enable_order_sync', 'no' );
+$GLOBALS['TACK_AS_ENQUEUED'] = array();
+$sync->requeue_unsynced( $since );
+check( 'with order sync switched off, nothing is re-queued', array() === $GLOBALS['TACK_AS_ENQUEUED'] );
 
 // ── What the merchant is told ───────────────────────────────────────────────
 Tack_Sync_Gate::record_failure( $err, $key, $now );
@@ -160,6 +279,14 @@ $notice = ob_get_clean();
 check( 'wp-admin shows an error notice while sync is blocked', false !== strpos( $notice, 'notice notice-error' ) );
 check( 'the notice names the missing scope', false !== strpos( $notice, 'orders:write' ) );
 check( 'the notice says orders are not being sent', false !== stripos( $notice, 'not being sent' ) );
+check(
+	'the notice links the settings page by its registered slug',
+	false !== strpos( $notice, 'page=' . Tack_Settings::PAGE_SLUG )
+);
+check(
+	'the lapsed-subscription copy names where to choose a plan (Profile > Billing & Plan)',
+	false !== strpos( Tack_Sync_Gate::notice_text( array( 'code' => 'SUBSCRIPTION_INACTIVE', 'status' => 403 ) ), 'Profile > Billing & Plan' )
+);
 
 $GLOBALS['TACK_CAPS'] = array();
 ob_start();

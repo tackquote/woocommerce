@@ -238,6 +238,11 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 
 == Changelog ==
 
+= Unreleased =
+* **Order sync stops when TackQuote refuses the API key, and tells you why.** If the key saved in TackQuote settings lacks the `orders:write` scope, has been revoked, or your TackQuote subscription is inactive, TackQuote refuses every order. The plugin used to try again on every order change, which on a busy store meant a refused request every few seconds, and the reason only appeared in WooCommerce > Status > Logs. It now stops sending, shows an error notice in wp-admin that names the missing scope or the billing step, and checks again at most once an hour. Saving a different key resumes at once.
+* When order sync resumes, orders changed while it was refused are sent automatically (up to 200 of the oldest at a time; any beyond that are sent when they next change).
+* When TackQuote asks the plugin to slow down (HTTP 429), the plugin waits for the time TackQuote names, up to one hour. A firewall or challenge page in front of TackQuote is treated as temporary and does not stop sync.
+
 = 1.8.1 =
 * **The "awaiting approval" message no longer says more than TackQuote knows.** TackQuote now answers "awaiting approval" for every quote request made on behalf of a company, so that a shopper typing a company name can no longer learn whether that company is already a customer of the store. The message used to read "Your company registration is awaiting approval by the seller", which is now false for a company that needs no approval. It reads "Request received. If your company account needs approval, we'll email you when it is ready."
 * After a company request the buyer portal is offered as a link instead of not at all. The automatic redirect still happens only for an individual request; a company shopper may not be able to sign in yet, so they are never dropped onto a login they cannot pass.

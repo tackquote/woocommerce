@@ -669,3 +669,49 @@ if ( ! function_exists( 'wp_remote_retrieve_header' ) ) {
 		return is_array( $r ) && isset( $r['headers'][ strtolower( $h ) ] ) ? $r['headers'][ strtolower( $h ) ] : '';
 	}
 }
+
+// Recorded so the gate tests can see the unblock event and the re-queue it drives.
+$GLOBALS['TACK_DONE_ACTIONS'] = array();
+$GLOBALS['TACK_AS_ENQUEUED']  = array();
+$GLOBALS['TACK_WC_ORDERS_Q']  = array();
+$GLOBALS['TACK_WC_ORDER_IDS'] = array();
+
+if ( ! function_exists( 'do_action' ) ) {
+	/**
+	 * @param string $hook Hook.
+	 * @param mixed  ...$args Args.
+	 */
+	function do_action( $hook, ...$args ) {
+		$GLOBALS['TACK_DONE_ACTIONS'][] = array( $hook, $args );
+	}
+}
+if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+	/**
+	 * Action Scheduler's signature: ( $hook, $args, $group, $unique, $priority ).
+	 *
+	 * @return int
+	 */
+	function as_enqueue_async_action( $hook, $args = array(), $group = '', $unique = false, $priority = 10 ) {
+		$GLOBALS['TACK_AS_ENQUEUED'][] = array( $hook, $args, $group, $unique );
+		return count( $GLOBALS['TACK_AS_ENQUEUED'] );
+	}
+}
+if ( ! function_exists( 'wc_get_orders' ) ) {
+	/**
+	 * @param array $args Query.
+	 * @return array Scripted ids.
+	 */
+	function wc_get_orders( $args ) {
+		$GLOBALS['TACK_WC_ORDERS_Q'][] = $args;
+		return $GLOBALS['TACK_WC_ORDER_IDS'];
+	}
+}
+if ( ! function_exists( 'wc_get_order' ) ) {
+	/**
+	 * @param int $id Order id.
+	 * @return WC_Order|false
+	 */
+	function wc_get_order( $id ) {
+		return class_exists( 'WC_Order' ) ? new WC_Order( array( 'id' => (int) $id ) ) : false;
+	}
+}

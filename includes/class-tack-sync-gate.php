@@ -26,8 +26,13 @@
  *              firewall or challenge page in front of the API and it goes away on its
  *              own. Calling it terminal would switch sync off for a five-minute blip.
  *
- * An order skipped while blocked is not marked as sent, so its next trigger pushes it —
- * the same recovery a failed push has always had.
+ * An order skipped while blocked is not marked as sent. When the block lifts (a push
+ * succeeds, or a different key is saved) UNBLOCKED_ACTION fires and Tack_Order_Sync
+ * re-queues the orders modified since the block began; any order that changes again is
+ * pushed by its own trigger as before.
+ *
+ * Terminal means TackQuote's OWN error body (JSON with a matching `statusCode` and a
+ * non-empty `code`); a 429 that carries a scope refusal stays terminal.
  *
  * @package TackQuotes
  */
@@ -62,6 +67,13 @@ class Tack_Sync_Gate {
 	const MAX_WAIT = 3600;
 
 	/**
+	 * Fired when pushes are allowed again (a push succeeded, or a different key was saved),
+	 * with the Unix time pushes started being held. Tack_Order_Sync re-queues the orders
+	 * skipped in between, since nothing else would send an order that does not change again.
+	 */
+	const UNBLOCKED_ACTION = 'tack_quotes_order_sync_unblocked';
+
+	/**
 	 * Classify a failed push.
 	 *
 	 * @param mixed $error A WP_Error from Tack_Api_Client, or anything else.
@@ -83,13 +95,37 @@ class Tack_Sync_Gate {
 			'at'      => (int) $now,
 		);
 
+		/*
+		 * Only TackQuote's OWN error body may make a refusal terminal: JSON whose
+		 * `statusCode` equals the HTTP status and which carries a non-empty `code` (the
+		 * shape every TackQuote API error has). A proxy, WAF or load balancer that happens
+		 * to answer 403 with some JSON of its own is not TackQuote saying "never", and
+		 * goes away on its own.
+		 */
+		$from_tackquote = is_array( $data )
+			&& ! empty( $data['json'] )
+			&& isset( $data['statusCode'] ) && (int) $data['statusCode'] === $status
+			&& '' !== $block['code'];
+
 		if ( 429 === $status ) {
+			$wait = self::wait_seconds( $data, $now );
+			/*
+			 * TackQuote answers a key that keeps hitting a missing scope with 429 instead of
+			 * 403 after a few refusals. It is still the same terminal refusal, so it stays
+			 * terminal — otherwise the wp-admin notice would flicker off for each throttle
+			 * window — and it is held at least as long as any terminal block.
+			 */
+			if ( $from_tackquote && ( 'insufficient_scope' === $block['code'] || array() !== $block['scopes'] ) ) {
+				$block['kind']  = 'terminal';
+				$block['until'] = max( (int) $now + $wait, (int) $now + self::TERMINAL_REPROBE );
+				return $block;
+			}
 			$block['kind']  = 'throttled';
-			$block['until'] = (int) $now + self::wait_seconds( $data, $now );
+			$block['until'] = (int) $now + $wait;
 			return $block;
 		}
 
-		if ( ( 401 === $status || 403 === $status ) && is_array( $data ) && ! empty( $data['json'] ) ) {
+		if ( ( 401 === $status || 403 === $status ) && $from_tackquote ) {
 			$block['kind']  = 'terminal';
 			$block['until'] = (int) $now + self::TERMINAL_REPROBE;
 			return $block;
@@ -112,17 +148,53 @@ class Tack_Sync_Gate {
 			return null;
 		}
 		$block['key'] = self::key_fingerprint( $api_key );
+		// When pushes STARTED being held, kept across re-records, so the re-queue on
+		// unblock reaches back to the first skipped order rather than the last refusal.
+		$previous       = get_option( self::OPTION, null );
+		$block['since'] = is_array( $previous ) && ( $previous['key'] ?? '' ) === $block['key']
+			? (int) ( $previous['since'] ?? $previous['at'] ?? $now )
+			: (int) $now;
 		update_option( self::OPTION, $block, false );
 		return $block;
 	}
 
 	/**
-	 * A push succeeded: whatever was blocking has been fixed.
+	 * A push succeeded: whatever was blocking has been fixed. Pushes skipped while it
+	 * stood are re-queued.
 	 */
 	public static function record_success() {
-		if ( null !== get_option( self::OPTION, null ) ) {
-			self::clear();
+		$block = get_option( self::OPTION, null );
+		if ( is_array( $block ) ) {
+			self::lift( $block );
 		}
+	}
+
+	/**
+	 * `update_option_tack_quotes_api_key` handler: a different key was saved, so a block
+	 * recorded against the old one no longer applies. Lifted now, not on the next push,
+	 * so the skipped orders are re-queued immediately.
+	 *
+	 * @param mixed $old_value Previous key.
+	 * @param mixed $new_value New key.
+	 */
+	public static function on_api_key_changed( $old_value, $new_value ) {
+		if ( (string) $old_value === (string) $new_value ) {
+			return;
+		}
+		$block = get_option( self::OPTION, null );
+		if ( is_array( $block ) ) {
+			self::lift( $block );
+		}
+	}
+
+	/**
+	 * Clear a block and announce it, so the skipped orders can be re-queued.
+	 *
+	 * @param array $block The block being lifted.
+	 */
+	private static function lift( array $block ) {
+		self::clear();
+		do_action( self::UNBLOCKED_ACTION, (int) ( $block['since'] ?? $block['at'] ?? 0 ) );
 	}
 
 	/**
@@ -163,7 +235,8 @@ class Tack_Sync_Gate {
 			return;
 		}
 
-		$settings = admin_url( 'admin.php?page=' . ( class_exists( 'Tack_Settings' ) ? Tack_Settings::PAGE_SLUG : 'tackquote-for-woocommerce' ) );
+		// Tack_Settings is always loaded by the plugin bootstrap (class-tack-quotes.php).
+		$settings = admin_url( 'admin.php?page=' . Tack_Settings::PAGE_SLUG );
 		echo '<div class="notice notice-error"><p><strong>'
 			. esc_html__( 'TackQuote: orders are not being sent.', 'tackquote' )
 			. '</strong> '
@@ -190,7 +263,7 @@ class Tack_Sync_Gate {
 			);
 		}
 		if ( 'SUBSCRIPTION_INACTIVE' === ( $block['code'] ?? '' ) ) {
-			return __( 'Your TackQuote subscription is not active, so TackQuote refuses new orders. Choose a plan in TackQuote under Settings > Billing; sync resumes within the hour.', 'tackquote' );
+			return __( 'Your TackQuote subscription is not active, so TackQuote refuses new orders. Choose a plan in TackQuote under Profile > Billing & Plan; sync resumes within the hour.', 'tackquote' );
 		}
 		if ( 401 === (int) ( $block['status'] ?? 0 ) ) {
 			return __( 'TackQuote does not accept the API key saved here (it may have been revoked). Create a new key in TackQuote under Settings > API keys with the orders:write scope and save it in TackQuote settings on this site.', 'tackquote' );
@@ -217,7 +290,7 @@ class Tack_Sync_Gate {
 			return null;
 		}
 		if ( ( $block['key'] ?? '' ) !== self::key_fingerprint( $api_key ) ) {
-			self::clear();
+			self::lift( $block );
 			return null;
 		}
 		return $block;
@@ -244,7 +317,7 @@ class Tack_Sync_Gate {
 	private static function wait_seconds( $data, $now ) {
 		$wait   = 0;
 		$header = is_array( $data ) && isset( $data['retryAfterHeader'] ) ? trim( (string) $data['retryAfterHeader'] ) : '';
-		if ( '' !== $header && ctype_digit( $header ) ) {
+		if ( '' !== $header && preg_match( '/^\d+$/', $header ) ) {
 			$wait = (int) $header;
 		} elseif ( '' !== $header ) {
 			$when = strtotime( $header );
