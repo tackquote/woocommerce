@@ -153,16 +153,29 @@ if ( ! class_exists( 'WP_Error' ) ) {
 		private $code;
 		/** @var string */
 		private $message;
+		/** @var mixed */
+		private $data;
 
 		/**
-		 * Constructor.
+		 * Constructor. Same three parameters as core's `WP_Error::__construct( $code, $message, $data )`.
 		 *
 		 * @param string $code    Error code.
 		 * @param string $message Error message.
+		 * @param mixed  $data    Error data.
 		 */
-		public function __construct( $code = '', $message = '' ) {
+		public function __construct( $code = '', $message = '', $data = '' ) {
 			$this->code    = $code;
 			$this->message = $message;
+			$this->data    = $data;
+		}
+
+		/**
+		 * Core returns the data for the first code, or null when none was added.
+		 *
+		 * @return mixed
+		 */
+		public function get_error_data() {
+			return '' === $this->data ? null : $this->data;
 		}
 
 		/** @return string */
@@ -588,4 +601,71 @@ if ( ! function_exists( 'get_userdata' ) ) {
 /** Clear all stubbed user meta. */
 function tack_test_reset_user_meta() {
 	$GLOBALS['TACK_USER_META'] = array();
+}
+
+
+// ── Stubs added for the order-sync gate (terminal 401/403, 429 back-off) ─────
+//
+// The HTTP functions below replay ONE scripted response and count calls, so a test can
+// assert that a blocked push made no request at all. Shapes follow core: a response is an
+// array with `response.code`, `body` and `headers`; `wp_remote_retrieve_header()` returns
+// '' for an absent header (developer.wordpress.org/reference/functions/wp_remote_retrieve_header/).
+
+$GLOBALS['TACK_HTTP_CALLS']    = 0;
+$GLOBALS['TACK_HTTP_RESPONSE'] = null;
+
+if ( ! function_exists( 'delete_option' ) ) {
+	/**
+	 * @param string $key Option name.
+	 * @return bool
+	 */
+	function delete_option( $key ) {
+		unset( $GLOBALS['TACK_OPTIONS'][ $key ] );
+		return true;
+	}
+}
+
+/**
+ * Script the next HTTP response.
+ *
+ * @param int         $code    Status code.
+ * @param string      $body    Raw body.
+ * @param array       $headers Lower-case header name => value.
+ */
+function tack_test_set_http_response( $code, $body, $headers = array() ) {
+	$GLOBALS['TACK_HTTP_RESPONSE'] = array(
+		'response' => array( 'code' => $code ),
+		'body'     => $body,
+		'headers'  => $headers,
+	);
+}
+
+if ( ! function_exists( 'wp_remote_request' ) ) {
+	/**
+	 * @param string $url  URL.
+	 * @param array  $args Args.
+	 * @return array|WP_Error
+	 */
+	function wp_remote_request( $url, $args = array() ) {
+		$GLOBALS['TACK_HTTP_CALLS']++;
+		return $GLOBALS['TACK_HTTP_RESPONSE'];
+	}
+}
+if ( ! function_exists( 'wp_remote_retrieve_response_code' ) ) {
+	/** @param array $r Response. @return int|string */
+	function wp_remote_retrieve_response_code( $r ) {
+		return is_array( $r ) && isset( $r['response']['code'] ) ? $r['response']['code'] : '';
+	}
+}
+if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
+	/** @param array $r Response. @return string */
+	function wp_remote_retrieve_body( $r ) {
+		return is_array( $r ) && isset( $r['body'] ) ? $r['body'] : '';
+	}
+}
+if ( ! function_exists( 'wp_remote_retrieve_header' ) ) {
+	/** @param array $r Response. @param string $h Header. @return string */
+	function wp_remote_retrieve_header( $r, $h ) {
+		return is_array( $r ) && isset( $r['headers'][ strtolower( $h ) ] ) ? $r['headers'][ strtolower( $h ) ] : '';
+	}
 }

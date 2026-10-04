@@ -96,6 +96,9 @@ class Tack_Order_Sync {
 	 */
 	public function register_worker() {
 		add_action( self::SYNC_HOOK, array( $this, 'run_sync' ), 10, 1 );
+		// Registered with the worker, not init(): a merchant who switches sync off while it
+		// is refused still deserves to know why orders stopped arriving.
+		add_action( 'admin_notices', array( 'Tack_Sync_Gate', 'render_admin_notice' ) );
 	}
 
 	/**
@@ -187,10 +190,24 @@ class Tack_Order_Sync {
 			return;
 		}
 
+		/*
+		 * TackQuote already refused this key in a way no retry can change (a missing
+		 * `orders:write` scope, a revoked key, a lapsed subscription), or asked us to slow
+		 * down. Do not send: the order is left unmarked, so its next trigger pushes it once
+		 * the merchant has acted. See Tack_Sync_Gate for the classification and why a
+		 * refusal used to turn into a request every few seconds.
+		 */
+		$api_key = (string) get_option( 'tack_quotes_api_key', '' );
+		$now     = time();
+		if ( null !== Tack_Sync_Gate::active_block( $api_key, $now ) ) {
+			return;
+		}
+
 		$payload['idempotencyKey'] = $key;
 
 		$result = ( new Tack_Api_Client() )->sync_order( $payload, $key );
 		if ( is_wp_error( $result ) ) {
+			Tack_Sync_Gate::record_failure( $result, $api_key, $now );
 			if ( function_exists( 'wc_get_logger' ) ) {
 				wc_get_logger()->error(
 					sprintf(
@@ -210,6 +227,7 @@ class Tack_Order_Sync {
 		// update_post_meta(), because with HPOS enabled orders do not live in wp_postmeta.
 		$order->update_meta_data( self::SYNC_KEY_META, $key );
 		$order->save_meta_data();
+		Tack_Sync_Gate::record_success();
 	}
 
 	/**
