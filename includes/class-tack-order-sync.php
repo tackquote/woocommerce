@@ -112,7 +112,10 @@ class Tack_Order_Sync {
 	 * re-checks the toggle itself and returns without sending anything.
 	 */
 	public function register_worker() {
-		add_action( self::SYNC_HOOK, array( $this, 'run_sync' ), 10, 1 );
+		// Two accepted args: a job queued by a trigger carries ( $order_id ); one that
+		// schedule_retry() put back after a 429 carries ( $order_id, RETRY_MARKER ). Jobs
+		// queued by 1.8.1 and earlier carry one and still match (PHP fills the default).
+		add_action( self::SYNC_HOOK, array( $this, 'run_sync' ), 10, 2 );
 		// Registered with the worker, not init(): a merchant who switches sync off while it
 		// is refused still deserves to know why orders stopped arriving.
 		add_action( 'admin_notices', array( 'Tack_Sync_Gate', 'render_admin_notice' ) );
@@ -122,6 +125,46 @@ class Tack_Order_Sync {
 		add_action( Tack_Sync_Gate::UNBLOCKED_ACTION, array( $this, 'schedule_requeue' ), 10, 1 );
 		add_action( self::REQUEUE_HOOK, array( $this, 'requeue_unsynced' ), 10, 1 );
 		add_action( 'update_option_tack_quotes_api_key', array( 'Tack_Sync_Gate', 'on_api_key_changed' ), 10, 2 );
+	}
+
+	/**
+	 * Second argument of a job that schedule_retry() put back after a 429.
+	 *
+	 * Part of the job's args on purpose. Action Scheduler's `$unique` compares hook, group
+	 * AND args against every PENDING and RUNNING action (ActionScheduler_DBStore::
+	 * build_where_clause_for_insert, read from the vendor source), and this job is
+	 * scheduled from INSIDE the running job for the same order: with identical args the
+	 * insert would be refused as a duplicate of the very action that is scheduling it, and
+	 * nothing would be put back. Distinct args make the retry unique among retries only,
+	 * which is the dedupe wanted: at most one pending retry per order.
+	 */
+	const RETRY_MARKER = 'retry';
+
+	/**
+	 * Most seconds of spread added to a retry's time, so the orders held by one throttle
+	 * do not all reappear in the same second it ends.
+	 */
+	const RETRY_SPREAD = 30;
+
+	/**
+	 * Put one order back for after a throttle ends.
+	 *
+	 * Never earlier than `$until`: that is when the server said it would accept a request
+	 * again. The spread only ever lands later.
+	 *
+	 * @param int $order_id Order id.
+	 * @param int $until    Unix time the block lifts.
+	 */
+	public function schedule_retry( $order_id, $until ) {
+		$when = max( (int) $until, time() + 1 ) + wp_rand( 0, self::RETRY_SPREAD );
+		$args = array( (int) $order_id, self::RETRY_MARKER );
+		if ( function_exists( 'as_schedule_single_action' ) ) {
+			as_schedule_single_action( $when, self::SYNC_HOOK, $args, self::SYNC_GROUP, true );
+			return;
+		}
+		if ( ! wp_next_scheduled( self::SYNC_HOOK, $args ) ) {
+			wp_schedule_single_event( $when, self::SYNC_HOOK, $args );
+		}
 	}
 
 	/**
@@ -244,9 +287,13 @@ class Tack_Order_Sync {
 	/**
 	 * Perform one deferred push. Failures are logged, never fatal.
 	 *
-	 * @param int $order_id Order id.
+	 * @param int    $order_id Order id.
+	 * @param string $reason   RETRY_MARKER when this job was put back by schedule_retry();
+	 *                         '' for a job queued by an order trigger. Informational: both
+	 *                         paths do exactly the same work.
 	 */
-	public function run_sync( $order_id ) {
+	public function run_sync( $order_id, $reason = '' ) {
+		unset( $reason );
 		// Re-checked at run time: a merchant may have switched sync off between the order
 		// being placed and this job being claimed, and the answer they expect from that switch
 		// is "stop sending", including for work already queued.
@@ -278,7 +325,19 @@ class Tack_Order_Sync {
 		 */
 		$api_key = (string) get_option( 'tack_quotes_api_key', '' );
 		$now     = time();
-		if ( null !== Tack_Sync_Gate::active_block( $api_key, $now ) ) {
+		$held    = Tack_Sync_Gate::active_block( $api_key, $now );
+		if ( null !== $held ) {
+			/*
+			 * A THROTTLE ends on its own, so this order is put back for when it does;
+			 * otherwise an order held by the last throttle of the day would wait for the
+			 * next order's trigger, or for a successful push to fire the re-queue, and a
+			 * quiet store has neither. A TERMINAL block is not rescheduled per order: the
+			 * merchant has to act, the next trigger re-probes once an hour, and the
+			 * re-queue on unblock reaches back to `since` for everything skipped.
+			 */
+			if ( 'throttled' === ( $held['kind'] ?? '' ) ) {
+				$this->schedule_retry( (int) $order->get_id(), (int) ( $held['until'] ?? $now ) );
+			}
 			return;
 		}
 
@@ -286,7 +345,13 @@ class Tack_Order_Sync {
 
 		$result = ( new Tack_Api_Client() )->sync_order( $payload, $key );
 		if ( is_wp_error( $result ) ) {
-			Tack_Sync_Gate::record_failure( $result, $api_key, $now );
+			$block = Tack_Sync_Gate::record_failure( $result, $api_key, $now );
+			if ( is_array( $block ) && 'throttled' === ( $block['kind'] ?? '' ) ) {
+				// Honour what the server asked (Retry-After, lengthened by the gate's
+				// back-off on a repeat) by sending THIS order again after it, not by
+				// hoping for another trigger.
+				$this->schedule_retry( (int) $order->get_id(), (int) $block['until'] );
+			}
 			if ( function_exists( 'wc_get_logger' ) ) {
 				wc_get_logger()->error(
 					sprintf(

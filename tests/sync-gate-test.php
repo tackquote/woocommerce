@@ -316,6 +316,131 @@ check( 'run_sync() clears the gate on success', false !== strpos( $body, 'Tack_S
 $uninstall = (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' );
 check( 'uninstall.php removes the block option', false !== strpos( $uninstall, "'" . Tack_Sync_Gate::OPTION . "'" ) );
 
+// ── Back-off on REPEATED 429s: exponential, jittered, Retry-After as the floor ─
+//
+// The audit of 2026-10-09 counted ~2,800 calls a day from one install, 94% answered
+// 429. A single fixed wait per 429 is not enough when the server keeps saying no:
+// each consecutive throttle (no success in between) must wait longer, and the held
+// orders must not all come back in the same second.
+echo "\n-- 429 back-off math (pure) --\n";
+$ladder = array();
+foreach ( range( 1, 8 ) as $n ) {
+	$ladder[] = Tack_Sync_Gate::backoff_seconds( 0, $n, 0.0 );
+}
+check(
+	'with no Retry-After and no jitter the wait doubles from 60s and stops at MAX_WAIT: 60,120,240,480,960,1920,3600,3600',
+	array( 60, 120, 240, 480, 960, 1920, 3600, 3600 ) === $ladder,
+	implode( ',', $ladder )
+);
+check( 'Retry-After larger than the ladder step is the floor (300 > 60 on attempt 1)', 300 === Tack_Sync_Gate::backoff_seconds( 300, 1, 0.0 ) );
+check( 'the ladder step wins once it exceeds Retry-After (480 > 300 on attempt 4)', 480 === Tack_Sync_Gate::backoff_seconds( 300, 4, 0.0 ) );
+check( 'jitter is ADDED: attempt 1, random 0.5 -> 60 + floor(60*0.5*0.5) = 75', 75 === Tack_Sync_Gate::backoff_seconds( 0, 1, 0.5 ) );
+check( 'jitter never lands before Retry-After (300 with max random -> 449, >= 300)', 449 === Tack_Sync_Gate::backoff_seconds( 300, 1, 0.999999 ) );
+check( 'jitter cannot exceed JITTER_FRACTION of the base (max random on 60 -> at most 89)', Tack_Sync_Gate::backoff_seconds( 0, 1, 0.999999 ) <= 89 );
+check( 'nothing exceeds MAX_WAIT, jitter included', Tack_Sync_Gate::MAX_WAIT === Tack_Sync_Gate::backoff_seconds( 3000, 1, 0.999999 ) );
+check( 'a huge attempt number does not overflow', Tack_Sync_Gate::MAX_WAIT === Tack_Sync_Gate::backoff_seconds( 0, 500, 0.0 ) );
+check( 'a random outside [0,1) is clamped, never negative', Tack_Sync_Gate::backoff_seconds( 0, 1, -3.0 ) === 60 && Tack_Sync_Gate::backoff_seconds( 0, 1, 7.0 ) <= 89 );
+check( 'attempt 0 or negative is treated as the first', 60 === Tack_Sync_Gate::backoff_seconds( 0, 0, 0.0 ) && 60 === Tack_Sync_Gate::backoff_seconds( 0, -2, 0.0 ) );
+$drawn = Tack_Sync_Gate::backoff_seconds( 0, 1 );
+check( 'with no random supplied one is drawn, inside the same bounds', $drawn >= 60 && $drawn <= 89, (string) $drawn );
+
+echo "\n-- 429 back-off persisted across workers (the option) --\n";
 Tack_Sync_Gate::clear();
+tack_test_set_option( 'tack_quotes_api_key', $key );
+$plain429 = tack_gate_push( 429, '{}' );
+$b1       = Tack_Sync_Gate::record_failure( $plain429, $key, $now, 0.0 );
+check( 'the first 429 with no Retry-After holds for DEFAULT_WAIT and is attempt 1', is_array( $b1 ) && $now + 60 === $b1['until'] && 1 === $b1['attempt'] );
+$b2 = Tack_Sync_Gate::record_failure( $plain429, $key, $now + 61, 0.0 );
+check( 'a second 429 before any success doubles the wait (attempt 2, 120s)', is_array( $b2 ) && $now + 61 + 120 === $b2['until'] && 2 === $b2['attempt'] );
+$b3 = Tack_Sync_Gate::record_failure( $plain429, $key, $now + 200, 0.0 );
+check( 'a third doubles again (attempt 3, 240s)', is_array( $b3 ) && $now + 200 + 240 === $b3['until'] && 3 === $b3['attempt'] );
+check(
+	'the attempt count is read back from the stored option, not from memory',
+	3 === ( get_option( Tack_Sync_Gate::OPTION )['attempt'] ?? null )
+);
+check( 'the block keeps the time pushes STARTED being held across the escalation', $now === ( get_option( Tack_Sync_Gate::OPTION )['since'] ?? null ) );
+check( 'while held, active_block() reports the throttle', 'throttled' === ( Tack_Sync_Gate::active_block( $key, $now + 300 )['kind'] ?? null ) );
+$b4 = Tack_Sync_Gate::record_failure( $slow, $key, $now + 500, 0.0 );
+check( 'Retry-After 120 on attempt 4 loses to the ladder (480s): the server floor is honoured, never undercut', is_array( $b4 ) && $now + 500 + 480 === $b4['until'] );
+Tack_Sync_Gate::record_success();
+$b5 = Tack_Sync_Gate::record_failure( $plain429, $key, $now + 1000, 0.0 );
+check( 'a success resets the ladder: the next 429 is attempt 1 again', is_array( $b5 ) && 1 === $b5['attempt'] && $now + 1000 + 60 === $b5['until'] );
+Tack_Sync_Gate::record_failure( $err, $key, $now + 1100 );
+$b6 = Tack_Sync_Gate::record_failure( $plain429, $key, $now + 1200, 0.0 );
+check( 'a throttle following a TERMINAL block starts the ladder at 1 (only consecutive throttles escalate)', is_array( $b6 ) && 1 === $b6['attempt'] );
+Tack_Sync_Gate::clear();
+
+echo "\n-- a throttled order is put back for when the pause ends --\n";
+tack_test_set_option( 'tack_quotes_enable_order_sync', 'yes' );
+$worker                       = new Tack_Order_Sync();
+$GLOBALS['TACK_HOOKS']        = array();
+$worker->register_worker();
+$sync_hook = null;
+foreach ( $GLOBALS['TACK_HOOKS'] as $h ) {
+	if ( Tack_Order_Sync::SYNC_HOOK === $h['hook'] ) {
+		$sync_hook = $h;
+	}
+}
+check( 'the worker accepts TWO args, so a retry job carrying the marker reaches run_sync()', is_array( $sync_hook ) && 2 === (int) ( $sync_hook['args'] ?? 0 ), var_export( $sync_hook, true ) );
+
+// The push itself is throttled.
+$GLOBALS['TACK_AS_SCHEDULED'] = array();
+$GLOBALS['TACK_HTTP_CALLS']   = 0;
+tack_test_set_http_response( 429, '{}', array( 'retry-after' => '90' ) );
+$t0 = time();
+$worker->run_sync( 501 );
+$put_back = $GLOBALS['TACK_AS_SCHEDULED'][0] ?? null;
+check( 'a 429 on the push makes exactly one request and puts the order back once', 1 === $GLOBALS['TACK_HTTP_CALLS'] && 1 === count( $GLOBALS['TACK_AS_SCHEDULED'] ) );
+check(
+	'the retry carries the order id and the retry marker, in the tackquote group, unique',
+	is_array( $put_back ) && Tack_Order_Sync::SYNC_HOOK === $put_back[1]
+		&& array( 501, Tack_Order_Sync::RETRY_MARKER ) === $put_back[2]
+		&& Tack_Order_Sync::SYNC_GROUP === $put_back[3] && true === $put_back[4],
+	var_export( $put_back, true )
+);
+// run_sync() draws REAL jitter here (record_failure() with no $random), so the block
+// ends anywhere in [t0 + 90, t0 + backoff_seconds( 90, 1, max )]; the retry may not be
+// earlier than the lower edge and may not exceed the upper edge plus the spread.
+check(
+	'the retry is scheduled for the block end, never earlier (Retry-After 90s; wp_rand stubbed to the lower bound)',
+	is_array( $put_back ) && $put_back[0] >= $t0 + 90
+		&& $put_back[0] <= time() + Tack_Sync_Gate::backoff_seconds( 90, 1, 0.999999 ) + Tack_Order_Sync::RETRY_SPREAD,
+	'scheduled ' . ( $put_back[0] ?? 'nothing' ) . ' vs t0 ' . $t0
+);
+
+// A second order arrives while the pause stands: no request, put back for the same end.
+$GLOBALS['TACK_AS_SCHEDULED'] = array();
+$GLOBALS['TACK_HTTP_CALLS']   = 0;
+$worker->run_sync( 502 );
+check( 'an order arriving while throttled makes NO request', 0 === $GLOBALS['TACK_HTTP_CALLS'] );
+check(
+	'... and is put back for the same block end with its own id',
+	array( 502, Tack_Order_Sync::RETRY_MARKER ) === ( $GLOBALS['TACK_AS_SCHEDULED'][0][2] ?? null )
+		&& ( $GLOBALS['TACK_AS_SCHEDULED'][0][0] ?? 0 ) >= $t0 + 90
+);
+
+// The marker reaches run_sync as the second arg without changing the work.
+$GLOBALS['TACK_AS_SCHEDULED'] = array();
+$GLOBALS['TACK_HTTP_CALLS']   = 0;
+$worker->run_sync( 502, Tack_Order_Sync::RETRY_MARKER );
+check( 'a retry job that runs while still throttled is held and put back again, not sent', 0 === $GLOBALS['TACK_HTTP_CALLS'] && 1 === count( $GLOBALS['TACK_AS_SCHEDULED'] ) );
+
+// A TERMINAL hold is NOT rescheduled per order (the re-queue on unblock covers it).
+Tack_Sync_Gate::clear();
+Tack_Sync_Gate::record_failure( $err, $key, time() );
+$GLOBALS['TACK_AS_SCHEDULED'] = array();
+$GLOBALS['TACK_HTTP_CALLS']   = 0;
+$worker->run_sync( 503 );
+check( 'an order held by a TERMINAL refusal makes no request and schedules no per-order retry', 0 === $GLOBALS['TACK_HTTP_CALLS'] && array() === $GLOBALS['TACK_AS_SCHEDULED'] );
+
+// A temporary failure (5xx) is neither held nor put back: the next trigger retries it.
+Tack_Sync_Gate::clear();
+$GLOBALS['TACK_AS_SCHEDULED'] = array();
+tack_test_set_http_response( 502, '' );
+$worker->run_sync( 504 );
+check( 'a 5xx schedules no retry (unchanged: the next trigger pushes again)', array() === $GLOBALS['TACK_AS_SCHEDULED'] );
+
+Tack_Sync_Gate::clear();
+tack_test_set_option( 'tack_quotes_enable_order_sync', 'no' );
 tack_test_set_option( 'tack_quotes_api_key', '' );
 $GLOBALS['TACK_CAPS'] = array();

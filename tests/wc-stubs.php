@@ -148,4 +148,14 @@ class WC_Order {
 		return $this->v( 'line_items', array() );
 	}
 	public function get_fees() { return $this->v( 'fees', array() ); }
+
+	/**
+	 * Order meta as the order CRUD exposes it (`get_meta()` returns '' for an unset key,
+	 * which is what `run_sync()` compares the sync key against). Per instance; a new
+	 * `wc_get_order()` call in these tests returns a fresh, empty order.
+	 */
+	private $meta = array();
+	public function get_meta( $key, $single = true ) { return array_key_exists( $key, $this->meta ) ? $this->meta[ $key ] : ''; }
+	public function update_meta_data( $key, $value ) { $this->meta[ $key ] = $value; }
+	public function save_meta_data() {}
 }
