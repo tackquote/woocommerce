@@ -26,10 +26,10 @@ $GLOBALS['TACK_REMOVED'] = array();
 $GLOBALS['TACK_FILTERS'] = array();
 
 function add_action( $hook, $callback = null, $priority = 10, $args = 1 ) {
-	$GLOBALS['TACK_HOOKS'][] = array( 'hook' => $hook, 'priority' => $priority );
+	$GLOBALS['TACK_HOOKS'][] = array( 'hook' => $hook, 'priority' => $priority, 'args' => $args );
 }
 function add_filter( $hook, $callback = null, $priority = 10, $args = 1 ) {
-	$GLOBALS['TACK_HOOKS'][] = array( 'hook' => $hook, 'priority' => $priority );
+	$GLOBALS['TACK_HOOKS'][] = array( 'hook' => $hook, 'priority' => $priority, 'args' => $args );
 	if ( null !== $callback ) {
 		$GLOBALS['TACK_FILTERS'][ $hook ][] = $callback;
 	}
@@ -235,10 +235,25 @@ if ( ! function_exists( 'wc_price' ) ) {
 	}
 }
 
+/** What the plugin logged, as ( level, message, context ) rows. */
+$GLOBALS['TACK_LOGGED'] = array();
+if ( ! class_exists( 'TackStubLogger' ) ) {
+	/**
+	 * The four WC_Logger methods the plugin calls. Recording, not printing: production
+	 * code reaches `wc_get_logger()->error()` on a failed push, and a stub returning null
+	 * there would turn a logged failure into a fatal error that only the harness can see.
+	 */
+	class TackStubLogger {
+		public function error( $m, $c = array() ) { $GLOBALS['TACK_LOGGED'][] = array( 'error', $m, $c ); }
+		public function warning( $m, $c = array() ) { $GLOBALS['TACK_LOGGED'][] = array( 'warning', $m, $c ); }
+		public function info( $m, $c = array() ) { $GLOBALS['TACK_LOGGED'][] = array( 'info', $m, $c ); }
+		public function debug( $m, $c = array() ) { $GLOBALS['TACK_LOGGED'][] = array( 'debug', $m, $c ); }
+	}
+}
 if ( ! function_exists( 'wc_get_logger' ) ) {
-	/** @return null Logging is a no-op under the harness. */
+	/** @return TackStubLogger */
 	function wc_get_logger() {
-		return null;
+		return new TackStubLogger();
 	}
 }
 
@@ -694,6 +709,44 @@ if ( ! function_exists( 'as_enqueue_async_action' ) ) {
 	function as_enqueue_async_action( $hook, $args = array(), $group = '', $unique = false, $priority = 10 ) {
 		$GLOBALS['TACK_AS_ENQUEUED'][] = array( $hook, $args, $group, $unique );
 		return count( $GLOBALS['TACK_AS_ENQUEUED'] );
+	}
+}
+// Recorded so the back-off tests can see WHEN a throttled order is put back.
+$GLOBALS['TACK_AS_SCHEDULED'] = array();
+if ( ! function_exists( 'as_schedule_single_action' ) ) {
+	/**
+	 * Action Scheduler's signature: ( $timestamp, $hook, $args, $group, $unique, $priority )
+	 * (docs/api.md, read through Context7 /woocommerce/action-scheduler).
+	 *
+	 * @return int
+	 */
+	function as_schedule_single_action( $timestamp, $hook, $args = array(), $group = '', $unique = false, $priority = 10 ) {
+		$GLOBALS['TACK_AS_SCHEDULED'][] = array( $timestamp, $hook, $args, $group, $unique );
+		return count( $GLOBALS['TACK_AS_SCHEDULED'] );
+	}
+}
+if ( ! function_exists( 'absint' ) ) {
+	/**
+	 * Core: `abs( (int) $maybeint )`.
+	 *
+	 * @param mixed $maybeint Value.
+	 * @return int
+	 */
+	function absint( $maybeint ) {
+		return abs( (int) $maybeint );
+	}
+}
+if ( ! function_exists( 'wp_rand' ) ) {
+	/**
+	 * Deterministic in tests: always the LOWER bound, so a scheduled time can be compared
+	 * exactly. Core's wp_rand( $min, $max ) returns an int in [$min, $max].
+	 *
+	 * @param int $min Lower bound.
+	 * @param int $max Upper bound.
+	 * @return int
+	 */
+	function wp_rand( $min = 0, $max = 0 ) {
+		return (int) $min;
 	}
 }
 if ( ! function_exists( 'wc_get_orders' ) ) {

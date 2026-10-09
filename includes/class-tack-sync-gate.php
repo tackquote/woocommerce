@@ -62,9 +62,20 @@ class Tack_Sync_Gate {
 	const DEFAULT_WAIT = 60;
 
 	/**
-	 * Longest wait any Retry-After may impose.
+	 * Longest wait any Retry-After may impose, and the ceiling of the back-off below.
 	 */
 	const MAX_WAIT = 3600;
+
+	/**
+	 * Share of the computed wait that random jitter may ADD. Never subtract: a Retry-After
+	 * is the earliest moment the server allows, so jitter only ever lands later.
+	 *
+	 * Why jitter at all: every order held during a throttle is rescheduled to the same
+	 * `until`, and without spreading them a store with fifty pending pushes would present
+	 * all fifty in the same second the window reopens, which is the shape the server's
+	 * limiter refuses again.
+	 */
+	const JITTER_FRACTION = 0.5;
 
 	/**
 	 * Fired when pushes are allowed again (a push succeeded, or a different key was saved),
@@ -121,6 +132,9 @@ class Tack_Sync_Gate {
 				return $block;
 			}
 			$block['kind']  = 'throttled';
+			$block['wait']  = $wait;
+			// The server's own answer. record_failure() lengthens it for a REPEATED
+			// throttle (exponential back-off with jitter); classify() itself stays exact.
 			$block['until'] = (int) $now + $wait;
 			return $block;
 		}
@@ -137,12 +151,13 @@ class Tack_Sync_Gate {
 	/**
 	 * Remember a failed push, if it is one that must hold back the next.
 	 *
-	 * @param mixed  $error   The failure.
-	 * @param string $api_key The key the push was made with. Only a hash is stored.
-	 * @param int    $now     Current Unix time.
+	 * @param mixed      $error   The failure.
+	 * @param string     $api_key The key the push was made with. Only a hash is stored.
+	 * @param int        $now     Current Unix time.
+	 * @param float|null $random  Jitter source in [0, 1). Null draws one; tests pass a value.
 	 * @return array|null The stored block.
 	 */
-	public static function record_failure( $error, $api_key, $now ) {
+	public static function record_failure( $error, $api_key, $now, $random = null ) {
 		$block = self::classify( $error, $now );
 		if ( null === $block ) {
 			return null;
@@ -151,11 +166,59 @@ class Tack_Sync_Gate {
 		// When pushes STARTED being held, kept across re-records, so the re-queue on
 		// unblock reaches back to the first skipped order rather than the last refusal.
 		$previous       = get_option( self::OPTION, null );
-		$block['since'] = is_array( $previous ) && ( $previous['key'] ?? '' ) === $block['key']
+		$same_key       = is_array( $previous ) && ( $previous['key'] ?? '' ) === $block['key'];
+		$block['since'] = $same_key
 			? (int) ( $previous['since'] ?? $previous['at'] ?? $now )
 			: (int) $now;
+
+		if ( 'throttled' === $block['kind'] ) {
+			/*
+			 * A SECOND 429 before any push succeeded means the first wait was not enough,
+			 * so each consecutive throttle doubles the wait (from DEFAULT_WAIT) and adds
+			 * jitter, never below what Retry-After asked and never above MAX_WAIT. The count
+			 * lives in the option with the block, so every PHP worker and every cron run
+			 * sees the same attempt number. A success clears the option and so resets it.
+			 */
+			$block['attempt'] = $same_key && 'throttled' === ( $previous['kind'] ?? '' )
+				? (int) ( $previous['attempt'] ?? 1 ) + 1
+				: 1;
+			$block['until']   = (int) $now + self::backoff_seconds( (int) $block['wait'], $block['attempt'], $random );
+		}
+
 		update_option( self::OPTION, $block, false );
 		return $block;
+	}
+
+	/**
+	 * How long to hold pushes after the Nth consecutive 429.
+	 *
+	 * Pure, so it can be proven without WordPress:
+	 *
+	 *   base   = max( retry_after, DEFAULT_WAIT * 2^(attempt-1) )
+	 *   jitter = floor( base * JITTER_FRACTION * random ),  random in [0, 1)
+	 *   wait   = min( MAX_WAIT, base + jitter )
+	 *
+	 * Retry-After is a floor, not a suggestion: the result is never earlier than the
+	 * server asked (except that nothing exceeds MAX_WAIT, which also bounds a Retry-After
+	 * on its own, see wait_seconds()). Jitter is additive for the same reason.
+	 *
+	 * @param int        $retry_after Seconds the server asked for (0 when it named none).
+	 * @param int        $attempt     1 for the first throttle since the last success.
+	 * @param float|null $random      In [0, 1). Null draws one.
+	 * @return int Seconds.
+	 */
+	public static function backoff_seconds( $retry_after, $attempt, $random = null ) {
+		$attempt = max( 1, (int) $attempt );
+		// Doubling stops once it has passed MAX_WAIT; min() below caps the result and
+		// this keeps 2^(attempt-1) from overflowing on a long outage.
+		$exponent = min( $attempt - 1, 10 );
+		$base     = max( (int) $retry_after, self::DEFAULT_WAIT * ( 2 ** $exponent ) );
+		if ( null === $random ) {
+			$random = mt_rand( 0, mt_getrandmax() - 1 ) / mt_getrandmax();
+		}
+		$random = min( max( (float) $random, 0.0 ), 0.999999 );
+		$jitter = (int) floor( $base * self::JITTER_FRACTION * $random );
+		return (int) min( self::MAX_WAIT, $base + $jitter );
 	}
 
 	/**
