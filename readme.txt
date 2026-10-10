@@ -300,7 +300,7 @@ Yes. Turn on quote-only mode and choose "Everyone except approved wholesale acco
 
 = Which features need a linked account? =
 
-Prices, quantity breaks, order limits, the buyer-group badge and the price gate follow the customer's account email. Net terms, tax exemption and credit standing go only to customers the seller has linked to a TackQuote buyer: approving the customer's wholesale application links them, or the seller links the WordPress user under **Buyers → buyer → WooCommerce customer** in TackQuote. Approving a net-terms application does not link the account. A matching email alone never links one, because WooCommerce does not verify the email at registration. If the email belongs to a buyer already linked to a different WordPress user, that customer gets none of these B2B features.
+Prices, quantity breaks, order limits, the buyer-group badge and the price gate follow the customer's account email. Net terms, tax exemption and credit standing go only to customers the seller has linked to a TackQuote buyer: approving the customer's wholesale application or their net-terms application sent from this store links them (both carry the WordPress user id since 1.10.0), or the seller links the WordPress user under **Buyers → buyer → WooCommerce customer** in TackQuote. A matching email alone never links one, because WooCommerce does not verify the email at registration. If the email belongs to a buyer already linked to a different WordPress user, that customer gets none of these B2B features.
 
 = Where do target prices on the quote page go? =
 
