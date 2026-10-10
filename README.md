@@ -138,6 +138,8 @@ composer lint:fix     # phpcbf for the auto-fixable part, then run `composer lin
 
 Releases are built and attached by the GitHub Actions workflow `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow calls `scripts/package.sh`, which delegates to `bin/build.sh`, so the two cannot drift. `bin/build.sh` leaves the repository scaffolding (`scripts/`, `.github/`, `LICENSE`, the Composer files and `phpcs.xml.dist`) out of the zip.
 
+While GitHub Actions is unavailable, releases are made by hand from a local build: [`docs/RELEASING.md`](docs/RELEASING.md) covers the GitHub release and the WordPress.org SVN release, which `bin/wporg-sync.sh` stages (trunk, the version tag and the listing assets, from the same zip) without ever committing.
+
 ## License
 
 GPL-2.0-or-later
