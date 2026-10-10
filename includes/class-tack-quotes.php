@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once TACK_QUOTES_DIR . 'includes/class-tack-settings.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-block-product.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-widget.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-sync-gate.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-order-sync.php';

@@ -129,7 +129,19 @@ class Tack_Widget {
 		 * `render_product_button()` is idempotent per product, so on a normal
 		 * store — where both hooks fire — the button still renders exactly once.
 		 */
-		add_action( 'woocommerce_single_product_summary', array( $this, 'render_product_button' ), 30 );
+		add_action( 'woocommerce_single_product_summary', array( $this, 'render_product_button_fallback' ), 30 );
+
+		/*
+		 * Block themes (1.9.0). The single-product template is blocks, and neither
+		 * hook above is a reliable mount there: see `Tack_Block_Product`. The Add to
+		 * Cart blocks' own render filter puts the buttons after the form; when the
+		 * form was rendered (a purchasable product) the buttons are already inside it
+		 * from `woocommerce_after_add_to_cart_button`, and the once-per-product flag
+		 * makes this a no-op.
+		 */
+		foreach ( Tack_Block_Product::ADD_TO_CART_BLOCKS as $block_name ) {
+			add_filter( 'render_block_' . $block_name, array( $this, 'append_to_add_to_cart_block' ), 10, 3 );
+		}
 		add_action( 'wp_footer', array( $this, 'render_quote_list_drawer' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
@@ -399,9 +411,15 @@ class Tack_Widget {
 	 * product to the browser-side quote list — never the WooCommerce cart),
 	 * "Request a Quote" (submits a quote for just this product immediately),
 	 * both, or neither.
+	 *
+	 * @param WC_Product|string|null $for_product The product to render for; anything else
+	 *                                            (a hook's empty argument) means the page's
+	 *                                            global product.
 	 */
-	public function render_product_button() {
-		global $product;
+	public function render_product_button( $for_product = null ) {
+		// Hooks fire this with no argument (WordPress passes ''), so the page's
+		// product is the fallback; the block filter passes the block's product.
+		$product = $for_product instanceof WC_Product ? $for_product : ( $GLOBALS['product'] ?? null );
 		if ( ! $product instanceof WC_Product ) {
 			return;
 		}
@@ -445,6 +463,47 @@ class Tack_Widget {
 		}
 
 		echo '</div>';
+	}
+
+	/**
+	 * The quote-only mount (`woocommerce_single_product_summary`), except when
+	 * WooCommerce's block-template compatibility layer is the one firing it: that
+	 * happens before the post excerpt, outside the add-to-cart form the JS reads
+	 * quantity and variation from, and the Add to Cart block filter renders the
+	 * buttons in the right place instead.
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_product_button_fallback() {
+		if ( Tack_Block_Product::is_compat_hook() ) {
+			return;
+		}
+		$this->render_product_button();
+	}
+
+	/**
+	 * `render_block_woocommerce/add-to-cart-form` and `.../add-to-cart-with-options`:
+	 * append the product-page buttons after the block when they were not already
+	 * rendered inside it.
+	 *
+	 * The block returns an empty string for a product that is not purchasable
+	 * (quote-only, or no price), which is the case this exists for.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string               $block_content Rendered block.
+	 * @param array                $parsed_block  Parsed block (unused).
+	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
+	 * @return string
+	 */
+	public function append_to_add_to_cart_block( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+		$product = Tack_Block_Product::from_block( $instance );
+		if ( null === $product ) {
+			return $block_content;
+		}
+		ob_start();
+		$this->render_product_button( $product );
+		return (string) $block_content . (string) ob_get_clean();
 	}
 
 	/**

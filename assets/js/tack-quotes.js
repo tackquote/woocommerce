@@ -857,11 +857,21 @@
   // `show_variation` / `hide_variation` are the events core itself listens to in
   // assets/js/frontend/add-to-cart-variation.js — verified against the installed source
   // rather than assumed, since these names are not part of any documented public API.
-  $(document).on('show_variation', 'form.variations_form', function (event, variation, purchasable) {
+  //
+  // Core's `purchasable` argument is NOT used as-is: it is false whenever the variation is
+  // not purchasable, and a quote-only product (store-wide or per product) is made
+  // non-purchasable on purpose, so mirroring it left the quote buttons disabled on every
+  // quote-only variable product. A variation is quotable when one is chosen, it is visible
+  // and in stock — core's other two conditions (add-to-cart-variation.js, WooCommerce 11.2.1).
+  $(document).on('show_variation', 'form.variations_form', function (event, variation) {
+    var quotable =
+      !!(variation && variation.variation_id) &&
+      variation.variation_is_visible !== false &&
+      variation.is_in_stock !== false;
     $(this)
       .find('.tack-quote-btn, .tack-add-to-quote-btn')
-      .prop('disabled', !purchasable)
-      .toggleClass('disabled', !purchasable);
+      .prop('disabled', !quotable)
+      .toggleClass('disabled', !quotable);
   });
 
   $(document).on('hide_variation reset_data', 'form.variations_form', function () {
