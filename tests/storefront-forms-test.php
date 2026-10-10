@@ -479,7 +479,15 @@ foreach ( $GLOBALS['TACK_FIELDS'] as $f ) {
 	}
 }
 check( 'a "Storefront forms" section is registered', in_array( 'tack_quotes_storefront_forms', $section_ids, true ) );
-check( 'it holds the slug, the two tab switches and the tax-exemption switch', array( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, Tack_Tax_Exempt::OPTION_ENABLED ) === $in_section, implode( ',', $in_section ) );
+check( 'it holds the slug and the two tab switches', array( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, Tack_Storefront_Forms::OPTION_NET_TERMS_TAB ) === $in_section, implode( ',', $in_section ) );
+// 1.10.0: the tax-exemption switch changes what checkout charges, so it moved to the B2B pricing tab.
+$tax_section = '';
+foreach ( $GLOBALS['TACK_FIELDS'] as $f ) {
+	if ( Tack_Tax_Exempt::OPTION_ENABLED === $f['id'] ) {
+		$tax_section = $f['section'];
+	}
+}
+check( 'the tax-exemption switch sits with B2B pricing', 'tack_quotes_b2b_pricing' === $tax_section, $tax_section );
 $GLOBALS['TACK_CAPS'] = array();
 tack_test_set_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'kept' );
 check( 'without manage_woocommerce the slug keeps its stored value', 'kept' === $settings->sanitize_form_slug( 'Other Slug' ) );

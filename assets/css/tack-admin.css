@@ -1,0 +1,634 @@
+/**
+ * TackQuote settings screen (wp-admin → TackQuote).
+ *
+ * Plain CSS on top of WordPress admin components (nav-tab-wrapper, form-table,
+ * widefat, button). Colours come from the admin colour scheme where WordPress
+ * exposes one (--wp-admin-theme-color), else the core admin palette. Logical
+ * properties throughout, so the page mirrors correctly in RTL.
+ */
+
+.tack-admin {
+	--tack-accent: var(--wp-admin-theme-color, #2271b1);
+	--tack-border: #dcdcde;
+	--tack-muted: #50575e;
+	--tack-surface: #fff;
+	--tack-ok: #00a32a;
+	--tack-ok-bg: #edfaef;
+	--tack-warn: #996800;
+	--tack-warn-bg: #fcf9e8;
+	--tack-error: #d63638;
+	--tack-error-bg: #fcf0f1;
+	--tack-off-bg: #f0f0f1;
+	--tack-radius: 8px;
+	max-width: 1180px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.tack-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px 24px;
+	margin: 12px 0 16px;
+}
+
+.tack-header__brand {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.tack-logo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 10px;
+	background: var(--tack-accent);
+	color: #fff;
+}
+
+.tack-logo .dashicons {
+	width: 26px;
+	height: 26px;
+	font-size: 26px;
+}
+
+.tack-admin .tack-header__title {
+	margin: 0;
+	padding: 0;
+	font-size: 23px;
+	line-height: 1.2;
+}
+
+.tack-header__tagline {
+	margin: 2px 0 0;
+	color: var(--tack-muted);
+}
+
+.tack-header__meta {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.tack-badge {
+	display: inline-block;
+	padding: 2px 10px;
+	border: 1px solid var(--tack-border);
+	border-radius: 999px;
+	background: var(--tack-surface);
+	color: var(--tack-muted);
+	font-size: 12px;
+	line-height: 20px;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+
+.tack-admin .tack-tabs {
+	margin-bottom: 0;
+}
+
+.tack-admin .tack-tabs .nav-tab:focus-visible {
+	outline: 2px solid var(--tack-accent);
+	outline-offset: -2px;
+	box-shadow: none;
+}
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+
+.tack-form {
+	margin-top: 8px;
+}
+
+.tack-form h2 {
+	margin: 28px 0 4px;
+	padding-top: 20px;
+	border-top: 1px solid var(--tack-border);
+	font-size: 1.3em;
+}
+
+.tack-form h2:first-of-type {
+	padding-top: 0;
+	border-top: 0;
+}
+
+.tack-form .form-table {
+	margin-top: 4px;
+}
+
+.tack-form .form-table th {
+	width: 220px;
+}
+
+.tack-form .form-table td > .description:first-child,
+.tack-form .form-table td .description {
+	max-width: 46em;
+}
+
+.tack-admin [hidden] {
+	display: none !important;
+}
+
+.tack-indent {
+	margin-block: 8px 0;
+	margin-inline-start: 28px;
+}
+
+.tack-inline-label {
+	display: inline-block;
+	margin-inline-end: 6px;
+}
+
+.tack-inline-fields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 20px;
+}
+
+.tack-stack {
+	display: grid;
+	gap: 10px;
+}
+
+/* Radio choices with a title and a line of explanation. */
+.tack-choices {
+	display: grid;
+	gap: 8px;
+	max-width: 46em;
+}
+
+.tack-choice {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 10px 12px;
+	border: 1px solid var(--tack-border);
+	border-radius: var(--tack-radius);
+	background: var(--tack-surface);
+	cursor: pointer;
+}
+
+.tack-choice input[type="radio"] {
+	margin-top: 2px;
+}
+
+.tack-choice:has(input:checked) {
+	border-color: var(--tack-accent);
+	box-shadow: 0 0 0 1px var(--tack-accent);
+}
+
+.tack-choice__text {
+	display: grid;
+	gap: 2px;
+}
+
+.tack-choice--compact {
+	padding: 6px 10px;
+}
+
+.tack-checklist {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 18px;
+}
+
+/* "Learn more" and "Advanced" disclosures. */
+.tack-more,
+.tack-advanced {
+	max-width: 46em;
+	margin-top: 6px;
+}
+
+.tack-more summary,
+.tack-advanced summary {
+	display: inline-block;
+	color: var(--tack-accent);
+	cursor: pointer;
+}
+
+.tack-more summary::-webkit-details-marker,
+.tack-advanced summary::-webkit-details-marker {
+	display: none;
+}
+
+.tack-more summary::before,
+.tack-advanced summary::before {
+	content: "\25B8";
+	display: inline-block;
+	margin-inline-end: 4px;
+	transition: transform 0.15s ease;
+}
+
+.tack-more[open] summary::before,
+.tack-advanced[open] summary::before {
+	transform: rotate(90deg);
+}
+
+.tack-more summary:focus-visible,
+.tack-advanced summary:focus-visible {
+	outline: 2px solid var(--tack-accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+.tack-more p {
+	margin: 6px 0;
+	padding-inline-start: 12px;
+	border-inline-start: 3px solid var(--tack-border);
+	color: var(--tack-muted);
+}
+
+/* ── Toggle: a real checkbox drawn as a switch ──────────────────────────── */
+
+.tack-toggle {
+	display: inline-flex;
+	align-items: flex-start;
+	gap: 10px;
+	cursor: pointer;
+}
+
+.tack-admin input[type="checkbox"].tack-toggle__input {
+	position: relative;
+	flex: none;
+	width: 36px;
+	height: 20px;
+	margin: 0;
+	border: 1px solid #8c8f94;
+	border-radius: 999px;
+	background: #fff;
+	box-shadow: none;
+	-webkit-appearance: none;
+	appearance: none;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.tack-admin input[type="checkbox"].tack-toggle__input::before {
+	content: "";
+	position: absolute;
+	top: 3px;
+	inset-inline-start: 3px;
+	width: 12px;
+	height: 12px;
+	margin: 0;
+	border-radius: 50%;
+	background: #8c8f94;
+	transition: inset-inline-start 0.15s ease, background-color 0.15s ease;
+}
+
+.tack-admin input[type="checkbox"].tack-toggle__input:checked {
+	border-color: var(--tack-accent);
+	background: var(--tack-accent);
+}
+
+.tack-admin input[type="checkbox"].tack-toggle__input:checked::before {
+	inset-inline-start: 19px;
+	background: #fff;
+}
+
+.tack-admin input[type="checkbox"].tack-toggle__input:focus-visible {
+	outline: 2px solid var(--tack-accent);
+	outline-offset: 2px;
+}
+
+.tack-toggle__label {
+	padding-top: 1px;
+}
+
+/* ── Grids (payment / shipping / categories) ────────────────────────────── */
+
+.tack-table-wrap {
+	max-width: 100%;
+	max-height: 32rem;
+	overflow: auto;
+	border: 1px solid var(--tack-border);
+	border-radius: var(--tack-radius);
+}
+
+.tack-admin .tack-grid {
+	border: 0;
+}
+
+.tack-grid thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: #f6f7f7;
+	box-sizing: border-box;
+}
+
+.tack-grid thead tr:first-child th {
+	height: 2.5rem;
+}
+
+.tack-grid thead tr:nth-child(2) th {
+	top: 2.5rem;
+}
+
+.tack-grid__group {
+	text-align: center;
+}
+
+.tack-admin .tack-grid .tack-grid__col {
+	width: 1%;
+	text-align: center;
+	white-space: nowrap;
+}
+
+.tack-grid .tack-grid__row-head {
+	min-width: 12em;
+	font-weight: 400;
+}
+
+.tack-grid tbody .tack-grid__row-head code {
+	display: inline-block;
+	font-size: 11px;
+}
+
+.tack-grid__state {
+	min-width: 12em;
+}
+
+.tack-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-block: 0 6px;
+	margin-inline: 0 14px;
+}
+
+/* ── Cards and callouts ─────────────────────────────────────────────────── */
+
+.tack-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 16px;
+	margin-top: 20px;
+}
+
+.tack-cards--two {
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	margin-top: 28px;
+}
+
+.tack-card {
+	display: flex;
+	flex-direction: column;
+	border: 1px solid var(--tack-border);
+	border-radius: var(--tack-radius);
+	background: var(--tack-surface);
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.tack-card__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 14px 16px 0;
+}
+
+.tack-admin .tack-card__head h2 {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 15px;
+}
+
+.tack-card__body {
+	flex: 1;
+	padding: 8px 16px 14px;
+}
+
+.tack-card__foot {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 12px 16px;
+	border-top: 1px solid var(--tack-border);
+}
+
+.tack-card--danger {
+	border-color: #f0b8b9;
+}
+
+.tack-checklist-card {
+	margin-top: 20px;
+	border-inline-start: 4px solid var(--tack-accent);
+}
+
+.tack-pill {
+	display: inline-block;
+	padding: 2px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 18px;
+}
+
+.tack-pill::before {
+	content: "";
+	display: inline-block;
+	width: 7px;
+	height: 7px;
+	margin-inline-end: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	vertical-align: 1px;
+}
+
+.tack-pill--ok {
+	background: var(--tack-ok-bg);
+	color: #00710e;
+}
+
+.tack-pill--warn {
+	background: var(--tack-warn-bg);
+	color: var(--tack-warn);
+}
+
+.tack-pill--error {
+	background: var(--tack-error-bg);
+	color: #a00;
+}
+
+.tack-pill--off {
+	background: var(--tack-off-bg);
+	color: var(--tack-muted);
+}
+
+.tack-dl {
+	margin: 4px 0 10px;
+}
+
+.tack-dl__row {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 6px 0;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.tack-dl__row dt {
+	color: var(--tack-muted);
+}
+
+.tack-dl__row dd {
+	margin: 0;
+	font-weight: 600;
+	text-align: end;
+	overflow-wrap: anywhere;
+}
+
+.tack-features,
+.tack-links {
+	margin: 4px 0 8px;
+}
+
+.tack-feature {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0;
+	padding: 5px 0;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.tack-feature__state {
+	color: var(--tack-muted);
+}
+
+.tack-feature.is-on .tack-feature__state {
+	color: #00710e;
+	font-weight: 600;
+}
+
+.tack-steps {
+	margin: 4px 0 0;
+	padding: 0;
+	list-style: none;
+	counter-reset: tack-step;
+}
+
+.tack-step {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 6px 0;
+	counter-increment: tack-step;
+}
+
+.tack-step__mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: 2px solid var(--tack-accent);
+	border-radius: 50%;
+	color: var(--tack-accent);
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.tack-step__mark::before {
+	content: counter(tack-step);
+}
+
+.tack-step.is-done .tack-step__mark {
+	background: var(--tack-ok);
+	border-color: var(--tack-ok);
+	color: #fff;
+}
+
+.tack-step.is-done .tack-step__mark::before {
+	content: "\2713";
+}
+
+.tack-callout {
+	max-width: 46em;
+	margin: 10px 0;
+	padding: 2px 12px;
+	border-inline-start: 4px solid var(--tack-accent);
+	background: #f0f6fc;
+}
+
+.tack-callout--warn {
+	border-inline-start-color: #dba617;
+	background: var(--tack-warn-bg);
+}
+
+.tack-inline-form {
+	margin: 8px 0;
+}
+
+.tack-admin .button.tack-button-danger {
+	border-color: var(--tack-error);
+	color: #a00;
+}
+
+.tack-admin .button.tack-button-danger:hover,
+.tack-admin .button.tack-button-danger:focus {
+	border-color: #a00;
+	background: var(--tack-error-bg);
+	color: #8a0000;
+}
+
+/* ── Sticky save bar ────────────────────────────────────────────────────── */
+
+.tack-savebar {
+	position: sticky;
+	bottom: 0;
+	z-index: 20;
+	margin-top: 24px;
+	padding: 12px 0;
+	border-top: 1px solid var(--tack-border);
+	background: #f0f0f1;
+}
+
+/* ── Small screens ──────────────────────────────────────────────────────── */
+
+@media screen and (max-width: 782px) {
+	.tack-admin .tack-tabs {
+		display: flex;
+		overflow-x: auto;
+		white-space: nowrap;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.tack-admin .tack-tabs .nav-tab {
+		flex: none;
+		float: none;
+		margin-bottom: -1px;
+	}
+
+	.tack-form .form-table th {
+		width: auto;
+	}
+
+	.tack-indent {
+		margin-inline-start: 0;
+	}
+
+	.tack-cards,
+	.tack-cards--two {
+		grid-template-columns: 1fr;
+	}
+
+	.tack-savebar .button {
+		width: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tack-admin *,
+	.tack-admin *::before {
+		transition: none !important;
+	}
+}
