@@ -9,7 +9,7 @@ Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Request a quote from WooCommerce for B2B wholesale quoting — sync orders to your TackQuote account with one API key.
+Request a quote from WooCommerce for B2B wholesale quoting, and sync orders to your TackQuote account. Connect with one button, no key to copy.
 
 == Description ==
 
@@ -416,6 +416,10 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 == Changelog ==
 
+= Unreleased =
+* Readme: the short description now says the store connects with one button and no key to copy, as it does since 1.11.0.
+* Readme: the 1.10.0 notes no longer list accepted quote to store checkout as off by default; it is active whenever the store is connected.
+
 = 1.11.0 =
 * **Connect with TackQuote.** On the Connection tab, press Connect with TackQuote, sign in to TackQuote or create an account, and approve: the plugin is connected, with no API key to copy. TackQuote creates a key for this store and the plugin fetches it server to server with a one-time code and a PKCE (S256) verifier that never leaves your site; the return is checked against a value your site signed, the administrator who started it and your site's address, and it works once. The key is stored and masked exactly like a pasted one, and the connection test runs straight away. A cancel, an expired or reused link, a site address mismatch, a plain-http public site, a plan limit or an unreachable server each gets its own message, and nothing changes. Connect needs https (plain http only on a development address).
 * **Pasting an API key works exactly as before**, under "Or paste an API key". The Overview and the Connection tab show whether the saved key came from Connect with TackQuote or was pasted.
@@ -435,7 +439,8 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 = 1.10.0 =
 * **Security and standards audit.** A customer who changes their own email is not trusted with another buyer's prices, net terms or tax exemption until confirmed; rate limits can no longer be dodged with a forged `X-Real-IP`; draft, private, password-protected and group-hidden products can no longer be quoted; uninstall removes everything the plugin stores.
 * **Settings redesigned into tabs**, with an Overview; "Test connection" no longer calls a rejected key connected.
-* **New, each off by default:** attachments on quote requests; per buyer group category visibility, shipping discounts and an optional role; wholesale and net-terms application forms and My Account tabs; tax-exempt buyers; net terms and a purchase-order number at checkout; a quote page, quote buttons on product cards and the cart; per-product quote only; accepted quote to store checkout.
+* **New, each off by default:** attachments on quote requests; per buyer group category visibility, shipping discounts and an optional role; wholesale and net-terms application forms and My Account tabs; tax-exempt buyers; net terms and a purchase-order number at checkout; a quote page, quote buttons on product cards and the cart; per-product quote only.
+* Accepted quote to store checkout, active whenever the store is connected.
 * **Fixed:** order limits were never applied; stores that enter prices including tax were undercharged tax on TackQuote prices; the quote form's success message was invisible.
 * Translations bundled for seven languages, and styling that follows your theme. Requires WordPress 6.4 and WooCommerce 8.0 or later.
 * The full 1.10.0 notes are in changelog.txt.
