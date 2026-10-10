@@ -117,9 +117,10 @@ WordPress user ID (in the query, v1 route only), and what the customer typed: le
 name, contact phone, tax/VAT ID, billing address, requested credit limit, requested payment
 terms, up to three trade references (company, contact name, email, phone) and notes.
 
-8. **Wholesale price gate** — `GET /storefront/v1/price-access`. **Off by default.**
+8. **Wholesale price gate and Wholesale account tab** — `GET /storefront/v1/price-access`. **Off by default.**
 Sent only when the merchant chose the quote-only scope "Everyone except approved wholesale
-accounts", and only for a signed-in customer, at most once every five minutes per customer
+accounts", or (since 1.11.0) when a signed-in customer opens the "Wholesale account" My Account
+tab or a page with the `[tackquote_wholesale_application]` shortcode, and only for a signed-in customer, at most once every five minutes per customer
 (one minute after a failure). Sends that customer's account email address and their
 WordPress user ID (`buyerEmail`, `buyerExternalId`). TackQuote answers whether that buyer's
 wholesale application is approved. Nothing is sent for a signed-out visitor.
@@ -220,7 +221,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `POST /storefront/v1/quote-upload`, `POST /storefront/v1/wholesale-upload`, `POST /storefront/v1/wholesale-signup/<slug>` — files a shopper attaches to a quote request (only when "Allow attachments on quote requests" is on; off by default) or to a wholesale application (signed-in customers only), and an application that carries files. Sends the file's bytes and name, and the signed-in customer's account email address and WordPress user ID; a guest's quote files carry only a single-use upload token. Unattached files are deleted by TackQuote after 24 hours (quote) or 7 days (application).
 * `POST /woocommerce-connect/requests`, `POST /woocommerce-connect/exchange` — **Connect with TackQuote**, only when an administrator presses the button. Sends the store's and admin addresses, the return address on your site, the site name, plugin, WordPress and WooCommerce versions, the site language, a signed random value, a code challenge, and then the one-time code and its secret. No customer data.
 * `POST /integrations/woocommerce/plugin-key/revoke` — when an administrator removes a saved key that Connect with TackQuote created. Sends only that key.
-* `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
+* `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope, or when a signed-in customer opens the Wholesale account tab or the wholesale application shortcode (1.11.0). Both are off by default.** The answer is shared by both for up to five minutes. Sends the customer's account email address and WordPress user ID.
 
 Every request carries `X-TackQuote-Plugin-Version` (the plugin's version) and `X-TackQuote-Site-Url` (your store's address, `home_url()`).
 
@@ -390,7 +391,7 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
-* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`; product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
+* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`, `_tack_wholesale_applied` (when a wholesale application sent from the store was answered "pending"); product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
 
 Deleting the plugin removes every option above, the fixed-name transients, the user meta, the product meta and queued order-sync jobs, on every site of a multisite network. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
 
@@ -420,6 +421,8 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Pasting an API key works exactly as before**, under "Or paste an API key". The Overview and the Connection tab show whether the saved key came from Connect with TackQuote or was pasted.
 * **Remove saved API key** also revokes the key in TackQuote when Connect with TackQuote created it (best effort; the key is removed from your site either way, and you are told if TackQuote could not be reached). A pasted key is only removed from your site, as before.
 * The plugin sends data to TackQuote for Connect only when an administrator presses the button; see External services items 12 and 13. Uninstall removes the three new options.
+* **My Account › Wholesale account** says "approved" instead of showing the form, from the price gate's cached answer, and "being reviewed" for 30 days after an application sent here is answered "pending". On an error, the form. New template `tackquote/myaccount/wholesale-account.php`.
+* **All storefront text is translated** in the seven bundled languages.
 
 = 1.10.2 =
 * **Fixed: after a quote request the shopper is no longer sent to a sign-in page.** The quote form used to show its confirmation for under a second and then load the buyer portal, which asks a shopper without a portal account to sign in. The form now stays open on "Your quote request was received. The seller will reply to you by email." and offers "Open your buyer portal" as a link when TackQuote sends one. Same for "Checkout as Quote".

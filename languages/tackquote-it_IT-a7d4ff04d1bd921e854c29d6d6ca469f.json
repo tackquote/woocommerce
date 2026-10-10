@@ -15,11 +15,26 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s: alleghi un file PDF, JPEG o PNG."
             ],
+            "(optional)": [
+                "(facoltativo)"
+            ],
+            "A company": [
+                "Azienda"
+            ],
+            "Added ✓": [
+                "Aggiunto ✓"
+            ],
             "Address": [
                 "Indirizzo (riga 1)"
             ],
             "Address line 2": [
                 "Indirizzo (riga 2)"
+            ],
+            "An individual": [
+                "Privato"
+            ],
+            "Anything the seller should know about this request…": [
+                "Qualsiasi cosa il venditore debba sapere su questa richiesta…"
             ],
             "Attach at most %d files.": [
                 "Alleghi al massimo %d file."
@@ -27,14 +42,26 @@
             "Attach files (optional)": [
                 "Allega file (facoltativo)"
             ],
+            "Cancel": [
+                "Annulla"
+            ],
             "City": [
                 "Città"
             ],
             "Close": [
                 "Chiudi"
             ],
+            "Company details": [
+                "Dati dell’azienda"
+            ],
             "Company name": [
                 "Azienda"
+            ],
+            "Company phone": [
+                "Telefono aziendale"
+            ],
+            "Could not create the quote. Please try again.": [
+                "Non è stato possibile creare il preventivo. Riprovi."
             ],
             "Country": [
                 "Paese"
@@ -42,17 +69,44 @@
             "Email address": [
                 "Email"
             ],
+            "First name": [
+                "Nome"
+            ],
+            "I am buying as": [
+                "Acquisto come"
+            ],
+            "Industry": [
+                "Settore"
+            ],
+            "Last name": [
+                "Cognome"
+            ],
             "Legal name": [
                 "Ragione sociale"
             ],
             "Note": [
                 "Note"
             ],
+            "Number of employees": [
+                "Numero di dipendenti"
+            ],
+            "Open your buyer portal": [
+                "Apri il Suo portale acquirente"
+            ],
+            "Optional": [
+                "Facoltativo"
+            ],
             "Phone": [
                 "Telefono"
             ],
+            "Please complete the required company details.": [
+                "Completi i dati obbligatori dell’azienda."
+            ],
             "Please enter a valid email address.": [
                 "Inserisca un indirizzo email valido."
+            ],
+            "Please enter your first name.": [
+                "Inserisca il Suo nome."
             ],
             "Postal code": [
                 "CAP"
@@ -60,11 +114,20 @@
             "Quantity": [
                 "Quantità"
             ],
+            "Registration number": [
+                "Numero di iscrizione al registro delle imprese"
+            ],
+            "Reload page": [
+                "Ricarica la pagina"
+            ],
             "Remove": [
                 "Rimuovi"
             ],
             "Request a Quote": [
                 "Richiedi un preventivo"
+            ],
+            "Request received. If your company account needs approval, we'll email you when it is ready.": [
+                "Richiesta ricevuta. Se il Suo account aziendale deve essere approvato, Le invieremo un’email quando sarà pronto."
             ],
             "Send request": [
                 "Invia la richiesta di preventivo"
@@ -75,6 +138,12 @@
             "State / Province": [
                 "Stato / regione"
             ],
+            "Target price": [
+                "Prezzo obiettivo"
+            ],
+            "Tax / VAT ID": [
+                "Codice fiscale / partita IVA"
+            ],
             "That file could not be attached. Please try again.": [
                 "Non è stato possibile allegare il file. Riprovi."
             ],
@@ -84,11 +153,20 @@
             "Uploading %s…": [
                 "Caricamento di %s…"
             ],
+            "Website": [
+                "Sito web"
+            ],
             "Your cart is empty.": [
                 "Il Suo carrello è vuoto."
             ],
             "Your price": [
                 "Il Suo prezzo"
+            ],
+            "Your quote request was received. The seller will reply to you by email.": [
+                "La Sua richiesta di preventivo è stata ricevuta. Il venditore Le risponderà via email."
+            ],
+            "you@example.com": [
+                "you@example.com"
             ]
         }
     }

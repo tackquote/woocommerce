@@ -250,3 +250,170 @@ check( 'wholesale prefill: a guest gets nothing prefilled', '' === tack_tabs_val
 unset( $GLOBALS['TACK_USER_FIRST_NAME'], $GLOBALS['TACK_USER_LAST_NAME'] );
 $GLOBALS['TACK_WC_CUSTOMER'] = null;
 tack_test_reset_transients();
+
+// ── Wholesale account: approved / pending / everything else (1.11.0, D17) ───
+//
+// `GET /storefront/v1/price-access` answers `{status: linked, wholesaleApproved}` and
+// carries NO pending state (tack storefront-results.ts PriceAccessResult), so "pending"
+// comes from the store's own record of a submission TackQuote answered `pending`.
+
+/**
+ * Render the Wholesale account tab for a signed-in customer against one price-access answer.
+ *
+ * @param mixed $answer What the price-access route answers (array or WP_Error).
+ * @return array{0:string,1:Tack_Test_Forms_Client}
+ */
+function tack_tabs_render_wholesale_standing( $answer ) {
+	global $tabs_wholesale_form;
+	tack_test_reset_transients();
+	$_GET   = array();
+	$client = new Tack_Test_Forms_Client(
+		array(
+			'storefront/v1/price-access' => $answer,
+			'wholesale-form?slug=default' => $tabs_wholesale_form,
+		)
+	);
+	$html   = ( new Tack_Storefront_Forms( $client ) )->render_wholesale_form( 'default', 'https://shop.example/my-account/wholesale-account/' );
+	return array( $html, $client );
+}
+
+/**
+ * How many requests went to the price-access route.
+ *
+ * @param Tack_Test_Forms_Client $client Client.
+ * @return int
+ */
+function tack_tabs_price_access_calls( $client ) {
+	return count(
+		array_filter(
+			$client->paths(),
+			function ( $p ) {
+				return false !== strpos( $p, '/storefront/v1/price-access?' );
+			}
+		)
+	);
+}
+
+/**
+ * Does the markup carry the wholesale application form?
+ *
+ * @param string $html Markup.
+ * @return bool
+ */
+function tack_tabs_has_wholesale_form( $html ) {
+	return false !== strpos( $html, '<form' ) && false !== strpos( $html, 'name="action" value="tack_wholesale_application"' );
+}
+
+tack_test_reset_user_meta();
+tack_test_set_option( 'tack_quotes_api_key', 'tk_test_key' );
+tack_test_set_logged_in( true, 'buyer@trade-customer.test' );
+$tabs_approved = array(
+	'status'            => 'linked',
+	'wholesaleApproved' => true,
+);
+
+// Approved.
+list( $tabs_html, $tabs_client ) = tack_tabs_render_wholesale_standing( $tabs_approved );
+check( 'wholesale APPROVED: no application form', ! tack_tabs_has_wholesale_form( $tabs_html ) && false === strpos( $tabs_html, 'wholesale-form?slug=' ), $tabs_html );
+check( 'wholesale APPROVED: "Your wholesale account is approved." from the overridable template', false !== strpos( $tabs_html, 'Your wholesale account is approved.' ) && false !== strpos( $tabs_html, 'tackquote-wholesale-account' ) && false !== strpos( $tabs_html, 'tackquote-wholesale-summary' ), $tabs_html );
+check( 'wholesale APPROVED: the form definition is not even fetched', 0 === count( array_filter( $tabs_client->paths(), function ( $p ) { return false !== strpos( $p, 'wholesale-form' ); } ) ) );
+check( 'wholesale APPROVED: one price-access read, for the trusted email and the WP user id', 1 === tack_tabs_price_access_calls( $tabs_client ) && false !== strpos( $tabs_client->paths()[0], 'buyerEmail=buyer%40trade-customer.test' ) && false !== strpos( $tabs_client->paths()[0], 'buyerExternalId=1' ) );
+check( 'wholesale APPROVED: the answer is cached where the catalogue price gate reads it', isset( $GLOBALS['TACK_TRANSIENTS'][ Tack_Price_Access::cache_key( 1, 'buyer@trade-customer.test' ) ] ) && array( 'approved' => true ) === $GLOBALS['TACK_TRANSIENTS'][ Tack_Price_Access::cache_key( 1, 'buyer@trade-customer.test' ) ] );
+
+// The price gate on the same page asks nobody again.
+$tabs_gate = new Tack_Catalog_Mode( $tabs_client );
+check( 'wholesale: the catalogue price gate and the tab share one read', true === $tabs_gate->buyer_is_approved_wholesale() && 1 === tack_tabs_price_access_calls( $tabs_client ) );
+
+// Approved clears a stale pending record.
+update_user_meta( 1, Tack_Storefront_Forms::META_WHOLESALE_APPLIED, time() - 60 );
+list( $tabs_html ) = tack_tabs_render_wholesale_standing( $tabs_approved );
+check( 'wholesale APPROVED over a pending record: approved wins and the record is cleared', false !== strpos( $tabs_html, 'is approved' ) && false === strpos( $tabs_html, 'being reviewed' ) && '' === get_user_meta( 1, Tack_Storefront_Forms::META_WHOLESALE_APPLIED, true ) );
+
+// Pending: TackQuote answered `pending` to a submission from this store.
+update_user_meta( 1, Tack_Storefront_Forms::META_WHOLESALE_APPLIED, time() - DAY_IN_SECONDS );
+list( $tabs_html ) = tack_tabs_render_wholesale_standing( array( 'status' => 'unlinked', 'reason' => 'customer_not_linked' ) );
+check( 'wholesale PENDING: a "being reviewed" notice and no form', false !== strpos( $tabs_html, 'Your wholesale application is being reviewed.' ) && ! tack_tabs_has_wholesale_form( $tabs_html ), $tabs_html );
+check( 'wholesale PENDING: approval is not claimed', false === strpos( $tabs_html, 'is approved' ) && false === strpos( $tabs_html, 'tackquote-wholesale-summary' ) );
+list( $tabs_html ) = tack_tabs_render_wholesale_standing( array( 'status' => 'linked', 'wholesaleApproved' => false ) );
+check( 'wholesale PENDING while linked by net terms (wholesaleApproved false): still the notice, no form', false !== strpos( $tabs_html, 'being reviewed' ) && ! tack_tabs_has_wholesale_form( $tabs_html ) );
+
+// A pending record older than the window is the form again.
+update_user_meta( 1, Tack_Storefront_Forms::META_WHOLESALE_APPLIED, time() - ( Tack_Storefront_Forms::WHOLESALE_PENDING_DAYS + 1 ) * DAY_IN_SECONDS );
+list( $tabs_html ) = tack_tabs_render_wholesale_standing( array( 'status' => 'unlinked', 'reason' => 'customer_not_linked' ) );
+check( 'wholesale: a pending record older than 30 days is the form again', tack_tabs_has_wholesale_form( $tabs_html ) && false === strpos( $tabs_html, 'being reviewed' ) );
+
+// An API error claims nothing, even over a fresh pending record.
+update_user_meta( 1, Tack_Storefront_Forms::META_WHOLESALE_APPLIED, time() - 60 );
+foreach ( array(
+	'TackQuote error (500)' => tack_test_api_error( 500, 'boom' ),
+	'TackQuote unreachable' => new WP_Error( 'http_request_failed', 'timeout' ),
+	'malformed answer'      => 'linked',
+) as $tabs_label => $tabs_answer ) {
+	list( $tabs_html ) = tack_tabs_render_wholesale_standing( $tabs_answer );
+	check( "wholesale, $tabs_label: the application form, no claim", tack_tabs_has_wholesale_form( $tabs_html ) && false === strpos( $tabs_html, 'is approved' ) && false === strpos( $tabs_html, 'being reviewed' ), $tabs_html );
+}
+tack_test_reset_user_meta();
+
+// Everything else is the form.
+foreach ( array(
+	'unlinked'                         => array( 'status' => 'unlinked', 'reason' => 'customer_not_linked' ),
+	'linked, not approved'             => array( 'status' => 'linked', 'wholesaleApproved' => false ),
+	'linked, wholesaleApproved absent' => array( 'status' => 'linked' ),
+	'linked, wholesaleApproved "true"' => array( 'status' => 'linked', 'wholesaleApproved' => 'true' ),
+	'anonymous'                        => array( 'status' => 'anonymous' ),
+	'unknown status'                   => array( 'status' => 'something-new', 'wholesaleApproved' => true ),
+) as $tabs_label => $tabs_answer ) {
+	list( $tabs_html ) = tack_tabs_render_wholesale_standing( $tabs_answer );
+	check( "wholesale, $tabs_label: the application form, no claim", tack_tabs_has_wholesale_form( $tabs_html ) && false === strpos( $tabs_html, 'is approved' ) && false === strpos( $tabs_html, 'being reviewed' ), $tabs_html );
+}
+
+// No trusted email, or no key: no read at all.
+update_user_meta( 1, Tack_B2B_Notices::META_EMAIL_UNVERIFIED, '1' );
+list( $tabs_html, $tabs_client ) = tack_tabs_render_wholesale_standing( $tabs_approved );
+check( 'wholesale, unconfirmed email: no price-access read and the form', 0 === tack_tabs_price_access_calls( $tabs_client ) && tack_tabs_has_wholesale_form( $tabs_html ) );
+tack_test_reset_user_meta();
+tack_test_set_logged_in( false, '' );
+list( $tabs_html, $tabs_client ) = tack_tabs_render_wholesale_standing( $tabs_approved );
+check( 'wholesale, guest: no price-access read and the form', 0 === tack_tabs_price_access_calls( $tabs_client ) && tack_tabs_has_wholesale_form( $tabs_html ) );
+tack_test_set_logged_in( true, 'buyer@trade-customer.test' );
+
+// A submission answered `pending` records the date for a signed-in customer only.
+tack_test_reset_transients();
+$tabs_submit_client = new Tack_Test_Forms_Client(
+	array(
+		'wholesale-form/submit'      => array( 'status' => 'pending' ),
+		'wholesale-form?slug=default' => $tabs_wholesale_form,
+	)
+);
+$tabs_outcome       = ( new Tack_Storefront_Forms( $tabs_submit_client ) )->process_wholesale_submission(
+	array(
+		'_tack_nonce'   => wp_create_nonce( Tack_Storefront_Forms::ACTION_WHOLESALE ),
+		'tack_slug'     => 'default',
+		'tack_redirect' => 'https://shop.example/my-account/wholesale-account/',
+		'tack_sf'       => array(
+			'companyName' => 'Analytical Engines Ltd',
+			'firstName'   => 'Ada',
+			'lastName'    => 'Byron',
+			'email'       => 'buyer@trade-customer.test',
+		),
+	)
+);
+check( 'wholesale submit answered pending: the outcome is pending', 'pending' === $tabs_outcome['kind'], wp_json_encode( $tabs_outcome ) );
+check( 'wholesale submit answered pending: the date is recorded for the customer', Tack_Storefront_Forms::wholesale_pending_since( 1 ) > 0 );
+tack_test_reset_user_meta();
+tack_test_set_logged_in( false, '' );
+( new Tack_Storefront_Forms( $tabs_submit_client ) )->process_wholesale_submission(
+	array(
+		'_tack_nonce' => wp_create_nonce( Tack_Storefront_Forms::ACTION_WHOLESALE ),
+		'tack_slug'   => 'default',
+		'tack_sf'     => array(
+			'companyName' => 'Analytical Engines Ltd',
+			'firstName'   => 'Ada',
+			'lastName'    => 'Byron',
+			'email'       => 'guest@trade-customer.test',
+		),
+	)
+);
+check( 'wholesale submit by a guest: nothing recorded', empty( $GLOBALS['TACK_USER_META'] ) );
+check( 'uninstall and the privacy export know the pending-application record', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' ), "'" . Tack_Storefront_Forms::META_WHOLESALE_APPLIED . "'" ) && isset( Tack_Quotes::privacy_user_meta()[ Tack_Storefront_Forms::META_WHOLESALE_APPLIED ] ) );
+tack_test_reset_transients();

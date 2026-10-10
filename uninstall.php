@@ -118,7 +118,8 @@ $tack_quotes_options = array(
 );
 
 /**
- * User meta the plugin writes (Tack_B2B_Notices email-trust guard, Tack_Role_Mirror).
+ * User meta the plugin writes (Tack_B2B_Notices email-trust guard, Tack_Role_Mirror,
+ * Tack_Storefront_Forms' pending wholesale application date).
  * `_tack_known_email` is a copy of the customer's own address, so it must not outlive
  * the plugin.
  *
@@ -130,6 +131,7 @@ $tack_quotes_user_meta = array(
 	'_tack_known_email',
 	'_tack_mirrored_roles',
 	'_tack_role_mirror_checked',
+	'_tack_wholesale_applied',
 );
 
 /**

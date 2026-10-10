@@ -15,11 +15,26 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s: Hängen Sie eine PDF-, JPEG- oder PNG-Datei an."
             ],
+            "(optional)": [
+                "(optional)"
+            ],
+            "A company": [
+                "Unternehmen"
+            ],
+            "Added ✓": [
+                "Hinzugefügt ✓"
+            ],
             "Address": [
                 "Adresszeile 1"
             ],
             "Address line 2": [
                 "Adresszeile 2"
+            ],
+            "An individual": [
+                "Privatperson"
+            ],
+            "Anything the seller should know about this request…": [
+                "Alles, was der Verkäufer zu dieser Anfrage wissen sollte …"
             ],
             "Attach at most %d files.": [
                 "Hängen Sie höchstens %d Dateien an."
@@ -27,14 +42,26 @@
             "Attach files (optional)": [
                 "Dateien anhängen (optional)"
             ],
+            "Cancel": [
+                "Abbrechen"
+            ],
             "City": [
                 "Ort"
             ],
             "Close": [
                 "Schließen"
             ],
+            "Company details": [
+                "Firmendaten"
+            ],
             "Company name": [
                 "Unternehmen"
+            ],
+            "Company phone": [
+                "Telefon (Firma)"
+            ],
+            "Could not create the quote. Please try again.": [
+                "Das Angebot konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
             ],
             "Country": [
                 "Land"
@@ -42,17 +69,44 @@
             "Email address": [
                 "E-Mail"
             ],
+            "First name": [
+                "Vorname"
+            ],
+            "I am buying as": [
+                "Ich kaufe als"
+            ],
+            "Industry": [
+                "Branche"
+            ],
+            "Last name": [
+                "Nachname"
+            ],
             "Legal name": [
                 "Offizieller Firmenname"
             ],
             "Note": [
                 "Anmerkungen"
             ],
+            "Number of employees": [
+                "Anzahl der Mitarbeitenden"
+            ],
+            "Open your buyer portal": [
+                "Ihr Käuferportal öffnen"
+            ],
+            "Optional": [
+                "Optional"
+            ],
             "Phone": [
                 "Telefon"
             ],
+            "Please complete the required company details.": [
+                "Bitte füllen Sie die erforderlichen Firmendaten aus."
+            ],
             "Please enter a valid email address.": [
                 "Bitte geben Sie eine gültige E-Mail-Adresse ein."
+            ],
+            "Please enter your first name.": [
+                "Bitte geben Sie Ihren Vornamen ein."
             ],
             "Postal code": [
                 "Postleitzahl"
@@ -60,11 +114,20 @@
             "Quantity": [
                 "Menge"
             ],
+            "Registration number": [
+                "Handelsregisternummer"
+            ],
+            "Reload page": [
+                "Seite neu laden"
+            ],
             "Remove": [
                 "Entfernen"
             ],
             "Request a Quote": [
                 "Angebot anfragen"
+            ],
+            "Request received. If your company account needs approval, we'll email you when it is ready.": [
+                "Anfrage erhalten. Falls Ihr Firmenkonto freigegeben werden muss, benachrichtigen wir Sie per E-Mail, sobald es bereit ist."
             ],
             "Send request": [
                 "Angebotsanfrage absenden"
@@ -75,6 +138,12 @@
             "State / Province": [
                 "Bundesland / Region"
             ],
+            "Target price": [
+                "Wunschpreis"
+            ],
+            "Tax / VAT ID": [
+                "Steuernummer / USt-IdNr."
+            ],
             "That file could not be attached. Please try again.": [
                 "Diese Datei konnte nicht angehängt werden. Bitte versuchen Sie es erneut."
             ],
@@ -84,11 +153,20 @@
             "Uploading %s…": [
                 "%s wird hochgeladen…"
             ],
+            "Website": [
+                "Website"
+            ],
             "Your cart is empty.": [
                 "Ihr Warenkorb ist leer."
             ],
             "Your price": [
                 "Ihr Preis"
+            ],
+            "Your quote request was received. The seller will reply to you by email.": [
+                "Ihre Angebotsanfrage ist eingegangen. Der Verkäufer antwortet Ihnen per E-Mail."
+            ],
+            "you@example.com": [
+                "you@example.com"
             ]
         }
     }

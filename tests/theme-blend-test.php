@@ -172,7 +172,7 @@ unset( $GLOBALS['TACK_OPTIONS'][ Tack_Widget::OPT_ACCENT_COLOR ] );
 
 // ── Templates ───────────────────────────────────────────────────────────────
 
-foreach ( array( 'quote-list-drawer.php', 'quote-page.php', 'single-product/quantity-breaks.php', 'myaccount/form-wholesale-application.php', 'myaccount/form-net-terms-application.php', 'myaccount/net-terms-account.php' ) as $tack_tpl ) {
+foreach ( array( 'quote-list-drawer.php', 'quote-page.php', 'single-product/quantity-breaks.php', 'myaccount/form-wholesale-application.php', 'myaccount/form-net-terms-application.php', 'myaccount/net-terms-account.php', 'myaccount/wholesale-account.php' ) as $tack_tpl ) {
 	$tack_src = (string) file_get_contents( TACK_QUOTES_DIR . 'templates/tackquote/' . $tack_tpl );
 	check( "template $tack_tpl: direct access is refused and it carries an @version", false !== strpos( $tack_src, "defined( 'ABSPATH' ) || exit;" ) && (bool) preg_match( '/@version\s+\d+\.\d+\.\d+/', $tack_src ) && false !== strpos( $tack_src, 'yourtheme/woocommerce/tackquote/' . $tack_tpl ) );
 }

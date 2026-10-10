@@ -18,6 +18,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-templates.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-widget.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-sync-gate.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-order-sync.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-price-access.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-mode.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-basis.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
@@ -281,6 +282,7 @@ final class Tack_Quotes {
 			'_tack_email_unverified'    => __( 'Email change awaiting confirmation', 'tackquote' ),
 			'_tack_mirrored_roles'      => __( 'Roles added from your TackQuote buyer group', 'tackquote' ),
 			'_tack_role_mirror_checked' => __( 'Buyer group last checked', 'tackquote' ),
+			'_tack_wholesale_applied'   => __( 'Wholesale application sent for review', 'tackquote' ),
 		);
 	}
 
@@ -330,7 +332,7 @@ final class Tack_Quotes {
 			if ( '' === $value || array() === $value || null === $value ) {
 				continue;
 			}
-			if ( '_tack_role_mirror_checked' === $key && is_numeric( $value ) ) {
+			if ( in_array( $key, array( '_tack_role_mirror_checked', '_tack_wholesale_applied' ), true ) && is_numeric( $value ) ) {
 				$value = gmdate( 'c', (int) $value );
 			}
 			$data[] = array(

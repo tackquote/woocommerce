@@ -15,11 +15,26 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s: voeg een PDF-, JPEG- of PNG-bestand toe."
             ],
+            "(optional)": [
+                "(optioneel)"
+            ],
+            "A company": [
+                "Bedrijf"
+            ],
+            "Added ✓": [
+                "Toegevoegd ✓"
+            ],
             "Address": [
                 "Adresregel 1"
             ],
             "Address line 2": [
                 "Adresregel 2"
+            ],
+            "An individual": [
+                "Particulier"
+            ],
+            "Anything the seller should know about this request…": [
+                "Alles wat de verkoper over deze aanvraag moet weten…"
             ],
             "Attach at most %d files.": [
                 "Voeg maximaal %d bestanden toe."
@@ -27,14 +42,26 @@
             "Attach files (optional)": [
                 "Bestanden bijvoegen (optioneel)"
             ],
+            "Cancel": [
+                "Annuleren"
+            ],
             "City": [
                 "Plaats"
             ],
             "Close": [
                 "Sluiten"
             ],
+            "Company details": [
+                "Bedrijfsgegevens"
+            ],
             "Company name": [
                 "Bedrijf"
+            ],
+            "Company phone": [
+                "Telefoonnummer bedrijf"
+            ],
+            "Could not create the quote. Please try again.": [
+                "De offerte kon niet worden aangemaakt. Probeer het opnieuw."
             ],
             "Country": [
                 "Land"
@@ -42,17 +69,44 @@
             "Email address": [
                 "E-mail"
             ],
+            "First name": [
+                "Voornaam"
+            ],
+            "I am buying as": [
+                "Ik koop als"
+            ],
+            "Industry": [
+                "Branche"
+            ],
+            "Last name": [
+                "Achternaam"
+            ],
             "Legal name": [
                 "Officiële bedrijfsnaam"
             ],
             "Note": [
                 "Opmerkingen"
             ],
+            "Number of employees": [
+                "Aantal medewerkers"
+            ],
+            "Open your buyer portal": [
+                "Uw inkoopportaal openen"
+            ],
+            "Optional": [
+                "Optioneel"
+            ],
             "Phone": [
                 "Telefoon"
             ],
+            "Please complete the required company details.": [
+                "Vul de verplichte bedrijfsgegevens in."
+            ],
             "Please enter a valid email address.": [
                 "Vul een geldig e-mailadres in."
+            ],
+            "Please enter your first name.": [
+                "Vul uw voornaam in."
             ],
             "Postal code": [
                 "Postcode"
@@ -60,11 +114,20 @@
             "Quantity": [
                 "Aantal"
             ],
+            "Registration number": [
+                "KvK-nummer"
+            ],
+            "Reload page": [
+                "Pagina opnieuw laden"
+            ],
             "Remove": [
                 "Verwijderen"
             ],
             "Request a Quote": [
                 "Offerte aanvragen"
+            ],
+            "Request received. If your company account needs approval, we'll email you when it is ready.": [
+                "Aanvraag ontvangen. Als uw bedrijfsaccount moet worden goedgekeurd, e-mailen we u zodra het klaar is."
             ],
             "Send request": [
                 "Offerteaanvraag indienen"
@@ -75,6 +138,12 @@
             "State / Province": [
                 "Provincie / regio"
             ],
+            "Target price": [
+                "Richtprijs"
+            ],
+            "Tax / VAT ID": [
+                "Fiscaal nummer / btw-nummer"
+            ],
             "That file could not be attached. Please try again.": [
                 "Dat bestand kon niet worden bijgevoegd. Probeer het opnieuw."
             ],
@@ -84,11 +153,20 @@
             "Uploading %s…": [
                 "%s wordt geüpload…"
             ],
+            "Website": [
+                "Website"
+            ],
             "Your cart is empty.": [
                 "Uw winkelwagen is leeg."
             ],
             "Your price": [
                 "Uw prijs"
+            ],
+            "Your quote request was received. The seller will reply to you by email.": [
+                "Uw offerteaanvraag is ontvangen. De verkoper antwoordt u per e-mail."
+            ],
+            "you@example.com": [
+                "you@example.com"
             ]
         }
     }

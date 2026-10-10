@@ -198,7 +198,8 @@ check( 'D8: German modal labels: Email address, Note, Company name', 'E-Mail' ==
 check( 'D8: German company field labels: Legal name, Address, State / Province', null !== $e2e_de( 'Legal name' ) && 'Adresszeile 1' === $e2e_de( 'Address' ) && null !== $e2e_de( 'State / Province' ) );
 $e2e_po = (string) file_get_contents( TACK_QUOTES_DIR . 'languages/tackquote-de_DE.po' );
 check( 'D8: the drawer title and launcher label (PHP) are in the German .po', false !== strpos( $e2e_po, "msgid \"Your quote list\"\nmsgstr \"Angebotskorb\"" ) && false !== strpos( $e2e_po, "msgid \"Quote list\"\nmsgstr \"Angebotskorb\"" ), 'see languages/tackquote-de_DE.po' );
-check( 'D8: strings with no catalogue equivalent stay English (Cancel, First name)', null === $e2e_de( 'Cancel' ) && null === $e2e_de( 'First name' ) );
+// 1.11.0: the rest of the modal comes from the plugin's own catalogue (languages/source/local).
+check( 'D8 (1.11.0): the remaining modal strings are German too (Cancel, First name, Last name, I am buying as)', 'Abbrechen' === $e2e_de( 'Cancel' ) && 'Vorname' === $e2e_de( 'First name' ) && 'Nachname' === $e2e_de( 'Last name' ) && 'Ich kaufe als' === $e2e_de( 'I am buying as' ) );
 
 // ── D10: a wholesale form slug that matches no form ─────────────────────────
 

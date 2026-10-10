@@ -15,11 +15,26 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s : joignez un fichier PDF, JPEG ou PNG."
             ],
+            "(optional)": [
+                "(facultatif)"
+            ],
+            "A company": [
+                "Entreprise"
+            ],
+            "Added ✓": [
+                "Ajouté ✓"
+            ],
             "Address": [
                 "Adresse (ligne 1)"
             ],
             "Address line 2": [
                 "Adresse (ligne 2)"
+            ],
+            "An individual": [
+                "Particulier"
+            ],
+            "Anything the seller should know about this request…": [
+                "Tout ce que le vendeur doit savoir sur cette demande…"
             ],
             "Attach at most %d files.": [
                 "Joignez au maximum %d fichiers."
@@ -27,14 +42,26 @@
             "Attach files (optional)": [
                 "Joindre des fichiers (facultatif)"
             ],
+            "Cancel": [
+                "Annuler"
+            ],
             "City": [
                 "Ville"
             ],
             "Close": [
                 "Fermer"
             ],
+            "Company details": [
+                "Informations sur l’entreprise"
+            ],
             "Company name": [
                 "Entreprise"
+            ],
+            "Company phone": [
+                "Téléphone de l’entreprise"
+            ],
+            "Could not create the quote. Please try again.": [
+                "Impossible de créer le devis. Veuillez réessayer."
             ],
             "Country": [
                 "Pays"
@@ -42,17 +69,44 @@
             "Email address": [
                 "E-mail"
             ],
+            "First name": [
+                "Prénom"
+            ],
+            "I am buying as": [
+                "J’achète en tant que"
+            ],
+            "Industry": [
+                "Secteur d’activité"
+            ],
+            "Last name": [
+                "Nom"
+            ],
             "Legal name": [
                 "Raison sociale"
             ],
             "Note": [
                 "Remarques"
             ],
+            "Number of employees": [
+                "Nombre de salariés"
+            ],
+            "Open your buyer portal": [
+                "Ouvrir votre portail acheteur"
+            ],
+            "Optional": [
+                "Facultatif"
+            ],
             "Phone": [
                 "Téléphone"
             ],
+            "Please complete the required company details.": [
+                "Veuillez compléter les informations obligatoires sur l’entreprise."
+            ],
             "Please enter a valid email address.": [
                 "Veuillez saisir une adresse e-mail valide."
+            ],
+            "Please enter your first name.": [
+                "Veuillez saisir votre prénom."
             ],
             "Postal code": [
                 "Code postal"
@@ -60,11 +114,20 @@
             "Quantity": [
                 "Quantité"
             ],
+            "Registration number": [
+                "Numéro d’immatriculation"
+            ],
+            "Reload page": [
+                "Recharger la page"
+            ],
             "Remove": [
                 "Retirer"
             ],
             "Request a Quote": [
                 "Demander un devis"
+            ],
+            "Request received. If your company account needs approval, we'll email you when it is ready.": [
+                "Demande reçue. Si votre compte entreprise doit être approuvé, nous vous enverrons un e-mail dès qu’il sera prêt."
             ],
             "Send request": [
                 "Soumettre la demande de devis"
@@ -75,6 +138,12 @@
             "State / Province": [
                 "État / région"
             ],
+            "Target price": [
+                "Prix cible"
+            ],
+            "Tax / VAT ID": [
+                "Numéro fiscal / numéro de TVA"
+            ],
             "That file could not be attached. Please try again.": [
                 "Ce fichier n’a pas pu être joint. Veuillez réessayer."
             ],
@@ -84,11 +153,20 @@
             "Uploading %s…": [
                 "Envoi de %s…"
             ],
+            "Website": [
+                "Site web"
+            ],
             "Your cart is empty.": [
                 "Votre panier est vide."
             ],
             "Your price": [
                 "Votre prix"
+            ],
+            "Your quote request was received. The seller will reply to you by email.": [
+                "Votre demande de devis a bien été reçue. Le vendeur vous répondra par e-mail."
+            ],
+            "you@example.com": [
+                "you@example.com"
             ]
         }
     }

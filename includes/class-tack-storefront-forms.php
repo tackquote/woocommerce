@@ -101,6 +101,21 @@ class Tack_Storefront_Forms {
 	/** The form slug used when the merchant has not chosen one. */
 	const DEFAULT_SLUG = 'default';
 
+	/**
+	 * User meta: when this store last sent the customer's wholesale application and
+	 * TackQuote answered that it is awaiting review (a Unix timestamp).
+	 *
+	 * `GET /storefront/v1/price-access` reports approval but no pending state, so the
+	 * Wholesale account tab can only know an application is under review from the
+	 * answer to the submission itself. Cleared as soon as TackQuote reports approval.
+	 *
+	 * @since 1.11.0
+	 */
+	const META_WHOLESALE_APPLIED = '_tack_wholesale_applied';
+
+	/** Days a "being reviewed" notice replaces the form after a pending submission. */
+	const WHOLESALE_PENDING_DAYS = 30;
+
 	/** Slugs already logged today as matching no wholesale form. */
 	const MISSING_FORM_LOGGED = 'tack_quotes_wholesale_form_missing';
 
@@ -394,6 +409,12 @@ class Tack_Storefront_Forms {
 				// Approved, pending or received: the form has done its job.
 				return $this->kses( '<div class="tackquote-storefront-form tackquote-wholesale-application">' . $html . '</div>' );
 			}
+		} else {
+			// Already approved, or an application already under review: no form.
+			$standing = $this->wholesale_standing_html();
+			if ( '' !== $standing ) {
+				return $this->kses( '<div class="tackquote-storefront-form tackquote-wholesale-account">' . $standing . '</div>' );
+			}
 		}
 
 		$form = $this->client->get_wholesale_form( $slug );
@@ -467,6 +488,95 @@ class Tack_Storefront_Forms {
 
 		$this->enqueue_assets();
 		return $this->kses( '<div class="tackquote-storefront-form tackquote-wholesale-application">' . $html . '</div>' );
+	}
+
+	/**
+	 * What the Wholesale account tab shows INSTEAD of the form, or '' to show the form.
+	 *
+	 * Reads the same cached `price-access` answer as the catalogue's "unapproved"
+	 * price gate (Tack_Price_Access), so a page showing both makes one call:
+	 *
+	 * - `linked` with `wholesaleApproved: true`: the approved summary (template
+	 *   `myaccount/wholesale-account.php`), no form.
+	 * - not approved, and this store sent the customer's application within the last
+	 *   WHOLESALE_PENDING_DAYS days with TackQuote answering `pending`: a "being
+	 *   reviewed" notice, no form. The server's price-access answer has no pending
+	 *   state, so this is the only honest source for it.
+	 * - anything else, an untrusted email, no API key, or TackQuote not answering:
+	 *   '' (the form), claiming nothing.
+	 *
+	 * @since 1.11.0
+	 *
+	 * @return string Escaped markup, or ''.
+	 */
+	private function wholesale_standing_html() {
+		$email = self::trusted_account_email();
+		if ( '' === $email || '' === (string) get_option( 'tack_quotes_api_key', '' ) ) {
+			return '';
+		}
+		$user_id  = (int) get_current_user_id();
+		$approved = Tack_Price_Access::approved( $this->client, $user_id, $email );
+		if ( is_wp_error( $approved ) ) {
+			$this->log( 'price-access read failed; showing the wholesale application form: ' . $this->error_summary( $approved ) );
+			return '';
+		}
+		if ( true === $approved ) {
+			delete_user_meta( $user_id, self::META_WHOLESALE_APPLIED );
+			return Tack_Templates::html(
+				'myaccount/wholesale-account.php',
+				array(
+					'notices'     => '',
+					'heading'     => __( 'Wholesale account', 'tackquote' ),
+					'description' => __( 'Your wholesale account is approved.', 'tackquote' ),
+					'shop_url'    => function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : '',
+					'shop_label'  => __( 'Continue shopping', 'tackquote' ),
+					'shop_class'  => self::button_class( 'tackquote-continue' ),
+				)
+			);
+		}
+		if ( self::wholesale_pending_since( $user_id ) > 0 ) {
+			return $this->notice( 'pending', __( 'Your wholesale application is being reviewed. We will email you when it has been decided.', 'tackquote' ) );
+		}
+		return '';
+	}
+
+	/**
+	 * When the signed-in customer's pending application was sent from this store, or 0.
+	 *
+	 * 0 once WHOLESALE_PENDING_DAYS have passed (the seller has decided by then, or the
+	 * customer may apply again; TackQuote folds a re-submission into the pending one).
+	 *
+	 * @since 1.11.0
+	 *
+	 * @param int $user_id WordPress user id.
+	 * @return int Unix timestamp, or 0.
+	 */
+	public static function wholesale_pending_since( $user_id ) {
+		$since = (int) get_user_meta( (int) $user_id, self::META_WHOLESALE_APPLIED, true );
+		/**
+		 * Filters how many days a pending wholesale application replaces the form.
+		 *
+		 * @since 1.11.0
+		 *
+		 * @param int $days    Days (default 30). 0 never replaces the form.
+		 * @param int $user_id The customer.
+		 */
+		$days = (int) apply_filters( 'tackquote_wholesale_pending_days', self::WHOLESALE_PENDING_DAYS, (int) $user_id );
+		if ( $since <= 0 || $days <= 0 || time() - $since > $days * DAY_IN_SECONDS ) {
+			return 0;
+		}
+		return $since;
+	}
+
+	/**
+	 * Note that the signed-in customer's application is awaiting review (a guest has no account to note it on).
+	 *
+	 * @since 1.11.0
+	 */
+	private static function remember_wholesale_pending() {
+		if ( is_user_logged_in() && get_current_user_id() > 0 ) {
+			update_user_meta( (int) get_current_user_id(), self::META_WHOLESALE_APPLIED, time() );
+		}
 	}
 
 	/**
@@ -612,6 +722,7 @@ class Tack_Storefront_Forms {
 		} elseif ( 'pending' === $status ) {
 			$outcome['kind']    = 'pending';
 			$outcome['message'] = '' !== $message ? $message : __( 'Your application has been received and is awaiting review. We will email you when it has been decided.', 'tackquote' );
+			self::remember_wholesale_pending();
 		} else {
 			$outcome['kind']    = 'pending';
 			$outcome['message'] = '' !== $message ? $message : __( 'Your application has been received.', 'tackquote' );
