@@ -799,7 +799,7 @@ class Tack_Settings {
 		if ( ! is_array( $value ) ) {
 			return array();
 		}
-		$known = function_exists( 'wp_roles' ) ? array_keys( wp_roles()->get_names() ) : array();
+		$known   = function_exists( 'wp_roles' ) ? array_keys( wp_roles()->get_names() ) : array();
 		$known[] = 'guest';
 
 		$clean = array();
@@ -1080,12 +1080,15 @@ class Tack_Settings {
 			}
 		}
 
+		$filtered = array();
+
 		/**
 		 * Filters the buyer group codes offered as checkboxes on the settings page.
 		 *
+		 * @since 1.8.0
+		 *
 		 * @param string[] $codes Upper-cased group codes.
 		 */
-		$filtered = array();
 		foreach ( (array) apply_filters( 'tackquote_buyer_group_codes', $codes ) as $code ) {
 			$code = self::clean_stored_group_code( $code );
 			if ( '' !== $code && ! in_array( $code, $filtered, true ) ) {
@@ -1206,7 +1209,7 @@ class Tack_Settings {
 		}
 		$rows = array();
 		foreach ( $methods as $id => $method ) {
-			$title = is_object( $method ) && method_exists( $method, 'get_method_title' ) ? (string) $method->get_method_title() : '';
+			$title  = is_object( $method ) && method_exists( $method, 'get_method_title' ) ? (string) $method->get_method_title() : '';
 			$rows[] = array(
 				'id'    => (string) $id,
 				'title' => '' !== trim( $title ) ? $title : (string) $id,

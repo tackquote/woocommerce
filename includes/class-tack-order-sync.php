@@ -208,7 +208,7 @@ class Tack_Order_Sync {
 				'return'        => 'ids',
 			)
 		);
-		$ids = is_array( $ids ) ? $ids : array();
+		$ids   = is_array( $ids ) ? $ids : array();
 		if ( count( $ids ) > self::REQUEUE_LIMIT && function_exists( 'wc_get_logger' ) && wc_get_logger() ) {
 			wc_get_logger()->warning(
 				sprintf(

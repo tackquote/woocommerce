@@ -13,7 +13,7 @@
  * Text Domain:       tackquote
  * Requires Plugins:  woocommerce
  * WC requires at least: 6.0
- * WC tested up to:   11.0
+ * WC tested up to:   11.2
  *
  * @package TackQuotes
  */

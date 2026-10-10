@@ -39,3 +39,39 @@ jobs:
 
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist
+
+  # WordPress + WooCommerce coding standards (phpcs.xml.dist). The gate is zero
+  # errors AND zero warnings: phpcs exits non-zero on either. The sniff set is
+  # pinned by composer.lock so a WPCS release cannot change the verdict between
+  # two runs of the same commit. These action majors each declare
+  # `runs.using: node24` in their own action.yml (checked 2026-10-10:
+  # actions/checkout@v5, shivammathur/setup-php@v2, actions/cache@v5); the
+  # `test` job above is left on its existing pins.
+  phpcs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install coding standards (locked)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: PHPCS
+        run: vendor/bin/phpcs -q --report=summary

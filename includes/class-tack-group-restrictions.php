@@ -66,7 +66,11 @@ class Tack_Group_Restrictions {
 	/** Shipping method id => comma-separated group codes. */
 	const OPTION_SHIPPING_MAP = 'tack_quotes_shipping_group_map';
 
-	/** Supplies the buyer group. @var Tack_B2B_Notices */
+	/**
+	 * Supplies the buyer group.
+	 *
+	 * @var Tack_B2B_Notices
+	 */
 	private $notices;
 
 	/**
@@ -230,6 +234,8 @@ class Tack_Group_Restrictions {
 			 * Default false: leave it visible, so an outage does not remove the
 			 * customer's ability to pay. This no longer covers "the buyer has no
 			 * group" — that is a real answer and is refused regardless.
+			 *
+			 * @since 1.7.1
 			 *
 			 * @param bool   $restrict Whether to hide the method.
 			 * @param string $id       Gateway or shipping method id.

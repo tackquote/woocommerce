@@ -114,7 +114,11 @@ class Tack_Wholesale_Pricing {
 	 */
 	private $asked = array();
 
-	/** API client. @var Tack_Api_Client */
+	/**
+	 * API client.
+	 *
+	 * @var Tack_Api_Client
+	 */
 	private $client;
 
 	/**
@@ -207,7 +211,10 @@ class Tack_Wholesale_Pricing {
 			if ( '' === $sku || $qty < 1 ) {
 				continue;
 			}
-			$wanted[ $sku . '|' . $qty ] = array( 'sku' => $sku, 'quantity' => $qty );
+			$wanted[ $sku . '|' . $qty ] = array(
+				'sku'      => $sku,
+				'quantity' => $qty,
+			);
 		}
 		if ( empty( $wanted ) ) {
 			return;
@@ -230,7 +237,18 @@ class Tack_Wholesale_Pricing {
 				continue;
 			}
 
-			/** This filter is documented in this class. */
+			/**
+			 * Filters the Tack-resolved NET unit price before it is applied to a cart line.
+			 *
+			 * Runs only for a SKU TackQuote actually priced; a line with no answer keeps
+			 * the store's own price and never reaches this filter.
+			 *
+			 * @since 1.6.0
+			 *
+			 * @param float  $unit        Net unit price resolved by TackQuote for this quantity.
+			 * @param mixed  $store_price The product's own price, as `WC_Product::get_price()` returns it.
+			 * @param string $sku         Product SKU.
+			 */
 			$unit = apply_filters( 'tackquote_wholesale_price', $unit, $item['data']->get_price(), $sku );
 
 			if ( method_exists( $item['data'], 'set_price' ) ) {
@@ -299,7 +317,14 @@ class Tack_Wholesale_Pricing {
 			return null;
 		}
 
-		$lines = $this->resolve( array( array( 'sku' => $sku, 'quantity' => (int) $quantity ) ) );
+		$lines = $this->resolve(
+			array(
+				array(
+					'sku'      => $sku,
+					'quantity' => (int) $quantity,
+				),
+			)
+		);
 		return array_key_exists( $key, $lines ) ? $lines[ $key ] : null;
 	}
 
@@ -338,7 +363,7 @@ class Tack_Wholesale_Pricing {
 			return array();
 		}
 
-		$out = array();
+		$out   = array();
 		$lines = isset( $response['items'] ) && is_array( $response['items'] ) ? $response['items'] : array();
 		foreach ( $lines as $line ) {
 			if ( ! isset( $line['sku'] ) ) {
@@ -352,8 +377,8 @@ class Tack_Wholesale_Pricing {
 			 * `0` is a real resolved price -> honour it. `isset()`/`empty()`
 			 * would collapse both into "no answer".
 			 */
-			$unit = array_key_exists( 'unitPrice', $line ) ? $line['unitPrice'] : null;
-			$out[ $key ] = ( null === $unit || '' === $unit ) ? null : (float) $unit;
+			$unit                   = array_key_exists( 'unitPrice', $line ) ? $line['unitPrice'] : null;
+			$out[ $key ]            = ( null === $unit || '' === $unit ) ? null : (float) $unit;
 			$this->resolved[ $key ] = $out[ $key ];
 		}
 
@@ -389,6 +414,8 @@ class Tack_Wholesale_Pricing {
 		 * pricing a few representative quantities and keeping the ones that
 		 * differ.
 		 *
+		 * @since 1.6.0
+		 *
 		 * @param int[]  $quantities Quantities to probe.
 		 * @param string $sku        Product SKU.
 		 */
@@ -396,11 +423,14 @@ class Tack_Wholesale_Pricing {
 
 		$items = array();
 		foreach ( $quantities as $qty ) {
-			$items[] = array( 'sku' => $sku, 'quantity' => (int) $qty );
+			$items[] = array(
+				'sku'      => $sku,
+				'quantity' => (int) $qty,
+			);
 		}
 		$prices = $this->resolve( $items );
 
-		$rows = array();
+		$rows     = array();
 		$previous = null;
 		foreach ( $quantities as $qty ) {
 			$unit = isset( $prices[ $sku . '|' . (int) $qty ] ) ? $prices[ $sku . '|' . (int) $qty ] : null;
@@ -411,7 +441,10 @@ class Tack_Wholesale_Pricing {
 			if ( null !== $previous && abs( $unit - $previous ) < 0.00001 ) {
 				continue;
 			}
-			$rows[]   = array( 'qty' => (int) $qty, 'unit' => $unit );
+			$rows[]   = array(
+				'qty'  => (int) $qty,
+				'unit' => $unit,
+			);
 			$previous = $unit;
 		}
 
@@ -473,7 +506,13 @@ class Tack_Wholesale_Pricing {
 		if ( ! function_exists( 'wc_get_price_including_tax' ) ) {
 			return $net;
 		}
-		return (float) wc_get_price_including_tax( $product, array( 'qty' => 1, 'price' => $net ) );
+		return (float) wc_get_price_including_tax(
+			$product,
+			array(
+				'qty'   => 1,
+				'price' => $net,
+			)
+		);
 	}
 
 	/**

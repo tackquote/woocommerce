@@ -1,7 +1,12 @@
 .DS_Store
 # Build output from scripts/package.sh and bin/build.sh.
 dist/
-# Composer dev tooling (phpcs / WordPress Coding Standards), never committed.
+# Composer dev tooling (phpcs / WordPress Coding Standards). composer.json and
+# composer.lock ARE committed so CI installs the same sniff versions every run;
+# the installed tree is not. bin/build.sh keeps all three out of the zip.
 vendor/
-composer.lock
 node_modules/
+# A local phpcs.xml overrides phpcs.xml.dist for one developer only.
+/phpcs.xml
+/.phpcs.xml
+.phpcs-cache
