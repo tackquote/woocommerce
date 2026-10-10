@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.10.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -383,6 +383,9 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 == Changelog ==
 
+= 1.10.1 =
+* No functional change: source comments and packaging cleaned for release; release audit added to the build.
+
 = 1.10.0 =
 * **Security and standards audit.** A customer who changes their own email by any route (including the REST API, not only My Account) is no longer trusted with another buyer's prices, net terms or tax exemption until confirmed. Rate limits can no longer be dodged with a forged `X-Real-IP`, and now also cover the application forms and quote checkout links. Draft, private, password-protected and group-hidden products can no longer be quoted. The API key is never re-sent after an HTTP redirect. Uninstall removes every setting, the plugin's user and product meta and queued jobs. Personal-data export and erasure cover the plugin's user meta.
 * **Attachments.** Quote requests can carry up to 3 files (PDF, JPEG or PNG, 5 MB each) through an optional "Attach files (optional)" control in the quote form, when you switch on "Allow attachments on quote requests" (Storefront tab, off by default) and your TackQuote server advertises attachments. Wholesale application file fields now accept a file from signed-in customers (guests see "Sign in to your account to attach files"). Files are checked on your store (count, size, extension and content), streamed server to server to TackQuote and never stored in WordPress; the seller sees them on the quote or application.
@@ -434,7 +437,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.
 * **An order held by a 429 is sent again on its own.** It is put back into Action Scheduler for the moment the pause ends, instead of waiting for another order to change. Previously the last order of a quiet day could sit unsent until something else happened in the store.
-* Together with the refusal handling below, this closes the audit finding that one installed copy of this plugin reached TackQuote about 2,800 times a day and was refused on 94% of them: a refused or throttled key now costs at most a handful of requests per hour.
+* Together with the refusal handling below, a refused or throttled key now costs at most a handful of requests per hour.
 * **Order sync stops when TackQuote refuses the API key, and tells you why.** If the key saved in TackQuote settings lacks the `orders:write` scope, has been revoked, or your TackQuote subscription is inactive, TackQuote refuses every order. The plugin used to try again on every order change, which on a busy store meant a refused request every few seconds, and the reason only appeared in WooCommerce > Status > Logs. It now stops sending, shows an error notice in wp-admin that names the missing scope or the billing step, and checks again at most once an hour. Saving a different key resumes at once.
 * When order sync resumes, orders changed while it was refused are sent automatically (up to 200 of the oldest at a time; any beyond that are sent when they next change).
 * When TackQuote asks the plugin to slow down (HTTP 429), the plugin waits for the time TackQuote names, up to one hour. A firewall or challenge page in front of TackQuote is treated as temporary and does not stop sync.

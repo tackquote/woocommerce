@@ -21,7 +21,6 @@
  *   flag then suppressed them inside it. Outside the form `tack-quotes.js` cannot
  *   read the quantity or the chosen variation: a variable product's "Request a
  *   Quote" was always refused, and "Add to Quote" added the parent at quantity 1.
- *   Verified on Studio (WooCommerce 11.2.1, Twenty Twenty-Five).
  *
  * So the controls are rendered through the Add to Cart blocks' own render
  * filters (`render_block_{$name}`, `wp-includes/class-wp-block.php`), and the
@@ -194,7 +193,7 @@ class Tack_Block_Product {
 
 	/**
 	 * Each variation's own SKU and unit price, for the quote-list row an "Add to
-	 * Quote" click builds (E2E attempt 2, D4). The button carries the PARENT's SKU and
+	 * Quote" click builds. The button carries the PARENT's SKU and
 	 * price, which for a variable product is the cheapest variation's, so a Medium at
 	 * 12.00 was listed as the parent SKU at 10.00.
 	 *

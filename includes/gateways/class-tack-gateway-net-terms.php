@@ -32,7 +32,7 @@
  * REMAINING CREDIT WHEN KNOWN. A server that sends `available` (remaining
  * credit, account currency) is held to it: the total must be at most what is
  * left (`insufficient_available_credit`). An older server sends only the
- * credit LIMIT (tack `storefront-net-terms.ts` before W2-tack-orders), and then
+ * credit LIMIT, and then
  * an order larger than the whole line is refused (`over_limit`); whether earlier
  * open invoices leave room is TackQuote's check when it books the synced order.
  * Neither figure ever reaches the browser or the order.
@@ -289,8 +289,8 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 	 * Remaining credit in the account currency, or null when the server did not send it.
 	 *
 	 * Read from `account.available` (beside `creditLimit`, same currency), else a
-	 * top-level `available`. UNVERIFIED: the exact location is set by the tack lane
-	 * adding the field (W2-tack-orders); an older server sends neither, and the
+	 * top-level `available`. UNVERIFIED: which of the two a server uses is not yet
+	 * documented, so both are read; an older server sends neither, and the
 	 * gateway then compares against `creditLimit` as before. A non-numeric value
 	 * counts as absent.
 	 *

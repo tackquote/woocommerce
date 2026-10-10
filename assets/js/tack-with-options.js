@@ -66,7 +66,7 @@
     };
   }
 
-  // The quote-list row for an "Add to Quote" click (E2E attempt 2, D4).
+  // The quote-list row for an "Add to Quote" click.
   //
   // `base` is what the button carries: the PARENT's id, name, SKU and price.
   // `lines` is `data-tack-variation-lines` parsed (`{ "<id>": { "s": sku, "p": price } }`,

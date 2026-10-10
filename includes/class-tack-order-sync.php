@@ -756,9 +756,8 @@ class Tack_Order_Sync {
 	 * So with `modifiedAt` inside the hash, recording a push would itself invalidate the key
 	 * that push recorded: the next trigger would compute a different key, push again, stamp
 	 * again, and de-duplication would never converge for as long as the store had HPOS on.
-	 * Verified on WooCommerce 11.0.1 with HPOS enabled — writing SYNC_KEY_META moved
-	 * date_modified, the shipped rule kept the key stable, and hashing the payload as-is
-	 * produced a fresh key every time.
+	 * Excluding `modifiedAt` keeps the key stable; hashing the payload as-is would produce a
+	 * fresh key on every push.
 	 *
 	 * Post storage does not have this problem (`abstract-wc-order-data-store-cpt.php` only
 	 * rewrites `post_modified` when one of date_created/date_modified/status/parent_id/

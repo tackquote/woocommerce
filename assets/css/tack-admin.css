@@ -368,8 +368,8 @@
  * (fixed width, 20px/10px/0 padding, top alignment) and this sheet's own
  * `.tack-form .form-table th { width: 220px }` leaked into every grid cell:
  * text flush against the border, oversized rows, and a "Result" header that
- * did not line up with its column (owner report, Buyer groups tab,
- * 2026-10-10). Reset the cells at higher specificity.
+ * did not line up with its column (Buyer groups tab). Reset the cells at
+ * higher specificity.
  */
 .tack-form .form-table .tack-grid th,
 .tack-form .form-table .tack-grid td {

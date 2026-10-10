@@ -171,7 +171,7 @@ class Tack_B2B_Notices {
 			return null;
 		}
 
-		// `/storefront/v1/order-limits` (W1-forms, 1.10.0), falling back to the legacy
+		// `/storefront/v1/order-limits` (1.10.0), falling back to the legacy
 		// `/storefront-b2b/order-limits` inside the client when v1 is absent.
 		$response = $this->client->get_order_limits( $sku, $this->buyer_email() );
 		if ( is_wp_error( $response ) ) {
@@ -187,7 +187,7 @@ class Tack_B2B_Notices {
 		}
 
 		/*
-		 * Both routes answer `StorefrontOrderLimit` (tack `order-limits.service.ts`):
+		 * Both routes answer the same order-limit shape:
 		 * `{limitType, sku, min, max, currency, message}`. Up to 1.8.x this read
 		 * `minQuantity` / `maxQuantity`, keys no server version has ever sent, so
 		 * every limit read as "no bounds" and nothing was shown or enforced. Only a

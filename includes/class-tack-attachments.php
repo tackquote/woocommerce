@@ -3,7 +3,7 @@
  * Attachments: files a shopper adds to a quote request or a wholesale application.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * HOW A FILE TRAVELS (TackQuote upload-then-claim, tack docs/integrations/WOOCOMMERCE.md)
+ * HOW A FILE TRAVELS (TackQuote upload-then-claim)
  * ─────────────────────────────────────────────────────────────────────────────
  * 1. The browser posts the files to this store (admin-ajax `tack_quote_upload`,
  *    nonce-checked, logged-in and guest variants).

@@ -18,8 +18,8 @@ repository documentation; `bin/build.sh` keeps `docs/` out of `tackquote.zip`.
   `= X.Y.Z =` section at the top of `== Changelog ==`. `bin/wporg-sync.sh
   --check-readme` refuses a release where any of them disagree.
 - Gates pass on that commit: `php -l`, `php tests/run.php`, PHPCS, `bash
-  scripts/package.sh <dir>` and `bash scripts/check-release-claims.sh` (see the
-  README's Development section).
+  scripts/package.sh <dir>` (which runs the release audit, `bin/ship-audit.sh`)
+  and `bash scripts/check-release-claims.sh` (see the README's Development section).
 
 ```bash
 git switch main && git pull --ff-only

@@ -708,7 +708,7 @@
       '</button>' +
       '</div>' +
       '</form>' +
-      // OUTSIDE the form, on purpose (E2E attempt 2, D3): the success branch hides the
+      // OUTSIDE the form, on purpose: the success branch hides the
       // form, and a message inside it was hidden with it, so a guest saw an empty dialog
       // and sent the request again. Focusable (tabindex -1) so it can take focus for
       // screen readers when it appears; role="status" announces it as well.
@@ -739,7 +739,7 @@
       filesInput.tackUploaded = null;
     }
     $email.val(TackQuotes.customerEmail || '');
-    // A signed-in customer's name (E2E attempt 2, D6); '' for guests.
+    // A signed-in customer's name; '' for guests.
     var $firstName = $overlay.find('#tack-quote-first-name');
     $firstName.val(TackQuotes.customerFirstName || '');
     $overlay.find('#tack-quote-last-name').val(TackQuotes.customerLastName || '');
@@ -1162,8 +1162,8 @@
   // stays clickable is inconsistent and invites the error the server then rejects.
   //
   // `show_variation` / `hide_variation` are the events core itself listens to in
-  // assets/js/frontend/add-to-cart-variation.js — verified against the installed source
-  // rather than assumed, since these names are not part of any documented public API.
+  // assets/js/frontend/add-to-cart-variation.js. These names are not part of any
+  // documented public API, so they are taken from that source rather than assumed.
   //
   // Core's `purchasable` argument is NOT used as-is: it is false whenever the variation is
   // not purchasable, and a quote-only product (store-wide or per product) is made
@@ -1254,8 +1254,8 @@
       quantity = chosen.quantity;
     }
 
-    // A variation's own SKU and price come from the map printed beside the buttons
-    // (E2E attempt 2, D4): the button's are the parent's, i.e. the cheapest variation.
+    // A variation's own SKU and price come from the map printed beside the buttons:
+    // the button's are the parent's, i.e. the cheapest variation.
     var api = window.TackWithOptions;
     var row = api.listRow(
       {

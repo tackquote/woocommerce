@@ -393,7 +393,7 @@ class Tack_Widget {
 				// stays valid no matter how long the HTML sits in a cache.
 				'nonceUrl'            => $this->nonce_endpoint(),
 				'customerEmail'       => $this->current_customer_email(),
-				// Signed-in visitors only, like the email (E2E D6): '' for guests.
+				// Signed-in visitors only, like the email: '' for guests.
 				'customerFirstName'   => $this->current_customer_name( 'first' ),
 				'customerLastName'    => $this->current_customer_name( 'last' ),
 				'checkoutButtonLabel' => self::button_label( 'tack_quotes_checkout_button_label' ),
@@ -569,7 +569,7 @@ class Tack_Widget {
 	 */
 	private function current_customer_email() {
 		/*
-		 * Signed-in visitors only (audit L-4, 1.10.0). This value is printed into every
+		 * Signed-in visitors only (since 1.10.0). This value is printed into every
 		 * page's inline script; a guest's WooCommerce-session billing email would end up
 		 * in pages that a full-page cache not varying on the session cookie serves to
 		 * other visitors. Signed-in visitors bypass page caches.
@@ -588,9 +588,8 @@ class Tack_Widget {
 	}
 
 	/**
-	 * First or last name for pre-filling the modal, for a signed-in visitor only
-	 * (E2E attempt 2, D6): their WooCommerce billing name first, then the WordPress
-	 * profile name. '' for guests, for the same page-cache reason as the email.
+	 * First or last name for pre-filling the modal, for a signed-in visitor only:
+	 * their WooCommerce billing name first, then the WordPress profile name. '' for guests, for the same page-cache reason as the email.
 	 *
 	 * @since 1.10.0
 	 *
@@ -682,7 +681,7 @@ class Tack_Widget {
 
 		echo '<div class="tack-quote-buttons"';
 		if ( $show_add_to_quote && $product->is_type( 'variable' ) ) {
-			// The chosen variation's own SKU and price for the quote-list row (E2E D4).
+			// The chosen variation's own SKU and price for the quote-list row.
 			echo ' data-tack-variation-lines="' . esc_attr( (string) wp_json_encode( (object) Tack_Block_Product::variation_lines( $product ) ) ) . '"';
 		}
 		if ( self::WITH_OPTIONS_SCOPE === $scope ) {
@@ -1503,7 +1502,7 @@ class Tack_Widget {
 
 		/*
 		 * Target prices (1.10.0, quote page): `lineItems[].targetPrice`, which TackQuote
-		 * shows the seller as "Buyer asked for" (E2E attempt 2, D5), on a server that
+		 * shows the seller as "Buyer asked for", on a server that
 		 * takes the field; inside the request note, one line per product, on an older one.
 		 */
 		if ( ! empty( $this->target_prices ) ) {
@@ -1633,8 +1632,8 @@ class Tack_Widget {
 	 * The quote-request payload with the shopper's target prices added.
 	 *
 	 * Per line as `lineItems[].targetPrice` when `$per_line` (the server takes the
-	 * field: tack `StorefrontPluginLineItemDto.targetPrice`, stored as the line's
-	 * `buyer_requested_price` and shown as "Buyer asked for"); the note is then left as
+	 * field: TackQuote stores it as the line's requested price and shows it as
+	 * "Buyer asked for"); the note is then left as
 	 * the shopper wrote it. Otherwise folded into the note, because an older server's
 	 * `forbidNonWhitelisted` refuses the WHOLE request over one unknown field.
 	 *
@@ -1769,8 +1768,8 @@ class Tack_Widget {
 	 * When the shopper picked a variation, THAT is what gets quoted: a variation carries
 	 * its own SKU and its own price, and the button on a variable product page can only
 	 * carry the parent id. Quoting the parent recorded the wrong SKU at the parent's
-	 * price — on this devstore's gloves, "X-Large" (TQ-GLOVE-XL, 47.50) was quoted as
-	 * TQ-GLOVE-PARENT at 42.00, i.e. the wrong item underpriced by 5.50 a unit.
+	 * price, which for a variable product is the cheapest variation's: the wrong item,
+	 * and for a dearer variation an underpriced one.
 	 *
 	 * The variation id is caller-supplied, so it is only honoured after confirming it is
 	 * really a variation OF THIS PRODUCT. Otherwise anyone could post any product's id as
