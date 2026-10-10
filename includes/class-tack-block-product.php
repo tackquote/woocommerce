@@ -193,6 +193,46 @@ class Tack_Block_Product {
 	}
 
 	/**
+	 * Each variation's own SKU and unit price, for the quote-list row an "Add to
+	 * Quote" click builds (E2E attempt 2, D4). The button carries the PARENT's SKU and
+	 * price, which for a variable product is the cheapest variation's, so a Medium at
+	 * 12.00 was listed as the parent SKU at 10.00.
+	 *
+	 * The price is excluding tax, the same basis as every other row in the list (the
+	 * parent button, product cards, the cart snapshot), the quote page's "Unit price
+	 * (excl. tax)" column and the `unitPrice` the request sends. `null` when the
+	 * variation has no price. `get_sku()` falls back to the parent's SKU when the
+	 * variation has none, as WooCommerce itself displays it. The server re-derives
+	 * every value from the variation id; this is only what the shopper is shown.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param WC_Product|mixed $product The variable product.
+	 * @return array<string, array{s:string, p:float|null}> Empty for anything else.
+	 */
+	public static function variation_lines( $product ) {
+		$lines = array();
+		if ( ! $product instanceof WC_Product || ! $product->is_type( 'variable' ) || ! function_exists( 'wc_get_product' ) ) {
+			return $lines;
+		}
+		foreach ( (array) $product->get_children() as $child_id ) {
+			$variation = wc_get_product( $child_id );
+			if ( ! $variation instanceof WC_Product ) {
+				continue;
+			}
+			$price = '' === (string) $variation->get_price() || ! function_exists( 'wc_get_price_excluding_tax' )
+				? null
+				: (float) wc_get_price_excluding_tax( $variation );
+
+			$lines[ (string) (int) $child_id ] = array(
+				's' => (string) $variation->get_sku(),
+				'p' => $price,
+			);
+		}
+		return $lines;
+	}
+
+	/**
 	 * Does the Add to Cart with Options block render no quantity input for this
 	 * product? Its Quantity Selector inner block returns nothing for a product it
 	 * treats as not purchasable (`QuantitySelector::render()` and

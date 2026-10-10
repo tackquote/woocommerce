@@ -42,6 +42,7 @@ jobs:
         run: |
           node --check assets/js/tack-quotes.js
           node tests/js/with-options.test.js
+          node tests/js/list-row.test.js
 
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist

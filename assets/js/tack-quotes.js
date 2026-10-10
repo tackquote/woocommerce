@@ -1249,16 +1249,22 @@
       quantity = chosen.quantity;
     }
 
-    addToList({
-      productId: $btn.data('product-id') || 0,
-      variationId: variationId,
-      name:
-        ($btn.data('product-name') || '') +
-        (variationLabel ? ' - ' + variationLabel : ''),
-      sku: $btn.data('product-sku') || '',
-      price: Number($btn.data('product-price')) || 0,
-      quantity: quantity,
-    });
+    // A variation's own SKU and price come from the map printed beside the buttons
+    // (E2E attempt 2, D4): the button's are the parent's, i.e. the cheapest variation.
+    var api = window.TackWithOptions;
+    var row = api.listRow(
+      {
+        productId: $btn.data('product-id'),
+        name: $btn.attr('data-product-name'),
+        sku: $btn.attr('data-product-sku'),
+        price: $btn.attr('data-product-price'),
+      },
+      variationId,
+      variationLabel,
+      api.parseStates($btn.closest('.tack-quote-buttons').attr('data-tack-variation-lines'))
+    );
+    row.quantity = quantity;
+    addToList(row);
     scheduleReprice();
 
     var original = $btn.text();

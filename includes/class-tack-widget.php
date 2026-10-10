@@ -652,6 +652,10 @@ class Tack_Widget {
 		}
 
 		echo '<div class="tack-quote-buttons"';
+		if ( $show_add_to_quote && $product->is_type( 'variable' ) ) {
+			// The chosen variation's own SKU and price for the quote-list row (E2E D4).
+			echo ' data-tack-variation-lines="' . esc_attr( (string) wp_json_encode( (object) Tack_Block_Product::variation_lines( $product ) ) ) . '"';
+		}
 		if ( self::WITH_OPTIONS_SCOPE === $scope ) {
 			echo ' data-tack-scope="' . esc_attr( self::WITH_OPTIONS_SCOPE ) . '"';
 			if ( $product->is_type( 'variable' ) ) {

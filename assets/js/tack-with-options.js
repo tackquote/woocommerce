@@ -66,5 +66,35 @@
     };
   }
 
-  return { parseStates: parseStates, resolve: resolve };
+  // The quote-list row for an "Add to Quote" click (E2E attempt 2, D4).
+  //
+  // `base` is what the button carries: the PARENT's id, name, SKU and price.
+  // `lines` is `data-tack-variation-lines` parsed (`{ "<id>": { "s": sku, "p": price } }`,
+  // `Tack_Block_Product::variation_lines()`), the chosen variation's own SKU and unit
+  // price excluding tax. With a variation chosen the row carries THAT variation's SKU and
+  // price; a variation missing from the map shows no SKU and no price rather than the
+  // parent's, which is the minimum of the range and would understate the price.
+  // The server re-derives every value from the ids; this is only what the drawer shows.
+  function listRow(base, variationId, label, lines) {
+    var b = base || {};
+    var id = positiveInt(variationId);
+    var row = {
+      productId: positiveInt(b.productId),
+      variationId: id,
+      name: String(b.name || '') + (label ? ' - ' + label : ''),
+      sku: String(b.sku || ''),
+      price: Number(b.price) || 0,
+    };
+    if (!id) {
+      return row;
+    }
+    var key = String(id);
+    var line = lines && typeof lines === 'object' && Object.prototype.hasOwnProperty.call(lines, key) ? lines[key] : null;
+    row.sku = line && typeof line.s === 'string' ? line.s : '';
+    var price = line ? Number(line.p) : NaN;
+    row.price = line && line.p !== null && line.p !== '' && isFinite(price) && price >= 0 ? price : 0;
+    return row;
+  }
+
+  return { parseStates: parseStates, resolve: resolve, listRow: listRow };
 });

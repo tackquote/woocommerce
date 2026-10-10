@@ -194,6 +194,14 @@ class Tack_Parity_Product extends WC_Product {
 	public function get_sku() {
 		return $this->psku;
 	}
+	/** @return string|float The entered price, '' for none (E2E D4 reads it). */
+	public function get_price() {
+		return null === $this->price ? '' : $this->price;
+	}
+	/** @return int[] No variations unless a subclass says so (E2E D4 reads it). */
+	public function get_children() {
+		return array();
+	}
 	/** @param string $t Type. @return bool */
 	public function is_type( $t ) {
 		return $t === $this->type;
