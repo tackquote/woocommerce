@@ -161,6 +161,8 @@ $tack_quotes_transients = array(
 	'tack_quotes_connection_check',
 	// What the server advertised on ping (Tack_Api_Client::CAPABILITIES_TRANSIENT) — 1.10.0.
 	'tack_quotes_server_capabilities',
+	// Wholesale form slugs already logged today as matching no form (Tack_Storefront_Forms::MISSING_FORM_LOGGED) — 1.10.0.
+	'tack_quotes_wholesale_form_missing',
 );
 
 /**

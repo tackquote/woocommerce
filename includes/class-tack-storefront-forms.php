@@ -101,6 +101,9 @@ class Tack_Storefront_Forms {
 	/** The form slug used when the merchant has not chosen one. */
 	const DEFAULT_SLUG = 'default';
 
+	/** Slugs already logged today as matching no wholesale form (E2E D10). */
+	const MISSING_FORM_LOGGED = 'tack_quotes_wholesale_form_missing';
+
 	/** Payment-terms lengths offered on the net-terms form (days). All within the DTO's 0..365. */
 	const TERMS_DAYS = array( 15, 30, 45, 60, 90 );
 
@@ -394,6 +397,14 @@ class Tack_Storefront_Forms {
 		}
 
 		$form = $this->client->get_wholesale_form( $slug );
+		if ( is_wp_error( $form ) && self::is_missing_form( $form ) ) {
+			// The slug matches no form (E2E attempt 2, D10): trying again later will not
+			// help the shopper, and only the store's administrator can fix it.
+			$this->log_missing_form( $slug, $form );
+			$html .= $this->notice( 'info', __( 'This form isn\'t available right now.', 'tackquote' ) );
+			$html .= $this->missing_form_hint( $slug );
+			return $this->kses( '<div class="tackquote-storefront-form tackquote-wholesale-application">' . $html . '</div>' );
+		}
 		if ( is_wp_error( $form ) ) {
 			$this->log( 'wholesale-form read failed: ' . $this->error_summary( $form ) );
 			$html .= $this->notice( 'info', __( 'The wholesale application form is not available right now. Please try again later.', 'tackquote' ) );
@@ -1780,6 +1791,69 @@ class Tack_Storefront_Forms {
 			return __( 'This application form is not available.', 'tackquote' );
 		}
 		return __( 'TackQuote could not be reached. Please try again in a few minutes.', 'tackquote' );
+	}
+
+	/**
+	 * Did TackQuote answer that no wholesale form has this slug?
+	 *
+	 * `GET /integrations/woocommerce/wholesale-form` answers 404 "Form not found" for
+	 * a slug the workspace has no form under (tack `WholesaleFormsService::getPublic`).
+	 * The route itself exists on every server this plugin version supports, so any
+	 * 404 there is read as "no such form".
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 * @return bool
+	 */
+	public static function is_missing_form( $error ) {
+		$data = $error->get_error_data();
+		return is_array( $data ) && isset( $data['status'] ) && 404 === (int) $data['status'];
+	}
+
+	/**
+	 * For an administrator only: which slug matched no form, and where to fix it.
+	 * Empty for everyone else.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $slug The form slug that was asked for.
+	 * @return string Markup (escaped here; kses-filtered by the caller).
+	 */
+	public function missing_form_hint( $slug ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return '';
+		}
+		$settings = class_exists( 'Tack_Settings' ) ? Tack_Settings::tab_url( 'forms' ) : admin_url( 'admin.php' );
+		return '<p class="tackquote-admin-hint">'
+			. esc_html(
+				sprintf(
+					/* translators: %s: the wholesale form slug set in the plugin settings. */
+					__( 'Only administrators see this: no TackQuote wholesale form has the slug "%s". Create one in TackQuote under Settings, Wholesale forms, or choose another slug on the Forms tab.', 'tackquote' ),
+					$slug
+				)
+			)
+			. ' <a href="' . esc_url( $settings ) . '">' . esc_html__( 'Open the Forms tab', 'tackquote' ) . '</a></p>';
+	}
+
+	/**
+	 * Log a slug that matches no form at most once a day per slug, so a busy page does
+	 * not fill the log with the same line.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string   $slug  The form slug.
+	 * @param WP_Error $error The 404.
+	 */
+	private function log_missing_form( $slug, $error ) {
+		$logged = get_transient( self::MISSING_FORM_LOGGED );
+		$logged = is_array( $logged ) ? $logged : array();
+		if ( isset( $logged[ $slug ] ) ) {
+			return;
+		}
+		$this->log( 'wholesale-form slug "' . $slug . '" matches no TackQuote wholesale form (' . $this->error_summary( $error ) . '); set the slug on the Forms tab' );
+		$logged[ $slug ] = time();
+		set_transient( self::MISSING_FORM_LOGGED, $logged, DAY_IN_SECONDS );
 	}
 
 	/**

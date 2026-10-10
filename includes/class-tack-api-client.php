@@ -689,8 +689,9 @@ class Tack_Api_Client {
 					return $entry['form'];
 				}
 				// A cached FAILURE: distinguishable from "nothing cached" by the entry
-				// existing with no form in it.
-				return new WP_Error( 'tack_form_unavailable', __( 'The application form is not available right now.', 'tackquote' ), array( 'status' => 0 ) );
+				// existing with no form in it. It keeps the HTTP status, so a cached 404
+				// still reads as "no form has this slug" (E2E D10).
+				return new WP_Error( 'tack_form_unavailable', __( 'The application form is not available right now.', 'tackquote' ), array( 'status' => isset( $entry['status'] ) ? (int) $entry['status'] : 0 ) );
 			}
 		}
 
@@ -702,7 +703,10 @@ class Tack_Api_Client {
 		);
 
 		if ( is_wp_error( $result ) || ! is_array( $result ) || empty( $result['fields'] ) || ! is_array( $result['fields'] ) ) {
-			$cache[ $slug ] = array( 'until' => time() + 60 );
+			$cache[ $slug ] = array(
+				'until'  => time() + 60,
+				'status' => is_wp_error( $result ) ? self::status_of( $result ) : 0,
+			);
 			set_transient( self::FORM_CACHE_TRANSIENT, $cache, 15 * MINUTE_IN_SECONDS );
 			return is_wp_error( $result )
 				? $result

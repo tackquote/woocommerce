@@ -199,3 +199,44 @@ check( 'D8: German company field labels: Legal name, Address, State / Province',
 $e2e_po = (string) file_get_contents( TACK_QUOTES_DIR . 'languages/tackquote-de_DE.po' );
 check( 'D8: the drawer title and launcher label (PHP) are in the German .po', false !== strpos( $e2e_po, "msgid \"Your quote list\"\nmsgstr \"Angebotskorb\"" ) && false !== strpos( $e2e_po, "msgid \"Quote list\"\nmsgstr \"Angebotskorb\"" ), 'see languages/tackquote-de_DE.po' );
 check( 'D8: strings with no catalogue equivalent stay English (Cancel, First name)', null === $e2e_de( 'Cancel' ) && null === $e2e_de( 'First name' ) );
+
+// ── D10: a wholesale form slug that matches no form ─────────────────────────
+
+tack_test_reset_transients();
+$GLOBALS['TACK_LOGGED'] = array();
+$GLOBALS['TACK_CAPS']   = array();
+$e2e_forms = new Tack_Storefront_Forms( new Tack_Test_Forms_Client( array( 'wholesale-form?slug=default' => tack_test_api_error( 404, 'Form not found' ) ) ) );
+$e2e_html  = $e2e_forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+check( 'D10: the shopper is told the form isn\'t available right now (not "try again later")', false !== strpos( $e2e_html, 'This form isn' ) && false === strpos( $e2e_html, 'try again later' ), $e2e_html );
+check( 'D10: a shopper sees no slug and no settings hint', false === strpos( $e2e_html, 'tackquote-admin-hint' ) && false === strpos( $e2e_html, 'default' ), $e2e_html );
+
+$GLOBALS['TACK_CAPS'] = array( 'manage_options' );
+$e2e_html             = $e2e_forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+check( 'D10: a CACHED 404 (second render within the minute) still reads as "no such form"', false !== strpos( $e2e_html, 'This form isn' ) && false === strpos( $e2e_html, 'try again later' ), $e2e_html );
+check( 'D10: an administrator also sees the slug that matched no form', false !== strpos( $e2e_html, 'tackquote-admin-hint' ) && false !== strpos( $e2e_html, 'slug &quot;default&quot;' ), $e2e_html );
+check( 'D10: ...with a link to the Forms tab', false !== strpos( $e2e_html, 'href="https://shop.example/wp-admin/admin.php?page=' . Tack_Settings::PAGE_SLUG . '&tab=forms"' ), $e2e_html );
+$e2e_hint = ( new Tack_Storefront_Forms( new Tack_Test_Forms_Client( array() ) ) )->missing_form_hint( 'x"><script>alert(1)</script>' );
+check( 'D10: the slug is escaped in the hint', false === strpos( $e2e_hint, '<script>' ), $e2e_hint );
+$GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
+check( 'D10: a shop manager without manage_options sees no hint', '' === $e2e_forms->missing_form_hint( 'default' ) );
+$GLOBALS['TACK_CAPS'] = array();
+
+$e2e_lines = array_values(
+	array_filter(
+		$GLOBALS['TACK_LOGGED'],
+		function ( $l ) {
+			return false !== strpos( $l[1], 'matches no TackQuote wholesale form' );
+		}
+	)
+);
+check( 'D10: two renders in a day log the missing slug ONCE', 1 === count( $e2e_lines ), var_export( $GLOBALS['TACK_LOGGED'], true ) );
+check( 'D10: the log line names the slug and the status, never a key', 1 === count( $e2e_lines ) && false !== strpos( $e2e_lines[0][1], '"default"' ) && false !== strpos( $e2e_lines[0][1], 'HTTP 404' ) );
+$e2e_forms->render_wholesale_form( 'trade', 'https://shop.example/apply/' );
+check( 'D10: another missing slug is logged on its own', 2 === count( array_filter( $GLOBALS['TACK_LOGGED'], function ( $l ) { return false !== strpos( $l[1], 'matches no TackQuote wholesale form' ); } ) ) ); // phpcs:ignore
+
+tack_test_reset_transients();
+$e2e_forms = new Tack_Storefront_Forms( new Tack_Test_Forms_Client( array( 'wholesale-form?slug=default' => tack_test_api_error( 503, 'down', false ) ) ) );
+$e2e_html  = $e2e_forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+check( 'D10: any other failure keeps "not available right now. Please try again later."', false !== strpos( $e2e_html, 'Please try again later.' ) && false === strpos( $e2e_html, 'tackquote-admin-hint' ), $e2e_html );
+check( 'D10: uninstall removes the once-a-day log marker', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' ), "'" . Tack_Storefront_Forms::MISSING_FORM_LOGGED . "'" ) );
+tack_test_reset_transients();
