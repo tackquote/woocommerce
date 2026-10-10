@@ -1,6 +1,6 @@
 <?php
 /**
- * Accepted quote to store checkout (parity row 10).
+ * Accepted quote to store checkout.
  *
  * The buyer accepts a quote in the TackQuote buyer portal and presses "Checkout
  * in the store". TackQuote mints a single-use token and sends the buyer to
@@ -22,7 +22,8 @@
  * Active only while the plugin holds an API key: a store that never connected
  * TackQuote cannot receive such a link, and nothing changes for it.
  *
- * Server contract: tack `woocommerce-quote-checkout.service.ts` (PR #733).
+ * Server contract: `GET /integrations/woocommerce/quote-checkout/<token>` on the
+ * TackQuote API.
  *
  * @package TackQuotes
  * @since   1.10.0

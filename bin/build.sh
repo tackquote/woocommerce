@@ -123,4 +123,16 @@ if printf '%s\n' "$ENTRIES" | awk '{print $NF}' | grep -q "^$PLUGIN_SLUG/languag
 	exit 1
 fi
 
+# ── Release audit: no internal notes, test data or debug code ──────────────
+#
+# Comments in shipped files are read by merchants and WordPress.org reviewers. The
+# audit fails on work-item and defect ids, test-run notes, paths into other
+# repositories, sample data and debugging leftovers (bin/ship-audit.sh lists the
+# patterns). A failing audit removes the zip so it cannot be released by mistake.
+if ! bash "$ROOT/bin/ship-audit.sh" "$DIST/$PLUGIN_SLUG.zip" >&2; then
+	rm -f "$DIST/$PLUGIN_SLUG.zip"
+	echo "BUILD FAILED: the release audit found internal notes in the plugin zip." >&2
+	exit 1
+fi
+
 echo "Built $DIST/$PLUGIN_SLUG.zip"

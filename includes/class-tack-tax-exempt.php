@@ -3,7 +3,7 @@
  * Tax-exempt buyers: no tax for a signed-in customer TackQuote marks exempt.
  *
  * TackQuote answers `taxExempt` on `GET /storefront/v1/buyer-group` for an
- * identified buyer (tack #726, parity row 12). When it is TRUE this class calls
+ * identified buyer. When it is TRUE this class calls
  * `WC()->customer->set_is_vat_exempt( true )` before the cart totals are built;
  * WooCommerce's `WC_Cart_Totals` then skips tax
  * (`$this->calculate_tax = wc_tax_enabled() && ! $is_customer_vat_exempt`), and

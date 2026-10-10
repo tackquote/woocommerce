@@ -94,7 +94,7 @@ class Tack_Api_Client {
 					// the header ignores it; the User-Agent above stays because proxies rewrite it.
 					'X-TackQuote-Plugin-Version' => TACK_QUOTES_VERSION,
 					// The store's address (`home_url()`), on EVERY request, so TackQuote can tell
-					// which store a key is used from (tack lane W10). Public information; a
+					// which store a key is used from. Public information; a
 					// server that does not know the header ignores it.
 					'X-TackQuote-Site-Url'       => home_url(),
 				),
@@ -106,7 +106,7 @@ class Tack_Api_Client {
 		 * A caller may REMOVE a default header by passing it as null. `/storefront/v1/*`
 		 * needs this: it treats `Authorization` as a platform token (Wix) and refuses a
 		 * request carrying two storefront credentials with 401 "Send exactly one
-		 * storefront credential" (tack `storefront-identity.guard.ts`), so those reads
+		 * storefront credential", so those reads
 		 * send the key in `X-Api-Key` only. An empty string would still be a header.
 		 */
 		$args['headers'] = array_filter(
@@ -359,7 +359,7 @@ class Tack_Api_Client {
 
 	/**
 	 * What the TackQuote server says it supports (`GET /integrations/woocommerce/ping`
-	 * answers `capabilities`, tack `WOOCOMMERCE_PLUGIN_CAPABILITIES`).
+	 * answers `capabilities`).
 	 *
 	 * An older server answers no list, which is "nothing new": the plugin then sends
 	 * none of the fields a newer server added, because an older server's
@@ -414,10 +414,8 @@ class Tack_Api_Client {
 	/**
 	 * Does the server take `lineItems[].targetPrice` on the quote request?
 	 *
-	 * No ping capability names the field. tack added it (`StorefrontPluginLineItemDto`,
-	 * commit b615540e1, 2026-10-10) BEFORE it added the `attachments` capability
-	 * (a7d0a2593, which descends from b615540e1: checked with
-	 * `git merge-base --is-ancestor`), so every server that lists `attachments` takes
+	 * No ping capability names the field. TackQuote added it BEFORE it added the
+	 * `attachments` capability, so every server that lists `attachments` takes
 	 * `targetPrice`. An older server's `forbidNonWhitelisted` refuses the whole request
 	 * over the field, so it gets the target prices in the note instead.
 	 *
@@ -694,7 +692,7 @@ class Tack_Api_Client {
 				}
 				// A cached FAILURE: distinguishable from "nothing cached" by the entry
 				// existing with no form in it. It keeps the HTTP status, so a cached 404
-				// still reads as "no form has this slug" (E2E D10).
+				// still reads as "no form has this slug".
 				return new WP_Error( 'tack_form_unavailable', __( 'The application form is not available right now.', 'tackquote' ), array( 'status' => isset( $entry['status'] ) ? (int) $entry['status'] : 0 ) );
 			}
 		}
@@ -735,7 +733,7 @@ class Tack_Api_Client {
 	 *
 	 * @param string $slug            Form slug.
 	 * @param array  $values          Answers keyed by field key, in the shapes
-	 *                                `common/forms/form-schema.ts` validates.
+	 *                                TackQuote's form schema validates.
 	 * @param string $woo_customer_id WooCommerce customer id when signed in, else ''.
 	 * @return array|WP_Error `{id, status, message}`.
 	 */
@@ -755,8 +753,8 @@ class Tack_Api_Client {
 	/**
 	 * Submit a net-terms (credit) application for a signed-in customer.
 	 *
-	 * Scope `buyers:write` on both routes. The body mirrors
-	 * `SubmitCreditApplicationDto`; the caller has already validated it against the
+	 * Scope `buyers:write` on both routes. The body is
+	 * TackQuote's credit-application request; the caller has already validated it against the
 	 * same bounds. Two routes, tried in this order:
 	 *
 	 *   1. `POST /storefront/v1/credit-application?buyerEmail=&buyerExternalId=`.
@@ -920,7 +918,7 @@ class Tack_Api_Client {
 	 * `buyerEmail` when there is one. `buyerExternalId` — the WordPress user id,
 	 * digits only — only beside an email AND only while a customer is signed in,
 	 * so a guest never sends one and an id never travels without the email it
-	 * belongs to (the server ignores a lone id; tack #726). A server older than
+	 * belongs to (the server ignores a lone id). A server older than
 	 * that ignores the parameter.
 	 *
 	 * @param string $buyer_email Signed-in buyer's email, or ''.
@@ -944,7 +942,7 @@ class Tack_Api_Client {
 	 *
 	 * `GET /storefront/v1/price-access?buyerEmail=&buyerExternalId=` answers
 	 * `PriceAccessResult`: `{status: anonymous}`, `{status: unlinked}` or
-	 * `{status: linked, wholesaleApproved}` (tack `storefront-b2b.core.ts`). There is
+	 * `{status: linked, wholesaleApproved}`. There is
 	 * no legacy route to fall back to, so a server without v1 routes is an error here:
 	 * the price gate that calls this fails CLOSED on any error.
 	 *
@@ -965,10 +963,10 @@ class Tack_Api_Client {
 	 * The signed-in buyer's OWN net-terms standing.
 	 *
 	 * `GET /storefront/v1/net-terms?buyerEmail=&buyerExternalId=` answers
-	 * `NetTermsResult` (tack `storefront-core/storefront-results.ts`):
+	 * `NetTermsResult`:
 	 * `{status: anonymous}`, `{status: unlinked, reason}` or `{status: standing,
 	 * state, application, account: {status, termsDays, creditLimit, currency} | null}`
-	 * (`storefront-net-terms.ts`). There is no legacy route, so a server without v1
+	 * There is no legacy route, so a server without v1
 	 * routes is an error: the net-terms gateway that calls this fails CLOSED on any
 	 * error and is hidden.
 	 *

@@ -91,7 +91,7 @@ $tack_quotes_options = array(
 	'tack_quotes_enable_attachments',
 
 	// Storefront layout: card and cart buttons, quote page, floating launcher
-	// (Tack_Widget::OPT_*), 1.10.0. Missing here until the 1.10.0 standards audit.
+	// (Tack_Widget::OPT_*), 1.10.0.
 	'tack_quotes_card_buttons',
 	'tack_quotes_cart_quote_button',
 	'tack_quotes_cart_button_label',

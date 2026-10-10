@@ -47,6 +47,11 @@ jobs:
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist
 
+      # bin/build.sh already runs it (and fails the build); repeated as its own
+      # step so a hit is visible by name in the checks list.
+      - name: Release audit (no internal notes in the shipped zip)
+        run: bash bin/ship-audit.sh dist/tackquote.zip
+
   # WordPress + WooCommerce coding standards (phpcs.xml.dist). The gate is zero
   # errors AND zero warnings: phpcs exits non-zero on either. The sniff set is
   # pinned by composer.lock so a WPCS release cannot change the verdict between

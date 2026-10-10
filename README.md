@@ -121,8 +121,11 @@ find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 php tests/run.php
 
 # Build a distributable zip
-bash bin/build.sh   # produces dist/tackquote.zip
+bash bin/build.sh   # produces dist/tackquote.zip, then runs the release audit
+bash bin/ship-audit.sh dist/tackquote.zip   # the audit on its own
 ```
+
+`bin/ship-audit.sh` unzips the built package and fails on anything a merchant or a WordPress.org reviewer should not read in a shipped file: work-item and defect ids, test-run notes, paths into other repositories, sample SKUs and test emails, and debugging leftovers (`var_dump`, `console.log`, `TODO`, `localhost`, ...). Comments say what the code does and why, in product terms; project history belongs in git and the pull request. `bin/build.sh` runs it on every build and deletes the zip when it fails.
 
 ### Coding standards
 

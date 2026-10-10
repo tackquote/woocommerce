@@ -88,7 +88,7 @@ class Tack_Storefront_Forms {
 	 *
 	 * The browser follows the redirect at once, so two minutes is ample. Kept short
 	 * because an error outcome holds what the shopper typed, under a token carried in
-	 * the URL (audit L-3).
+	 * the URL.
 	 */
 	const RESULT_TTL = 120;
 
@@ -101,7 +101,7 @@ class Tack_Storefront_Forms {
 	/** The form slug used when the merchant has not chosen one. */
 	const DEFAULT_SLUG = 'default';
 
-	/** Slugs already logged today as matching no wholesale form (E2E D10). */
+	/** Slugs already logged today as matching no wholesale form. */
 	const MISSING_FORM_LOGGED = 'tack_quotes_wholesale_form_missing';
 
 	/** Payment-terms lengths offered on the net-terms form (days). All within the DTO's 0..365. */
@@ -398,7 +398,7 @@ class Tack_Storefront_Forms {
 
 		$form = $this->client->get_wholesale_form( $slug );
 		if ( is_wp_error( $form ) && self::is_missing_form( $form ) ) {
-			// The slug matches no form (E2E attempt 2, D10): trying again later will not
+			// The slug matches no form: trying again later will not
 			// help the shopper, and only the store's administrator can fix it.
 			$this->log_missing_form( $slug, $form );
 			$html .= $this->notice( 'info', __( 'This form isn\'t available right now.', 'tackquote' ) );
@@ -731,7 +731,7 @@ class Tack_Storefront_Forms {
 	 * An error outcome is kept in a `tack_sf_*` transient (wp_options) under a token
 	 * carried in the URL, so it holds only what is cheap to lose: phone numbers and tax,
 	 * VAT or company registration numbers are left out and the shopper types them again
-	 * (audit L-3). Decided by the field's type (`tel`, `tax_id`), its role
+	 * Decided by the field's type (`tel`, `tax_id`), its role
 	 * (`buyer_phone`) and, because a merchant may collect a VAT number in a plain text
 	 * field, by the words in its key and label.
 	 *
@@ -761,7 +761,7 @@ class Tack_Storefront_Forms {
 	/**
 	 * Turn sanitised POST values into the answer shapes the server validates.
 	 *
-	 * Mirrors `validateSubmission()` in `common/forms/form-schema.ts` for what can
+	 * Mirrors the TackQuote server's form validation for what can
 	 * be checked without the server: a required, shown field must be answered, and
 	 * nothing may exceed the length caps. Hidden (`showIf`) fields are dropped the
 	 * way the server drops them, so a required field behind an unticked box is not
@@ -1206,7 +1206,7 @@ class Tack_Storefront_Forms {
 	}
 
 	/**
-	 * Check a net-terms submission against the bounds `SubmitCreditApplicationDto` enforces.
+	 * Check a net-terms submission against the bounds TackQuote's credit application enforces.
 	 *
 	 * @param array  $raw   Sanitised POST values.
 	 * @param string $email The account's email (never taken from the form).
@@ -1232,7 +1232,7 @@ class Tack_Storefront_Forms {
 		$payload['legalBusinessName'] = $name;
 
 		list( $phone, $too_long ) = $text( 'contactPhone', 40 );
-		// Not refilled: a phone number is not kept in the outcome transient (audit L-3).
+		// Not refilled: a phone number is not kept in the outcome transient.
 		if ( $too_long ) {
 			return $this->credit_invalid( __( 'Contact phone is too long.', 'tackquote' ), $refill );
 		}
@@ -1241,7 +1241,7 @@ class Tack_Storefront_Forms {
 		}
 
 		list( $tax_id, $too_long ) = $text( 'taxId', 64 );
-		// Not refilled: a tax ID is not kept in the outcome transient (audit L-3).
+		// Not refilled: a tax ID is not kept in the outcome transient.
 		if ( $too_long ) {
 			return $this->credit_invalid( __( 'Tax / VAT ID is too long.', 'tackquote' ), $refill );
 		}
@@ -1797,7 +1797,7 @@ class Tack_Storefront_Forms {
 	 * Did TackQuote answer that no wholesale form has this slug?
 	 *
 	 * `GET /integrations/woocommerce/wholesale-form` answers 404 "Form not found" for
-	 * a slug the workspace has no form under (tack `WholesaleFormsService::getPublic`).
+	 * a slug the workspace has no form under.
 	 * The route itself exists on every server this plugin version supports, so any
 	 * 404 there is read as "no such form".
 	 *

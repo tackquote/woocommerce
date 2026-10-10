@@ -233,8 +233,7 @@ class Tack_Catalog_Mode {
 	 * The server resolves an asserted email against its buyer records and answers
 	 * `anonymous`, `unlinked`, or `linked` with `wholesaleApproved` — true only for a
 	 * wholesale application in status `approved`; a net-terms approval or a checkout
-	 * link alone is not approval (tack `storefront-price-access.spec.ts`,
-	 * `storefront-buyer.ts` `findStorefrontBuyer`, case `asserted`).
+	 * link alone is not approval.
 	 *
 	 * FAILS CLOSED. If TackQuote cannot be reached the buyer is treated as not
 	 * approved and sees the quote-only catalogue. The other B2B lookups in this

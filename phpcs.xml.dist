@@ -28,10 +28,10 @@
 
 	<!--
 		Aligned with the plugin header (tackquote.php): `Requires PHP: 7.4` and
-		`Requires at least: 6.0`. Bump these together with the header, never alone.
+		`Requires at least: 6.4`. Bump these together with the header, never alone.
 	-->
 	<config name="testVersion" value="7.4-"/>
-	<config name="minimum_wp_version" value="6.0"/>
+	<config name="minimum_wp_version" value="6.4"/>
 
 	<rule ref="WordPress-Extra"/>
 	<rule ref="WordPress-Docs"/>
