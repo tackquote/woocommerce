@@ -200,4 +200,81 @@ $m->render_quote_only_variation_form();
 check( 'per-product quote only: the template was not withdrawn, so no second form', 0 === $GLOBALS['TACK_FU_FORMS'] );
 unset( $fu_variable->meta[ Tack_Catalog_Mode::META_QUOTE_ONLY ] );
 
+// ── 2. Quantity-break table on block themes ─────────────────────────────────
+tack_parity_reset();
+$GLOBALS['TACK_DOING_FILTER'] = array();
+tack_test_reset_transients();
+tack_test_set_option( 'tack_quotes_api_key', 'tk_test_key' );
+tack_test_set_option( Tack_Wholesale_Pricing::OPTION_ENABLED, 'yes' );
+tack_test_set_logged_in( true, 'buyer@trade-customer.test' );
+
+/**
+ * A client with a two-rung v1 ladder.
+ *
+ * @return Tack_Test_Forms_Client
+ */
+function tack_fu_breaks_client() {
+	return new Tack_Test_Forms_Client(
+		array(
+			'/storefront/v1/quantity-breaks' => array(
+				'status'          => 'priced',
+				'currency'        => 'USD',
+				'accountSpecific' => false,
+				'rows'            => array(
+					array( 'minQty' => 1, 'unitPrice' => 10 ),
+					array( 'minQty' => 50, 'unitPrice' => 8 ),
+				),
+			),
+		)
+	);
+}
+
+$GLOBALS['TACK_HOOKS']   = array();
+$GLOBALS['TACK_FILTERS'] = array();
+$client                  = tack_fu_breaks_client();
+$pricing                 = new Tack_Wholesale_Pricing( $client );
+$pricing->init();
+foreach ( Tack_Block_Product::ADD_TO_CART_BLOCKS as $name ) {
+	$found = false;
+	foreach ( $GLOBALS['TACK_HOOKS'] as $h ) {
+		if ( 'render_block_' . $name === $h['hook'] && 5 === (int) $h['priority'] && 3 === (int) $h['args'] ) {
+			$found = true;
+		}
+	}
+	check( "volume table: hooked on render_block_$name @5 with 3 args", $found );
+}
+check( 'volume table: the classic summary mount stays @25', tack_parity_hooked( 'woocommerce_single_product_summary', 25 ) );
+
+// The compatibility layer fires the summary hook above the excerpt: nothing, and the flag is not used up.
+$GLOBALS['product']           = $fu_simple;
+$GLOBALS['TACK_DOING_FILTER'] = array( 'render_block' );
+$compat                       = tack_parity_capture( array( $pricing, 'render_quantity_breaks_summary' ) );
+$GLOBALS['TACK_DOING_FILTER'] = array();
+check( 'block theme: the compatibility-layer summary hook prints no table and asks nothing', '' === $compat && array() === $client->sent, $compat );
+
+$out = tack_block_render( 'woocommerce/add-to-cart-form', '<form class="cart"></form>', 32 );
+check( 'block theme: the table follows the Add to Cart block', 0 === strpos( $out, '<form class="cart"></form><table class="tackquote-quantity-breaks' ) && 1 === substr_count( $out, 'tackquote-quantity-breaks' ), $out );
+check( 'block theme: for the block\'s product', 1 === count( $client->sent ) && false !== strpos( $client->sent[0]['path'], 'sku=EP' ), wp_json_encode( $client->sent ) );
+
+$again = tack_block_render( 'woocommerce/add-to-cart-with-options', '<div/>', 32 );
+check( 'ONCE: a second Add to Cart block for the same product adds no second table', '<div/>' === $again, $again );
+$classic = tack_parity_capture( array( $pricing, 'render_quantity_breaks_summary' ) );
+check( 'ONCE: nor does the classic summary hook afterwards', '' === $classic, $classic );
+check( 'ONCE: and TackQuote is asked once', 1 === count( $client->sent ) );
+
+// Classic theme: the summary hook still renders it (and the blocks then add nothing).
+$client2  = tack_fu_breaks_client();
+$pricing2 = new Tack_Wholesale_Pricing( $client2 );
+$classic  = tack_parity_capture( array( $pricing2, 'render_quantity_breaks_summary' ) );
+check( 'classic theme: the summary hook renders the table', 1 === substr_count( $classic, 'tackquote-quantity-breaks' ), $classic );
+check( 'classic theme: a block mount for the same product then adds nothing', '<p/>' === $pricing2->append_quantity_breaks_to_block( '<p/>', array(), tack_block_instance( 32 ) ) );
+check( 'no postId context: the block is returned untouched', '<p/>' === $pricing2->append_quantity_breaks_to_block( '<p/>', array(), new stdClass() ) );
+
+$GLOBALS['TACK_FILTERS'] = array();
+$GLOBALS['TACK_HOOKS']   = array();
+tack_test_set_option( Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, 'no' );
+( new Tack_Wholesale_Pricing( tack_fu_breaks_client() ) )->init();
+check( 'table switched off: no block mount either', ! tack_parity_hooked( 'render_block_woocommerce/add-to-cart-form' ) );
+tack_test_set_option( Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, 'yes' );
+
 unset( $GLOBALS['product'] );

@@ -123,6 +123,15 @@ class Tack_Wholesale_Pricing {
 	private $v1_prices = array();
 
 	/**
+	 * Products whose quantity-break table was already rendered (or decided
+	 * against) this request, so the classic summary hook and the Add to Cart
+	 * block mounts print it once. Keyed by product id.
+	 *
+	 * @var array<string, true>
+	 */
+	private $breaks_rendered = array();
+
+	/**
 	 * API client.
 	 *
 	 * @var Tack_Api_Client
@@ -182,7 +191,18 @@ class Tack_Wholesale_Pricing {
 		add_filter( 'woocommerce_get_price_html', array( $this, 'filter_price_html' ), 20, 2 );
 
 		if ( 'yes' === get_option( self::OPTION_SHOW_BREAKS, 'yes' ) ) {
-			add_action( 'woocommerce_single_product_summary', array( $this, 'render_quantity_breaks' ), 25 );
+			add_action( 'woocommerce_single_product_summary', array( $this, 'render_quantity_breaks_summary' ), 25 );
+
+			/*
+			 * Block themes (1.9.0): WooCommerce fires the summary hook from its
+			 * compatibility layer above the excerpt, away from the quantity box the
+			 * table is about. The table goes after the Add to Cart block instead, at
+			 * priority 5 so it sits before the quote buttons `Tack_Widget` appends at
+			 * 10. See `Tack_Block_Product`.
+			 */
+			foreach ( Tack_Block_Product::ADD_TO_CART_BLOCKS as $block_name ) {
+				add_filter( 'render_block_' . $block_name, array( $this, 'append_quantity_breaks_to_block' ), 5, 3 );
+			}
 		}
 	}
 
@@ -479,18 +499,58 @@ class Tack_Wholesale_Pricing {
 	}
 
 	/**
+	 * `woocommerce_single_product_summary` (classic themes): the table above the
+	 * add-to-cart form, except when WooCommerce's block-template compatibility
+	 * layer is firing the hook, where `append_quantity_breaks_to_block()` places
+	 * it instead.
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_quantity_breaks_summary() {
+		if ( Tack_Block_Product::is_compat_hook() ) {
+			return;
+		}
+		$this->render_quantity_breaks();
+	}
+
+	/**
+	 * `render_block_woocommerce/add-to-cart-form` and `.../add-to-cart-with-options`:
+	 * the table after the block, for the block's own product, once per product.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string               $block_content Rendered block.
+	 * @param array                $parsed_block  Parsed block (unused).
+	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
+	 * @return string
+	 */
+	public function append_quantity_breaks_to_block( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+		$product = Tack_Block_Product::from_block( $instance );
+		if ( null === $product ) {
+			return $block_content;
+		}
+		ob_start();
+		$this->render_quantity_breaks( $product );
+		return (string) $block_content . (string) ob_get_clean();
+	}
+
+	/**
 	 * Quantity-break table for the product page.
 	 *
 	 * Renders nothing at all when there is no ladder to show. An empty table
 	 * under a "Volume pricing" heading tells a trade customer their discounts
 	 * were removed.
+	 *
+	 * @param WC_Product|string|null $for_product The product to render for; anything else
+	 *                                            (a hook's empty argument) means the page's
+	 *                                            global product.
 	 */
-	public function render_quantity_breaks() {
+	public function render_quantity_breaks( $for_product = null ) {
 		if ( ! $this->should_apply() ) {
 			return;
 		}
 
-		global $product;
+		$product = is_object( $for_product ) ? $for_product : ( $GLOBALS['product'] ?? null );
 		if ( ! is_object( $product ) || ! method_exists( $product, 'get_sku' ) ) {
 			return;
 		}
@@ -498,6 +558,18 @@ class Tack_Wholesale_Pricing {
 		if ( '' === $sku ) {
 			return;
 		}
+
+		/*
+		 * Once per product, whichever mount fires first (classic summary hook, or
+		 * one of the Add to Cart blocks; a template can hold both blocks). Marked
+		 * before the request, so a second mount neither asks TackQuote again nor
+		 * prints a second table.
+		 */
+		$once_key = method_exists( $product, 'get_id' ) ? 'id:' . (int) $product->get_id() : 'sku:' . $sku;
+		if ( isset( $this->breaks_rendered[ $once_key ] ) ) {
+			return;
+		}
+		$this->breaks_rendered[ $once_key ] = true;
 
 		/*
 		 * The shared storefront contract first: `GET /storefront/v1/quantity-breaks`
