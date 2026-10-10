@@ -265,6 +265,7 @@ if ( ! function_exists( 'get_page_by_path' ) ) {
 }
 if ( ! function_exists( 'get_posts' ) ) {
 	function get_posts( $args = array() ) {
+		$GLOBALS['TACK_LAST_GET_POSTS'] = $args;
 		return 'trade-pack-blue' === ( $args['name'] ?? '' ) ? array( 101 ) : array();
 	}
 }
@@ -287,6 +288,7 @@ $err = $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc
 check( 'Store API by slug (unversioned namespace): 404 invalid slug', $err instanceof WP_Error && 'woocommerce_rest_product_invalid_slug' === $err->get_error_code() );
 $err = $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc/store/v1/products/trade-pack-blue' ) );
 check( 'Store API by variation slug: follows the parent', $err instanceof WP_Error );
+check( 'variation slug lookup: no explicit suppress_filters (Plugin Check; get_posts() defaults it)', isset( $GLOBALS['TACK_LAST_GET_POSTS']['name'] ) && ! array_key_exists( 'suppress_filters', $GLOBALS['TACK_LAST_GET_POSTS'] ) );
 check( 'Store API: a visible product passes through', null === $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc/store/v1/products/200' ) ) );
 check( 'Store API: the categories listing is not mistaken for a slug', null === $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc/store/v1/products/categories' ) ) );
 check( 'the admin REST API is not touched', null === $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc/v3/products/100' ) ) );
