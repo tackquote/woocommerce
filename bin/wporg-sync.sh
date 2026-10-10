@@ -314,6 +314,26 @@ validate_readme() { # <readme> <main-php> <listing-dir (holds screenshot-N.png)>
 	long_notice="$(perl -ne 'if (/^==\s*Upgrade Notice\s*==/i) { $in=1; next } if ($in && /^==[^=]/) { $in=0 } next unless $in; if (/^=\s*(.+?)\s*=\s*$/) { $v=$1; next } $len{$v} += length($_) if defined $v && /\S/; END { for (sort keys %len) { print "$_\n" if $len{$_} > 300 } }' "$readme")"
 	[ -z "$long_notice" ] || r_err "upgrade notice(s) over 300 characters: $(printf '%s' "$long_notice" | tr '\n' ' ')"
 
+	# Changelog section <= 5,000 characters. Plugin Check reports a longer one as
+	# readme_parser_warnings_trimmed_section_changelog ("A maximum of 5000 characters
+	# is supported") and wordpress.org shows it cut short. Plugin Check's bundled
+	# parser (includes/Lib/Readme/Parser.php: 'section-changelog' => 5000, trimmed with
+	# 'words') actually counts WORDS, so 5,000 characters is the stricter reading and
+	# is what is enforced. Measured as the parser keeps the section: everything after
+	# the "== Changelog ==" line up to the next "== ... ==" heading, in characters.
+	# Older entries belong in changelog.txt, which ships in the zip.
+	local cl_len cl_words
+	read -r cl_len cl_words < <(perl -CI -e 'local $/; my $t = <STDIN>; if ($t =~ /^==\s*Changelog\s*==[ \t]*\r?\n(.*?)(?=^==[^=]|\z)/ims) { my $b = $1; my @w = grep { length } split(/\s+/, $b); print length($b), " ", scalar(@w), "\n" } else { print "-1 0\n" }' <"$readme")
+	if [ "$cl_len" = "-1" ]; then
+		warn "readme.txt has no == Changelog == section."
+	elif [ "$cl_len" -gt 5000 ]; then
+		r_err "== Changelog == is $cl_len characters ($cl_words words); wordpress.org supports at most 5000 and truncates the rest. Move older entries to changelog.txt."
+	elif [ "$cl_len" -gt 4500 ]; then
+		warn "== Changelog == is $cl_len/5000 characters; keep it under 4500 so the next entry fits (move older entries to changelog.txt)."
+	else
+		ok "changelog section $cl_len/5000 characters ($cl_words words)"
+	fi
+
 	# Screenshots: captions are matched to assets/screenshot-N.* BY NUMBER.
 	local captions files_n expect_list have_list
 	captions="$(perl -ne 'if (/^==\s*Screenshots\s*==/i) { $in=1; next } if ($in && /^==/) { last } print "$1\n" if $in && /^\s*([0-9]+)\.\s+\S/' "$readme")"
@@ -801,6 +821,11 @@ self_test_cmd() {
 	perl -pi -e "s/^License: .*/License: Proprietary/" "$T/repo/readme.txt"
 	gc commit -q -m "mutant: license" -- readme.txt
 	st_run "--check-readme refuses a non-GPL license" 2 'not GPL-compatible' -- --check-readme
+	gc revert --no-edit HEAD >/dev/null
+
+	perl -e 'print "* ", "x" x 5100, "\n"' >>"$T/repo/readme.txt"
+	gc commit -q -m "mutant: changelog over 5000 characters" -- readme.txt
+	st_run "--check-readme refuses a changelog over 5000 characters" 2 'supports at most 5000' -- --check-readme
 	gc revert --no-edit HEAD >/dev/null
 
 	local last
