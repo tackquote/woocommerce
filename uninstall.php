@@ -73,14 +73,19 @@ $tack_quotes_options = array(
 	'tack_quotes_enable_net_terms_tab',
 	'tack_quotes_rewrite_version',
 	'tack_quotes_apply_tax_exempt',
+
+	// "Net terms (TackQuote)" gateway settings, incl. the PO-number switch (Tack_Gateway_Net_Terms) — 1.9.0.
+	// WooCommerce stores a gateway's settings as `woocommerce_{gateway id}_settings`.
+	'woocommerce_tackquote_net_terms_settings',
 );
 
 /**
  * Transients the plugin creates under a fixed name.
  *
  * The per-visitor rate-limit counters (`tack_qr_*`) and the five-minute form-outcome tokens
- * (`tack_sf_*`, Tack_Storefront_Forms::RESULT_PREFIX) are not listed: they are keyed on a hash
- * so there is no name to delete, there is no WordPress API for wildcard transient deletion,
+ * (`tack_sf_*`, Tack_Storefront_Forms::RESULT_PREFIX) are not listed, nor are the one-minute
+ * net-terms standing answers (`tack_nt_<user id>`, Tack_Gateway_Net_Terms::CACHE_PREFIX): they
+ * are keyed per visitor so there is no fixed name to delete, there is no WordPress API for wildcard transient deletion,
  * and they expire within five minutes on their own. Sweeping them would mean a direct
  * LIKE query against the options table that also silently does nothing on a site using an
  * external object cache, which is a worse trade than letting them lapse.

@@ -1516,6 +1516,7 @@ class Tack_Settings {
 			Tack_Storefront_Forms::OPTION_NET_TERMS_TAB,
 			__( 'Add a "Net terms" tab to My Account where signed-in customers can apply to pay on account.', 'tackquote' )
 		);
+		echo '<p class="description">' . esc_html__( 'To let approved buyers pay on net terms at checkout, enable "Net terms (TackQuote)" under WooCommerce → Settings → Payments.', 'tackquote' ) . '</p>';
 	}
 
 	/**

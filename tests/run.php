@@ -111,5 +111,9 @@ require __DIR__ . '/sync-gate-test.php';
 echo "\n-- 1.9.0 storefront parity --\n";
 require __DIR__ . '/storefront-parity-test.php';
 
+// 1.9.0 net-terms payment gateway, its Checkout block integration, the PO field.
+echo "\n-- net-terms gateway + Blocks + PO number --\n";
+require __DIR__ . '/net-terms-gateway-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

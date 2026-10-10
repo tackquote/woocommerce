@@ -20,6 +20,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 
 /**
  * Main plugin class (singleton).
@@ -102,6 +103,14 @@ final class Tack_Quotes {
 			( new Tack_Tax_Exempt() )->init();
 		}
 
+		// "Net terms (TackQuote)" payment gateway (classic + Checkout block) and the
+		// optional checkout PO number. The gateway is always REGISTERED so the
+		// merchant can find it under WooCommerce > Settings > Payments, but it ships
+		// disabled and is offered only to buyers TackQuote confirms (fail closed).
+		add_filter( 'woocommerce_payment_gateways', array( __CLASS__, 'register_gateway' ) );
+		add_action( 'woocommerce_blocks_payment_method_type_registration', array( __CLASS__, 'register_block_payment_method' ) );
+		( new Tack_Po_Number() )->init();
+
 		// Frontend "Request a Quote" widget/button.
 		if ( 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
 			( new Tack_Widget() )->init();
@@ -133,6 +142,52 @@ final class Tack_Quotes {
 	}
 
 	/**
+	 * Load the net-terms gateway class. Only once WooCommerce's gateway base exists.
+	 *
+	 * @return bool Whether Tack_Gateway_Net_Terms is available.
+	 */
+	public static function load_gateway() {
+		if ( class_exists( 'Tack_Gateway_Net_Terms', false ) ) {
+			return true;
+		}
+		if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
+			return false;
+		}
+		require_once TACK_QUOTES_DIR . 'includes/gateways/class-tack-gateway-net-terms.php';
+		return true;
+	}
+
+	/**
+	 * Add the net-terms gateway to WooCommerce's list (`woocommerce_payment_gateways`).
+	 *
+	 * @param array $gateways Gateway class names or instances.
+	 * @return array
+	 */
+	public static function register_gateway( $gateways ) {
+		$gateways = is_array( $gateways ) ? $gateways : array();
+		if ( self::load_gateway() ) {
+			$gateways[] = 'Tack_Gateway_Net_Terms';
+		}
+		return $gateways;
+	}
+
+	/**
+	 * Register the Checkout block integration, only when the Blocks classes exist.
+	 *
+	 * @param object $registry Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry.
+	 */
+	public static function register_block_payment_method( $registry ) {
+		if ( ! is_object( $registry ) || ! method_exists( $registry, 'register' ) ) {
+			return;
+		}
+		if ( ! class_exists( 'Automattic\\WooCommerce\\Blocks\\Payments\\Integrations\\AbstractPaymentMethodType' ) || ! self::load_gateway() ) {
+			return;
+		}
+		require_once TACK_QUOTES_DIR . 'includes/blocks/class-tack-net-terms-block.php';
+		$registry->register( new Tack_Net_Terms_Block() );
+	}
+
+	/**
 	 * Register suggested privacy policy text on the Privacy Settings screen.
 	 *
 	 * This plugin sends personal data to a third party, so a merchant needs to be able to
@@ -154,6 +209,8 @@ final class Tack_Quotes {
 			. esc_html__( 'When you request a quote, we send the details you enter in the quote form to our quoting provider, TackQuote: your email address, first and last name, phone number, and — if you are buying on behalf of a company — your company name and any company details the form asks for, together with any note you write. We also send the products, quantities, prices and currency you are asking to be quoted.', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Order sync (only if the store owner has switched it on)', 'tackquote' ) . '</strong><br />'
 			. esc_html__( 'When an order is placed or its status changes, we send that order to TackQuote. This includes your full billing address and your full shipping address — name, company, street, city, state or county, postal code, country, email address and phone number — along with any note you left with the order. It also includes the order number and internal order ID, its status, currency, item subtotal, discount, shipping cost, tax and total, any coupon codes used, the payment method and the payment reference our gateway issued, and the created, modified, paid and completed dates. Each line includes the product name, SKU, product and variation IDs, quantity, price, tax and the options chosen (for example size or colour). No card number or card details are ever sent.', 'tackquote' )
+			. '</p><p><strong>' . esc_html__( 'Net terms at checkout (only if the store owner has switched it on)', 'tackquote' ) . '</strong><br />'
+			. esc_html__( 'When you are signed in and view the checkout, and again when you place an order on net terms, we ask TackQuote whether your account may pay on net terms. We send your account email address and your customer account number on this store. TackQuote answers with your terms and credit status; that answer is kept on this store for at most one minute and is never shown in your browser. If you enter a purchase order number at checkout, it is saved on your order and sent to TackQuote with the order.', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Where it goes', 'tackquote' ) . '</strong><br />'
 			. sprintf(
 				/* translators: %s: the configured TackQuote API base URL. */
