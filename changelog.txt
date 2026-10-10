@@ -1,6 +1,10 @@
 TackQuote for WooCommerce: full changelog for release 1.10.0 and earlier, newest first.
 The latest releases are listed in readme.txt (1.10.0 there in summary).
 
+= Unreleased =
+* Readme: the short description now says the store connects with one button and no key to copy, as it does since 1.11.0.
+* Readme: the 1.10.0 notes no longer list accepted quote to store checkout as off by default; it is active whenever the store is connected.
+
 = 1.10.0 =
 * **Security and standards audit.** A customer who changes their own email by any route (including the REST API, not only My Account) is no longer trusted with another buyer's prices, net terms or tax exemption until confirmed. Rate limits can no longer be dodged with a forged `X-Real-IP`, and now also cover the application forms and quote checkout links. Draft, private, password-protected and group-hidden products can no longer be quoted. The API key is never re-sent after an HTTP redirect. Uninstall removes every setting, the plugin's user and product meta and queued jobs. Personal-data export and erasure cover the plugin's user meta.
 * **Attachments.** Quote requests can carry up to 3 files (PDF, JPEG or PNG, 5 MB each) through an optional "Attach files (optional)" control in the quote form, when you switch on "Allow attachments on quote requests" (Storefront tab, off by default) and your TackQuote server advertises attachments. Wholesale application file fields now accept a file from signed-in customers (guests see "Sign in to your account to attach files"). Files are checked on your store (count, size, extension and content), streamed server to server to TackQuote and never stored in WordPress; the seller sees them on the quote or application.
