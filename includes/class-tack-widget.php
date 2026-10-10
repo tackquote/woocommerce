@@ -393,6 +393,9 @@ class Tack_Widget {
 				// stays valid no matter how long the HTML sits in a cache.
 				'nonceUrl'            => $this->nonce_endpoint(),
 				'customerEmail'       => $this->current_customer_email(),
+				// Signed-in visitors only, like the email (E2E D6): '' for guests.
+				'customerFirstName'   => $this->current_customer_name( 'first' ),
+				'customerLastName'    => $this->current_customer_name( 'last' ),
 				'checkoutButtonLabel' => self::button_label( 'tack_quotes_checkout_button_label' ),
 				// 1.10.0: the theme's button classes, for the buttons the script builds (the modal).
 				'buttonClass'         => self::button_class(),
@@ -582,6 +585,32 @@ class Tack_Widget {
 		}
 		$user = wp_get_current_user();
 		return ( $user && $user->user_email ) ? (string) $user->user_email : '';
+	}
+
+	/**
+	 * First or last name for pre-filling the modal, for a signed-in visitor only
+	 * (E2E attempt 2, D6): their WooCommerce billing name first, then the WordPress
+	 * profile name. '' for guests, for the same page-cache reason as the email.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $part `first` or `last`.
+	 * @return string
+	 */
+	public function current_customer_name( $part ) {
+		if ( ! is_user_logged_in() || ! in_array( $part, array( 'first', 'last' ), true ) ) {
+			return '';
+		}
+		$getter = 'get_billing_' . $part . '_name';
+		if ( function_exists( 'WC' ) && is_object( WC() ) && isset( WC()->customer ) && is_object( WC()->customer ) && method_exists( WC()->customer, $getter ) ) {
+			$name = trim( (string) WC()->customer->$getter() );
+			if ( '' !== $name ) {
+				return $name;
+			}
+		}
+		$user = wp_get_current_user();
+		$prop = $part . '_name';
+		return ( $user && isset( $user->$prop ) ) ? trim( (string) $user->$prop ) : '';
 	}
 
 	/**

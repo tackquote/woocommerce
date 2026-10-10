@@ -739,6 +739,10 @@
       filesInput.tackUploaded = null;
     }
     $email.val(TackQuotes.customerEmail || '');
+    // A signed-in customer's name (E2E attempt 2, D6); '' for guests.
+    var $firstName = $overlay.find('#tack-quote-first-name');
+    $firstName.val(TackQuotes.customerFirstName || '');
+    $overlay.find('#tack-quote-last-name').val(TackQuotes.customerLastName || '');
     // The quote page's message, when the request comes from there (1.10.0).
     $note.val(context.message || '');
     $error.hide().text('');
@@ -748,7 +752,8 @@
 
     modal.removeAttribute('hidden');
     document.body.classList.add('tack-quote-modal-open');
-    ($email.val() ? $overlay.find('.tack-quote-modal-submit') : $email).trigger('focus');
+    // Focus the first required field still empty, else the submit button.
+    (!$firstName.val() ? $firstName : !$email.val() ? $email : $overlay.find('.tack-quote-modal-submit')).trigger('focus');
 
     // Company section follows the individual/company choice. Only present when the seller
     // allows both; a company_only policy renders it always-visible with no radio to drive it.

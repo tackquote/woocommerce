@@ -148,3 +148,40 @@ $e2e_widget_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-
 check( 'D5: handle_request() decides per line vs note from the server capability', false !== strpos( $e2e_widget_src, '$payload = $this->with_target_prices( $payload, $client->supports_target_price() );' ) );
 check( 'D5: the stale "no per-line field" comment is gone', false === strpos( $e2e_widget_src, 'has no per-line field' ) );
 check( 'D5: a refusal naming targetPrice drops the capability cache', false !== strpos( $e2e_widget_src, 'self::refused_attachment_fields( $result ) || self::refused_target_price( $result )' ) );
+
+// ── D6: the quote modal prefills a signed-in customer's first and last name ──
+
+/** A WooCommerce customer double with billing names. */
+class Tack_E2E_Customer {
+	/** @var string */
+	public $first = '';
+	/** @var string */
+	public $last = '';
+	/** @return string */
+	public function get_billing_first_name() {
+		return $this->first;
+	}
+	/** @return string */
+	public function get_billing_last_name() {
+		return $this->last;
+	}
+}
+$e2e_w                            = new Tack_Widget();
+$e2e_cust                         = new Tack_E2E_Customer();
+$e2e_cust->first                  = 'Ada';
+$e2e_cust->last                   = 'Byron';
+$GLOBALS['TACK_WC_CUSTOMER']      = $e2e_cust;
+$GLOBALS['TACK_USER_FIRST_NAME']  = 'Profile';
+$GLOBALS['TACK_USER_LAST_NAME']   = 'Name';
+tack_test_set_logged_in( false, '' );
+check( 'D6: a guest gets no name (nothing personal in a cacheable page)', '' === $e2e_w->current_customer_name( 'first' ) && '' === $e2e_w->current_customer_name( 'last' ) );
+tack_test_set_logged_in( true, 'ada@example.com' );
+check( 'D6: signed in: the WooCommerce billing first and last name', 'Ada' === $e2e_w->current_customer_name( 'first' ) && 'Byron' === $e2e_w->current_customer_name( 'last' ) );
+$e2e_cust->first = '';
+$e2e_cust->last  = '';
+check( 'D6: no billing name: the WordPress profile name', 'Profile' === $e2e_w->current_customer_name( 'first' ) && 'Name' === $e2e_w->current_customer_name( 'last' ) );
+check( 'D6: any other part is refused', '' === $e2e_w->current_customer_name( 'user_email' ) );
+unset( $GLOBALS['TACK_WC_CUSTOMER'], $GLOBALS['TACK_USER_FIRST_NAME'], $GLOBALS['TACK_USER_LAST_NAME'] );
+tack_test_set_logged_in( false, '' );
+check( 'D6: the names are localized to the script', false !== strpos( $e2e_widget_src, "'customerFirstName'   => \$this->current_customer_name( 'first' )," ) && false !== strpos( $e2e_widget_src, "'customerLastName'    => \$this->current_customer_name( 'last' )," ) );
+check( 'D6: openModal() fills both name fields after the form reset', 1 === preg_match( "/\\\$form\\[0\\]\\.reset\\(\\);.*\\\$firstName\\.val\\(TackQuotes\\.customerFirstName \\|\\| ''\\);\\s*\\\$overlay\\.find\\('#tack-quote-last-name'\\)\\.val\\(TackQuotes\\.customerLastName \\|\\| ''\\);/s", $e2e_js ) );
