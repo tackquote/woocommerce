@@ -1,7 +1,7 @@
 === TackQuote for WooCommerce ===
 Contributors: tackquote
 Tags: woocommerce, request a quote, b2b, wholesale, rfq
-Requires at least: 6.0
+Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -267,6 +267,10 @@ Edit the product and tick **Quote only** in the General tab of the product data 
 
 Yes. Turn on quote-only mode and choose "Everyone except approved wholesale accounts". The plugin asks TackQuote whether the signed-in customer's wholesale application is approved, and only then shows the cart. If TackQuote cannot be reached, the customer sees the quote-only catalogue (this one check fails closed, because it is a price gate). It needs the API key.
 
+= Which features need a linked account? =
+
+Prices, quantity breaks, order limits, the buyer-group badge and the price gate follow the customer's account email. Net terms, tax exemption and credit standing go only to customers the seller has linked to a TackQuote buyer: approving the customer's wholesale application links them, or the seller links the WordPress user under **Buyers → buyer → WooCommerce customer** in TackQuote. Approving a net-terms application does not link the account. A matching email alone never links one, because WooCommerce does not verify the email at registration. If the email belongs to a buyer already linked to a different WordPress user, that customer gets none of these B2B features.
+
 = Where do target prices on the quote page go? =
 
 Into the request's note, one line per product ("Target prices: …"), after the shopper's own message. The quote itself keeps your store price for each line.
@@ -347,13 +351,13 @@ transaction ID is a reference the gateway issued, not an instrument.
 * `tack_quotes_server_capabilities` — a transient caching, for one day (ten minutes after a failed check), which optional features the TackQuote server advertises (for example `attachments`) and a 16-character SHA-256 prefix of the key it was read with (never the key).
 * `tack_qu_*`, `tack_qf_*`, `tack_qc_*` — ten-minute transients counting attachment uploads, applications and checkout links per visitor for rate limiting, keyed on a salted hash of the IP address, never the address. Each counter also has a `…s` twin for the connecting address, which a client cannot forge. Attached files themselves are never written to your site: PHP's temporary copy is deleted as soon as the file has been sent.
 * `tack_quotes_connection_check` — a transient remembering for one day whether the settings page's last "Test connection" passed, when, the message shown, and a 16-character SHA-256 prefix of the key that was tested (never the key itself). It lets the Overview say "Connected" only for the key saved now.
-* `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
+* `tack_sf_*` — two-minute transients carrying an application form's outcome (success or error text and what was typed, except phone numbers and tax, VAT or registration numbers, for refilling the form) back to the page after it is submitted. Read once and deleted.
 * `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
 * Net terms: `tack_nt_<user id>` (TackQuote's answer, one minute), order meta `_tackquote_net_terms` and `_tackquote_po_number`, option `woocommerce_tackquote_net_terms_settings`.
 * Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
-* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`; product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta.
+* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`; product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
 
 Deleting the plugin removes every option above, the fixed-name transients, the user meta, the product meta and queued order-sync jobs, on every site of a multisite network. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
 
@@ -414,6 +418,10 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Fixed: variable products on quote showed no size or colour choice on classic themes** in store-wide quote-only mode. The variation form now renders on quote for classic and block themes, with the quantity and quote buttons in place of the cart button; a quote-only variation still cannot be added to the cart.
 * **Fixed on block themes:** the volume-pricing table renders after the Add to Cart block, once per product, instead of above the excerpt.
 * The readme Description is now a short overview (wordpress.org trims a Description over 2,500 words, External services and Privacy included); the detailed field lists moved, unchanged, into the FAQ, and changelog entries for 1.5.1 and earlier into `changelog.txt`.
+* Net terms, tax exemption and credit standing now go only to customers the seller has linked in TackQuote (a TackQuote server rule; prices still follow the account email). See the FAQ "Which features need a linked account?".
+* Tools → Export Personal Data now includes, per order, the purchase-order number, the TackQuote quote reference and number, and the net terms (through WooCommerce's order exporter). Erase Personal Data deletes the purchase-order number when WooCommerce's "Remove personal data from orders on request" is on.
+* When a wholesale or net-terms application is refused, the answers put back in the form are kept for 2 minutes (was 5) and no longer include phone numbers or tax, VAT or registration numbers; the customer types those again.
+* **Requires WordPress 6.4 and WooCommerce 8.0 or later** (was 6.0 and 6.0). Older releases are untested and no longer receive security fixes. The plugin still checks that a newer WooCommerce feature exists before it uses it.
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.

@@ -167,6 +167,14 @@ final class Tack_Quotes {
 		add_filter( 'wp_privacy_personal_data_exporters', array( __CLASS__, 'register_privacy_exporter' ) );
 		add_filter( 'wp_privacy_personal_data_erasers', array( __CLASS__, 'register_privacy_eraser' ) );
 
+		// The same tools, through WooCommerce's order exporter and eraser: the order meta
+		// this plugin writes. Filters as named in WooCommerce's class-wc-privacy-exporters.php
+		// and class-wc-privacy-erasers.php (`@since 3.4.0`).
+		add_filter( 'woocommerce_privacy_export_order_personal_data_meta', array( __CLASS__, 'add_order_meta_to_export' ) );
+		add_filter( 'woocommerce_privacy_export_order_personal_data_meta_value', array( __CLASS__, 'format_order_meta_export' ), 10, 2 );
+		add_filter( 'woocommerce_privacy_remove_order_personal_data_meta', array( __CLASS__, 'add_order_meta_to_erase' ) );
+		add_filter( 'woocommerce_privacy_remove_order_personal_data_meta_value', array( __CLASS__, 'erase_order_meta_value' ), 10, 2 );
+
 		// The textdomain is registered on `init` by tack_quotes_load_textdomain() in
 		// tackquote.php, not here: this runs on plugins_loaded, which WordPress 6.7+
 		// reports as too early for translation loading.
@@ -381,6 +389,103 @@ final class Tack_Quotes {
 			'messages'       => $messages,
 			'done'           => true,
 		);
+	}
+
+	/**
+	 * Order meta this plugin writes, key => label for WooCommerce's order export.
+	 *
+	 * Literals rather than the owning classes' constants (Tack_Po_Number::META_KEY,
+	 * Tack_Quote_Checkout::META_REF / META_NUMBER, Tack_Gateway_Net_Terms::META_TERMS),
+	 * because the gateway class is loaded only once WooCommerce's gateway base exists;
+	 * tests/final-polish-test.php pins each literal to its constant.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return array<string,string>
+	 */
+	public static function privacy_order_meta() {
+		return array(
+			'_tackquote_po_number'    => __( 'Purchase order number', 'tackquote' ),
+			'_tackquote_quote_ref'    => __( 'TackQuote quote reference', 'tackquote' ),
+			'_tackquote_quote_number' => __( 'TackQuote quote number', 'tackquote' ),
+			'_tackquote_net_terms'    => __( 'Net payment terms', 'tackquote' ),
+		);
+	}
+
+	/**
+	 * Order meta erased on request, key => wp_privacy_anonymize_data() type.
+	 *
+	 * Only the purchase-order number: the buyer typed it, so it is personal data. The
+	 * quote reference and number are the seller's business identifiers and the net terms
+	 * are the payment terms of the sale; they stay with the order like its totals do.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return array<string,string>
+	 */
+	public static function privacy_order_meta_erased() {
+		return array( '_tackquote_po_number' => 'text' );
+	}
+
+	/**
+	 * `woocommerce_privacy_export_order_personal_data_meta`.
+	 *
+	 * @param array $meta Meta key => label.
+	 * @return array
+	 */
+	public static function add_order_meta_to_export( $meta ) {
+		return array_merge( is_array( $meta ) ? $meta : array(), self::privacy_order_meta() );
+	}
+
+	/**
+	 * `woocommerce_privacy_export_order_personal_data_meta_value`: the net-terms record
+	 * is an array, and an export holds text.
+	 *
+	 * @param mixed  $value    Stored value.
+	 * @param string $meta_key Meta key.
+	 * @return mixed
+	 */
+	public static function format_order_meta_export( $value, $meta_key ) {
+		if ( '_tackquote_net_terms' !== $meta_key || ! is_array( $value ) ) {
+			return $value;
+		}
+		$days    = isset( $value['termsDays'] ) ? (int) $value['termsDays'] : 0;
+		$checked = isset( $value['checkedAt'] ) ? (string) $value['checkedAt'] : '';
+		if ( $days <= 0 ) {
+			return '';
+		}
+		return '' === $checked
+			/* translators: %d: net payment terms in days, for example 30. */
+			? sprintf( __( '%d days', 'tackquote' ), $days )
+			/* translators: 1: net payment terms in days, for example 30. 2: when the terms were checked, an ISO 8601 date and time. */
+			: sprintf( __( '%1$d days (checked %2$s)', 'tackquote' ), $days, $checked );
+	}
+
+	/**
+	 * `woocommerce_privacy_remove_order_personal_data_meta`.
+	 *
+	 * Runs only when the store has "Remove personal data from orders on request" switched
+	 * on (WooCommerce → Settings → Accounts & Privacy), like the rest of the order eraser.
+	 *
+	 * @param array $meta Meta key => data type.
+	 * @return array
+	 */
+	public static function add_order_meta_to_erase( $meta ) {
+		return array_merge( is_array( $meta ) ? $meta : array(), self::privacy_order_meta_erased() );
+	}
+
+	/**
+	 * `woocommerce_privacy_remove_order_personal_data_meta_value`: delete the PO number
+	 * rather than store WordPress's "[deleted]" placeholder, which order sync would then
+	 * send to TackQuote as the purchase-order number. An empty value makes WooCommerce
+	 * call delete_meta_data().
+	 *
+	 * @param string $anon_value Anonymised value.
+	 * @param string $meta_key   Meta key.
+	 * @return string
+	 */
+	public static function erase_order_meta_value( $anon_value, $meta_key ) {
+		return array_key_exists( (string) $meta_key, self::privacy_order_meta_erased() ) ? '' : $anon_value;
 	}
 
 	/**

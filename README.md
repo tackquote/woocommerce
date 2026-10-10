@@ -53,8 +53,8 @@ The storefront controls take the active theme's buttons, fields, fonts and colou
 
 ## Requirements
 
-- WordPress 6.0+
-- WooCommerce 6.0+
+- WordPress 6.4+
+- WooCommerce 8.0+
 - PHP 7.4+
 
 ## What it calls

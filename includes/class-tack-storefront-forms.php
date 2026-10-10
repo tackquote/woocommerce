@@ -83,8 +83,14 @@ class Tack_Storefront_Forms {
 	/** Prefix of the transient that carries a submission's outcome back to the page. */
 	const RESULT_PREFIX = 'tack_sf_';
 
-	/** How long an outcome waits to be shown, in seconds. */
-	const RESULT_TTL = 300;
+	/**
+	 * How long an outcome waits to be shown, in seconds.
+	 *
+	 * The browser follows the redirect at once, so two minutes is ample. Kept short
+	 * because an error outcome holds what the shopper typed, under a token carried in
+	 * the URL (audit L-3).
+	 */
+	const RESULT_TTL = 120;
 
 	/** Applications (wholesale + net terms together) one visitor may send per RATE_LIMIT_WINDOW. */
 	const RATE_LIMIT_MAX = 5;
@@ -709,6 +715,39 @@ class Tack_Storefront_Forms {
 	}
 
 	/**
+	 * Whether an answer must stay out of the refill that an error outcome stores.
+	 *
+	 * An error outcome is kept in a `tack_sf_*` transient (wp_options) under a token
+	 * carried in the URL, so it holds only what is cheap to lose: phone numbers and tax,
+	 * VAT or company registration numbers are left out and the shopper types them again
+	 * (audit L-3). Decided by the field's type (`tel`, `tax_id`), its role
+	 * (`buyer_phone`) and, because a merchant may collect a VAT number in a plain text
+	 * field, by the words in its key and label.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param array $field Field definition.
+	 * @return bool
+	 */
+	public static function is_private_refill_field( array $field ) {
+		$type = isset( $field['type'] ) ? (string) $field['type'] : '';
+		$role = isset( $field['role'] ) ? (string) $field['role'] : '';
+		if ( in_array( $type, array( 'tel', 'tax_id' ), true ) || 'buyer_phone' === $role ) {
+			return true;
+		}
+		$text = ( isset( $field['key'] ) ? (string) $field['key'] : '' ) . ' ' . ( isset( $field['label'] ) ? (string) $field['label'] : '' );
+		// Split camelCase and snake_case into lower-case words: "vatNumber" -> "vat number".
+		$words = preg_split( '/[^a-z0-9]+/', strtolower( (string) preg_replace( '/([a-z0-9])([A-Z])/', '$1 $2', $text ) ) );
+		foreach ( (array) $words as $word ) {
+			if ( in_array( $word, array( 'tel', 'tin', 'ein', 'abn', 'cell' ), true )
+				|| 1 === preg_match( '/^(tax|vat|gst|phone|telephone|mobile|registration)/', $word ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Turn sanitised POST values into the answer shapes the server validates.
 	 *
 	 * Mirrors `validateSubmission()` in `common/forms/form-schema.ts` for what can
@@ -749,7 +788,7 @@ class Tack_Storefront_Forms {
 			}
 
 			$answer = $this->coerce_answer( $type, $field, $input );
-			if ( null !== $answer ) {
+			if ( null !== $answer && ! self::is_private_refill_field( $field ) ) {
 				$refill[ $key ] = $answer;
 			}
 
@@ -1182,7 +1221,7 @@ class Tack_Storefront_Forms {
 		$payload['legalBusinessName'] = $name;
 
 		list( $phone, $too_long ) = $text( 'contactPhone', 40 );
-		$refill['contactPhone']   = $phone;
+		// Not refilled: a phone number is not kept in the outcome transient (audit L-3).
 		if ( $too_long ) {
 			return $this->credit_invalid( __( 'Contact phone is too long.', 'tackquote' ), $refill );
 		}
@@ -1191,7 +1230,7 @@ class Tack_Storefront_Forms {
 		}
 
 		list( $tax_id, $too_long ) = $text( 'taxId', 64 );
-		$refill['taxId']           = $tax_id;
+		// Not refilled: a tax ID is not kept in the outcome transient (audit L-3).
 		if ( $too_long ) {
 			return $this->credit_invalid( __( 'Tax / VAT ID is too long.', 'tackquote' ), $refill );
 		}
@@ -1276,7 +1315,13 @@ class Tack_Storefront_Forms {
 				}
 			}
 		}
-		$refill['tradeReferences'] = $references;
+		$refill['tradeReferences'] = array_map(
+			static function ( $reference ) {
+				unset( $reference['phone'] );
+				return $reference;
+			},
+			$references
+		);
 		if ( ! empty( $references ) ) {
 			$payload['tradeReferences'] = $references;
 		}
