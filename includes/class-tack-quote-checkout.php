@@ -471,20 +471,9 @@ class Tack_Quote_Checkout {
 	/**
 	 * The quoted NET unit price in the basis this store enters prices in.
 	 *
-	 * TackQuote's unit prices are net. On a store that enters prices inclusive
-	 * of tax, WooCommerce reads `set_price()` as a price INCLUDING the store's
-	 * base-location tax and takes that tax back out in the cart
-	 * (`WC_Cart_Totals::adjust_non_base_location_price()` /
-	 * `remove_item_base_taxes()`), so the net line is grossed up by exactly the
-	 * base rates and nothing is rounded here: the cart's own extraction then
-	 * lands on the quoted net line. `wc_get_price_including_tax()` is NOT the
-	 * tool for this: on an inclusive store it treats the price it is given as
-	 * already inclusive and returns it (WooCommerce 11.2.1
-	 * `wc-product-functions.php`).
-	 *
-	 * UNVERIFIED: compound and multiple base rates; the arithmetic is
-	 * WooCommerce's own `WC_Tax::calc_tax()`, but no store with compound base
-	 * rates has been checked.
+	 * `Tack_Tax_Basis::entry_price()`, shared with the B2B price path so the two
+	 * cannot drift: on a store that enters prices inclusive of tax the net line is
+	 * grossed up by exactly the rates the cart takes back out, unrounded.
 	 *
 	 * @param string $net      Net unit price, decimal string.
 	 * @param object $product  WC_Product (tax status and class).
@@ -492,17 +481,7 @@ class Tack_Quote_Checkout {
 	 * @return string|float
 	 */
 	public static function store_basis_price( $net, $product, $quantity ) {
-		if ( ! function_exists( 'wc_prices_include_tax' ) || ! wc_prices_include_tax() || ! class_exists( 'WC_Tax' ) ) {
-			return $net;
-		}
-		if ( ! is_object( $product ) || ! method_exists( $product, 'is_taxable' ) || ! $product->is_taxable() || ! method_exists( $product, 'get_tax_class' ) ) {
-			return $net;
-		}
-		$quantity = max( 1, (int) $quantity );
-		$line_net = (float) $net * $quantity;
-		$rates    = WC_Tax::get_base_tax_rates( $product->get_tax_class( 'unfiltered' ) );
-		$taxes    = WC_Tax::calc_tax( $line_net, $rates, false );
-		return ( $line_net + array_sum( (array) $taxes ) ) / $quantity;
+		return Tack_Tax_Basis::entry_price( $net, $product, $quantity );
 	}
 
 	// ── Locked quantities ───────────────────────────────────────────────────

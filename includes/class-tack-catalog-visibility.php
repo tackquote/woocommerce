@@ -213,12 +213,13 @@ class Tack_Catalog_Visibility {
 		}
 		$ids = get_posts(
 			array(
-				'name'             => $slug,
-				'post_type'        => 'product_variation',
-				'post_status'      => 'any',
-				'fields'           => 'ids',
-				'numberposts'      => 1,
-				'suppress_filters' => true,
+				'name'        => $slug,
+				'post_type'   => 'product_variation',
+				'post_status' => 'any',
+				'fields'      => 'ids',
+				'numberposts' => 1,
+				// No `suppress_filters`: get_posts() already defaults it to true
+				// (wp-includes/post.php), and Plugin Check flags the explicit key.
 			)
 		);
 		return empty( $ids ) ? 0 : (int) $ids[0];
