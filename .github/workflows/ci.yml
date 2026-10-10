@@ -37,6 +37,12 @@ jobs:
       - name: Run tests
         run: php tests/run.php
 
+      # The storefront's pure JS (no npm dependencies); the runner image ships Node.
+      - name: Run JS tests
+        run: |
+          node --check assets/js/tack-quotes.js
+          node tests/js/with-options.test.js
+
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist
 

@@ -829,14 +829,19 @@
       // "Request a Quote" — a single product, submitted immediately.
       var $scope = context.$scope && context.$scope.length ? context.$scope : $();
       payload.product_id = context.productId || 0;
-      payload.quantity = $scope.find('input.qty').val() || 1;
+      // `context.quantity` / `context.variationId` are set only for the Add to Cart with
+      // Options block (resolved by tack-with-options.js); every other form is read here.
+      payload.quantity = context.quantity || $scope.find('input.qty').val() || 1;
       // On a variable product the button can only carry the PARENT id, so the shopper's
       // chosen variation has to be read from WooCommerce's own variation form, which keeps
       // the selected id in a hidden input[name="variation_id"] (0 when nothing is chosen
       // yet). Without this a quote for "X-Large" was recorded against the parent — wrong
       // SKU, and the parent's cheapest price. The server re-validates that this variation
       // really belongs to product_id before using it.
-      var variationId = Number($scope.find('input[name="variation_id"]').val()) || 0;
+      var variationId =
+        context.variationId !== undefined
+          ? context.variationId
+          : Number($scope.find('input[name="variation_id"]').val()) || 0;
       if (variationId) {
         payload.variation_id = variationId;
       }
@@ -1004,10 +1009,100 @@
   // and the buttons are printed by woocommerce_after_add_to_cart_button, i.e. inside that
   // form. Falling back to any enclosing form, then to nothing, keeps a theme that has moved
   // the button working rather than silently picking up a stranger's values.
+  //
+  // WooCommerce's Add to Cart with Options block (1.10.0): in its blockified mode the
+  // buttons are rendered AFTER the block, outside its form (a button inside switches
+  // WooCommerce to a plain posted form), in a container marked `data-tack-scope`. Their
+  // scope is then that block's form for the same product.
   function scopeFor($btn) {
     var $scoped = $btn.closest('form.cart, form.variations_form');
-    return $scoped.length ? $scoped : $btn.closest('form');
+    if ($scoped.length) {
+      return $scoped;
+    }
+    var $form = $btn.closest('form');
+    var $box = $btn.closest('.tack-quote-buttons[data-tack-scope="add-to-cart-with-options"]');
+    return !$form.length && $box.length ? withOptionsFormFor($box) : $form;
   }
+
+  // ─── Add to Cart with Options block: the variation comes from its form ─────
+  //
+  // No `form.variations_form` and no `show_variation` there: the block's variation
+  // selector is an Interactivity API store. Its form carries a hidden
+  // input[name="variation_id"] bound to the selected variation (WooCommerce 11.2.1,
+  // AddToCartWithOptions::render(): "used by extensions ... to gather information of
+  // the form state") and the product id in input[name="add-to-cart"] /
+  // input[name="product_id"]. Stock and visibility come from `data-tack-variations`;
+  // tack-with-options.js turns the two into the classic contract.
+  var WITH_OPTIONS_FORM = 'form.wc-block-add-to-cart-with-options';
+
+  function withOptionsFormFor($box) {
+    var id = String($box.find('[data-product-id]').first().attr('data-product-id') || '');
+    if (!id) {
+      return $();
+    }
+    return $(WITH_OPTIONS_FORM)
+      .filter(function () {
+        return (
+          $(this)
+            .find('input[name="add-to-cart"], input[name="product_id"]')
+            .filter(function () {
+              return String(this.value) === id;
+            }).length > 0
+        );
+      })
+      .first();
+  }
+
+  // The quantity is the block's own input; a product the block treats as not
+  // purchasable (quote only) has none, and the plugin prints one beside the buttons.
+  function withOptionsState($box) {
+    var api = window.TackWithOptions;
+    if (!api) {
+      return { quotable: false, variationId: 0, label: '', quantity: 1 };
+    }
+    var $form = withOptionsFormFor($box);
+    var $qty = $form.find('input.qty');
+    if (!$qty.length) {
+      $qty = $box.find('input.qty');
+    }
+    return api.resolve(
+      api.parseStates($box.attr('data-tack-variations')),
+      $form.find('input[name="variation_id"]').val(),
+      $qty.val()
+    );
+  }
+
+  function withOptionsBox($btn) {
+    return $btn.closest('.tack-quote-buttons[data-tack-scope="add-to-cart-with-options"]');
+  }
+
+  // Enable the buttons of a variable product only while a quotable variation is chosen.
+  function syncWithOptions() {
+    $('.tack-quote-buttons[data-tack-variations]').each(function () {
+      var $box = $(this);
+      var quotable = withOptionsState($box).quotable;
+      $box
+        .find('.tack-quote-btn, .tack-add-to-quote-btn')
+        .prop('disabled', !quotable)
+        .toggleClass('disabled', !quotable);
+    });
+  }
+
+  // The store re-renders asynchronously after a choice, and it fires no event, so the
+  // buttons re-read the form after any interaction with it and once the page settles
+  // (attributes chosen by default or auto-selected).
+  function scheduleWithOptionsSync() {
+    window.setTimeout(syncWithOptions, 0);
+    window.setTimeout(syncWithOptions, 150);
+  }
+  $(document).on('click change input keyup', WITH_OPTIONS_FORM, scheduleWithOptionsSync);
+  $(function () {
+    syncWithOptions();
+  });
+  $(window).on('load', function () {
+    syncWithOptions();
+    window.setTimeout(syncWithOptions, 500);
+  });
 
   // ─── Variable products: mirror WooCommerce's own button gating ──────────────
   //
@@ -1057,7 +1152,22 @@
   $(document).on('click', '.tack-quote-btn', function (e) {
     e.preventDefault();
     var $btn = $(this);
-    openModal({ productId: $btn.data('product-id') || 0, $scope: scopeFor($btn) });
+    var $box = withOptionsBox($btn);
+    if (!$box.length) {
+      openModal({ productId: $btn.data('product-id') || 0, $scope: scopeFor($btn) });
+      return;
+    }
+    var chosen = withOptionsState($box);
+    if (!chosen.quotable) {
+      syncWithOptions();
+      return;
+    }
+    openModal({
+      productId: $btn.data('product-id') || 0,
+      $scope: scopeFor($btn),
+      quantity: chosen.quantity,
+      variationId: chosen.variationId,
+    });
   });
 
   // "Add to Quote" (product page) — adds to the browser-side quote list.
@@ -1067,6 +1177,12 @@
     e.preventDefault();
     var $btn = $(this);
     var $form = scopeFor($btn);
+    var $box = withOptionsBox($btn);
+    var chosen = $box.length ? withOptionsState($box) : null;
+    if (chosen && !chosen.quotable) {
+      syncWithOptions();
+      return;
+    }
     var quantity = Number($form.find('input.qty').val()) || 1;
 
     // On a variable product the button carries the PARENT's id/name/sku/price, so the
@@ -1081,6 +1197,13 @@
       .get()
       .filter(Boolean)
       .join(' / ');
+    if (chosen) {
+      // The block has no attribute selects; its variation, label and quantity come
+      // from the resolved state.
+      variationId = chosen.variationId;
+      variationLabel = chosen.label;
+      quantity = chosen.quantity;
+    }
 
     addToList({
       productId: $btn.data('product-id') || 0,

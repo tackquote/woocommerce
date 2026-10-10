@@ -63,6 +63,12 @@ class Tack_Widget {
 	 */
 	const ITEMS_MAX_BYTES = 65536;
 
+	/**
+	 * `data-tack-scope` of the product-page buttons rendered after the Add to Cart
+	 * with Options block (1.10.0); `tack-quotes.js` reads that block's form.
+	 */
+	const WITH_OPTIONS_SCOPE = 'add-to-cart-with-options';
+
 	// ── 1.10.0 storefront layout options. Every default reproduces the 1.8.x storefront. ──
 
 	/** "Add to Quote" on product cards in the shop, category and search loops. */
@@ -142,6 +148,16 @@ class Tack_Widget {
 		foreach ( Tack_Block_Product::ADD_TO_CART_BLOCKS as $block_name ) {
 			add_filter( 'render_block_' . $block_name, array( $this, 'append_to_add_to_cart_block' ), 10, 3 );
 		}
+
+		/*
+		 * The Add to Cart with Options block in its blockified mode fires
+		 * `woocommerce_after_add_to_cart_button` from inside its own form, and a
+		 * button there turns that form into a plain posted form. These two filters
+		 * tell `render_product_button()` when that is happening, so it leaves the
+		 * buttons to the filter above, after the block. See `Tack_Block_Product`.
+		 */
+		add_filter( 'render_block_data', array( 'Tack_Block_Product', 'enter_block' ) );
+		add_filter( 'render_block_' . Tack_Block_Product::WITH_OPTIONS, array( 'Tack_Block_Product', 'leave_with_options' ), 1 );
 
 		/*
 		 * Variable product on quote (1.10.0): `Tack_Catalog_Mode` replaces the
@@ -327,7 +343,14 @@ class Tack_Widget {
 			: TACK_QUOTES_VERSION;
 
 		wp_enqueue_style( 'tackquote', TACK_QUOTES_URL . 'assets/css/tack-quotes.css', array(), $css_ver );
-		wp_enqueue_script( 'tackquote', TACK_QUOTES_URL . 'assets/js/tack-quotes.js', array( 'jquery', 'wp-i18n' ), $js_ver, true );
+		// The Add to Cart with Options block's variation state (1.10.0); a plain
+		// script with no dependencies, kept apart so it can be tested in Node.
+		$wo     = TACK_QUOTES_DIR . 'assets/js/tack-with-options.js';
+		$wo_ver = ( defined( 'WP_DEBUG' ) && WP_DEBUG && file_exists( $wo ) )
+			? (string) filemtime( $wo )
+			: TACK_QUOTES_VERSION;
+		wp_register_script( 'tackquote-with-options', TACK_QUOTES_URL . 'assets/js/tack-with-options.js', array(), $wo_ver, true );
+		wp_enqueue_script( 'tackquote', TACK_QUOTES_URL . 'assets/js/tack-quotes.js', array( 'jquery', 'wp-i18n', 'tackquote-with-options' ), $js_ver, true );
 
 		/*
 		 * The storefront text lives in the script as wp.i18n __() calls. No path is
@@ -426,12 +449,27 @@ class Tack_Widget {
 	 * @param WC_Product|string|null $for_product The product to render for; anything else
 	 *                                            (a hook's empty argument) means the page's
 	 *                                            global product.
+	 * @param string                 $scope       `add-to-cart-with-options` when rendered after
+	 *                                            that block (1.10.0): the container then names
+	 *                                            the block and, for a variable product, carries
+	 *                                            the variation states the JS reads.
 	 */
-	public function render_product_button( $for_product = null ) {
+	public function render_product_button( $for_product = null, $scope = '' ) {
 		// Hooks fire this with no argument (WordPress passes ''), so the page's
 		// product is the fallback; the block filter passes the block's product.
 		$product = $for_product instanceof WC_Product ? $for_product : ( $GLOBALS['product'] ?? null );
 		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+
+		/*
+		 * Fired by a hook from inside a blockified Add to Cart with Options form:
+		 * print nothing, and leave the once-flag unset so the block's render filter
+		 * puts the buttons after the block. A button inside that form would switch
+		 * WooCommerce to its plain posted form (`has_form_elements()`), and the
+		 * buttons could not read the block's variation from there anyway.
+		 */
+		if ( ! $for_product instanceof WC_Product && Tack_Block_Product::in_blockified_with_options( $product ) ) {
 			return;
 		}
 
@@ -452,7 +490,25 @@ class Tack_Widget {
 			return;
 		}
 
-		echo '<div class="tack-quote-buttons">';
+		echo '<div class="tack-quote-buttons"';
+		if ( self::WITH_OPTIONS_SCOPE === $scope ) {
+			echo ' data-tack-scope="' . esc_attr( self::WITH_OPTIONS_SCOPE ) . '"';
+			if ( $product->is_type( 'variable' ) ) {
+				echo ' data-tack-variations="' . esc_attr( (string) wp_json_encode( (object) Tack_Block_Product::variation_states( $product ) ) ) . '"';
+			}
+		}
+		echo '>';
+		if ( self::WITH_OPTIONS_SCOPE === $scope && function_exists( 'woocommerce_quantity_input' ) && Tack_Block_Product::with_options_omits_quantity( $product ) ) {
+			// The quantity to quote, where the block shows none (quote only); read by tack-quotes.js.
+			woocommerce_quantity_input(
+				array(
+					'min_value'   => $product->get_min_purchase_quantity(),
+					'max_value'   => $product->get_max_purchase_quantity(),
+					'input_value' => $product->get_min_purchase_quantity(),
+				),
+				$product
+			);
+		}
 
 		if ( $show_add_to_quote ) {
 			$label = self::button_label( 'tack_quotes_button_label' );
@@ -498,22 +554,26 @@ class Tack_Widget {
 	 * rendered inside it.
 	 *
 	 * The block returns an empty string for a product that is not purchasable
-	 * (quote-only, or no price), which is the case this exists for.
+	 * (quote-only, or no price), which is the case this exists for. The Add to
+	 * Cart with Options block in its blockified mode is the other: the buttons are
+	 * kept out of its form (see `render_product_button()`) and land here, marked
+	 * with the block so `tack-quotes.js` reads that form's variation and quantity.
 	 *
 	 * @since 1.10.0
 	 *
 	 * @param string               $block_content Rendered block.
-	 * @param array                $parsed_block  Parsed block (unused).
+	 * @param array                $parsed_block  Parsed block; its `blockName` says which block.
 	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
 	 * @return string
 	 */
-	public function append_to_add_to_cart_block( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+	public function append_to_add_to_cart_block( $block_content, $parsed_block = array(), $instance = null ) {
 		$product = Tack_Block_Product::from_block( $instance );
 		if ( null === $product ) {
 			return $block_content;
 		}
+		$name = is_array( $parsed_block ) && isset( $parsed_block['blockName'] ) ? (string) $parsed_block['blockName'] : '';
 		ob_start();
-		$this->render_product_button( $product );
+		$this->render_product_button( $product, Tack_Block_Product::WITH_OPTIONS === $name ? self::WITH_OPTIONS_SCOPE : '' );
 		return (string) $block_content . (string) ob_get_clean();
 	}
 

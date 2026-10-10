@@ -176,6 +176,8 @@ class Tack_Catalog_Mode {
 		 */
 		add_action( 'woocommerce_single_product_summary', array( $this, 'render_quote_only_variation_form' ), 29 );
 		add_action( 'woocommerce_before_single_variation', array( $this, 'swap_variation_cart_controls' ) );
+		// Block themes, Add to Cart with Options block: it shows no variation selector on quote.
+		add_filter( 'render_block_' . Tack_Block_Product::WITH_OPTIONS, array( $this, 'append_quote_only_variation_form' ), 4, 3 );
 		add_action( 'woocommerce_after_single_variation', array( $this, 'restore_variation_cart_controls' ) );
 
 		// Optional "price on request", and the per-product "available on quote" label.
@@ -535,6 +537,48 @@ class Tack_Catalog_Mode {
 		if ( function_exists( 'woocommerce_variable_add_to_cart' ) ) {
 			woocommerce_variable_add_to_cart();
 		}
+	}
+
+	/**
+	 * `render_block_woocommerce/add-to-cart-with-options`: a variable product on
+	 * quote gets WooCommerce's classic variation form after the block.
+	 *
+	 * In its blockified mode the block renders no variation selector, no quantity
+	 * and no cart button for a variable product with no purchasable variation
+	 * (`VariationSelector::render()`, `QuantitySelector::render()` and
+	 * `Utils::is_not_purchasable_product()`, WooCommerce 11.2.1), which is every
+	 * product on quote, so the shopper could not choose what to quote. The form
+	 * is WooCommerce's own (`woocommerce_variable_add_to_cart()`, pluggable, with
+	 * `wc-add-to-cart-variation`), its cart controls swapped for the TackQuote
+	 * ones by `swap_variation_cart_controls()`, exactly as on the classic and Add
+	 * to Cart form paths; the buttons then render inside it and the widget's own
+	 * filter (priority 10) adds nothing.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string               $block_content Rendered block.
+	 * @param array                $parsed_block  Parsed block (unused).
+	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
+	 * @return string
+	 */
+	public function append_quote_only_variation_form( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+		$block_product = Tack_Block_Product::from_block( $instance );
+		if ( null === $block_product || ! $block_product->is_type( 'variable' ) || ! function_exists( 'woocommerce_variable_add_to_cart' ) ) {
+			return $block_content;
+		}
+		if ( ! $this->quotes_instead_of_cart( $block_product ) || ! Tack_Block_Product::with_options_omits_quantity( $block_product ) ) {
+			return $block_content;
+		}
+		// WooCommerce's template reads `global $product`; it is the block's product
+		// only while the form renders, as in `AddToCartWithOptions::render()`.
+		global $product;
+		$previous = $product;
+		$product  = $block_product; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- WooCommerce's own global, restored below.
+		ob_start();
+		woocommerce_variable_add_to_cart();
+		$form    = (string) ob_get_clean();
+		$product = $previous; // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- restoring WooCommerce's global.
+		return (string) $block_content . $form;
 	}
 
 	/**

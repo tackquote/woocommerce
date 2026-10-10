@@ -143,7 +143,7 @@ check(
 $tack_widget = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-widget.php' );
 check(
 	'the storefront script depends on wp-i18n and gets wp_set_script_translations with no path',
-	false !== strpos( $tack_widget, "array( 'jquery', 'wp-i18n' )" ) && false !== strpos( $tack_widget, "wp_set_script_translations( 'tackquote', 'tackquote' );" )
+	false !== strpos( $tack_widget, "array( 'jquery', 'wp-i18n', 'tackquote-with-options' )" ) && false !== strpos( $tack_widget, "wp_set_script_translations( 'tackquote', 'tackquote' );" )
 );
 check( 'no i18n array is localised any more (one source: wp.i18n)', false === strpos( $tack_widget, "'i18n'" ) );
 
