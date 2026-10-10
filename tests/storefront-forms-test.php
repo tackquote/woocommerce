@@ -143,7 +143,8 @@ $client = new Tack_Test_Forms_Client( array( 'wholesale-form?slug=default' => $t
 $forms  = new Tack_Storefront_Forms( $client );
 $html   = $forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
 
-check( 'the form fetches the definition by slug from wholesale-form', array( '/integrations/woocommerce/wholesale-form?slug=default' ) === $client->paths(), implode( ', ', $client->paths() ) );
+// 1.10.0: a form with a file field also asks the server (ping) whether it takes attachments.
+check( 'the form fetches the definition by slug from wholesale-form', array( '/integrations/woocommerce/wholesale-form?slug=default', '/integrations/woocommerce/ping' ) === $client->paths(), implode( ', ', $client->paths() ) );
 check( 'text field renders as an input', (bool) preg_match( '/<input type="text" class="input-text" name="tack_sf\[company\]"[^>]*required="required"/', $html ) );
 check( 'email field renders as type=email', (bool) preg_match( '/<input type="email"[^>]*name="tack_sf\[email\]"/', $html ) );
 check( 'tel field renders as type=tel', (bool) preg_match( '/<input type="tel"[^>]*name="tack_sf\[phone\]"/', $html ) );
@@ -154,7 +155,7 @@ check( 'multiselect renders one checkbox per option, as an array name', 2 === su
 check( 'checkbox renders as a single tick box', (bool) preg_match( '/<input type="checkbox"[^>]*name="tack_sf\[terms\]"[^>]*value="1"[^>]*required="required"/', $html ) );
 check( 'textarea renders', false !== strpos( $html, '<textarea name="tack_sf[about]"' ) );
 check( 'date field renders with min=today when the definition says so', (bool) preg_match( '/<input type="date"[^>]*name="tack_sf\[start\]"[^>]*min="' . gmdate( 'Y-m-d' ) . '"/', $html ) );
-check( 'file field renders a notice, not an upload control', false !== strpos( $html, 'Attachments arrive in a later release' ) && false === strpos( $html, 'type="file"' ) );
+check( 'file field on a server without attachments renders a notice, not an upload control', false !== strpos( $html, 'Files cannot be attached on this store yet' ) && false === strpos( $html, 'type="file"' ) );
 check( 'address renders its six parts', false !== strpos( $html, 'name="tack_sf[address][line1]"' ) && false !== strpos( $html, 'name="tack_sf[address][postalCode]"' ) && false !== strpos( $html, 'name="tack_sf[address][country]"' ) );
 check( 'tax_id renders as a text input', (bool) preg_match( '/<input type="text"[^>]*name="tack_sf\[vat\]"/', $html ) );
 check( 'a conditional field carries its showIf as data attributes', false !== strpos( $html, 'data-tack-show-if-field="terms" data-tack-show-if-equals="true"' ) );

@@ -9,8 +9,20 @@
                 "lang": "ja",
                 "plural-forms": "nplurals=1; plural=0;"
             },
+            "%1$s: files can be at most %2$d MB.": [
+                "%1$s：ファイルは%2$dMB以下にしてください。"
+            ],
+            "%s: attach a PDF, JPEG or PNG file.": [
+                "%s：PDF、JPEG、PNGファイルを添付してください。"
+            ],
             "Address line 2": [
                 "住所2"
+            ],
+            "Attach at most %d files.": [
+                "添付できるファイルは最大%d件です。"
+            ],
+            "Attach files (optional)": [
+                "ファイルを添付（任意）"
             ],
             "City": [
                 "市区町村"
@@ -38,6 +50,15 @@
             ],
             "Request a Quote": [
                 "見積りを依頼"
+            ],
+            "That file could not be attached. Please try again.": [
+                "ファイルを添付できませんでした。もう一度お試しください。"
+            ],
+            "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them.": [
+                "PDF、JPEG、PNGファイルを最大%1$d件、各%2$dMBまで。ファイルを開けるのは販売者のみです。"
+            ],
+            "Uploading %s…": [
+                "%sをアップロード中…"
             ],
             "Your cart is empty.": [
                 "カートは空です。"

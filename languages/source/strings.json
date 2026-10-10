@@ -144,6 +144,67 @@
       "placeholders": {
         "label": "%s"
       }
+    },
+    {
+      "msgid": "Attach files (optional)",
+      "key": "tackquote.quote.files"
+    },
+    {
+      "msgid": "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them.",
+      "key": "tackquote.widget.files_help",
+      "placeholders": {
+        "max": "%1$d",
+        "mb": "%2$d"
+      }
+    },
+    {
+      "msgid": "Attach at most %d files.",
+      "key": "tackquote.widget.files_max",
+      "placeholders": {
+        "max": "%d"
+      }
+    },
+    {
+      "msgid": "%s: attach a PDF, JPEG or PNG file.",
+      "key": "tackquote.widget.file_type",
+      "placeholders": {
+        "name": "%s"
+      }
+    },
+    {
+      "msgid": "%1$s: files can be at most %2$d MB.",
+      "key": "tackquote.widget.file_size",
+      "placeholders": {
+        "name": "%1$s",
+        "max": "%2$d"
+      }
+    },
+    {
+      "msgid": "That file could not be attached. Please try again.",
+      "key": "tackquote.widget.file_failed"
+    },
+    {
+      "msgid": "Uploading %s…",
+      "key": "tackquote.widget.uploading",
+      "placeholders": {
+        "name": "%s"
+      }
+    },
+    {
+      "msgid": "Sign in to your account to attach files.",
+      "key": "tackquote.widget.files_signin"
+    },
+    {
+      "msgid": "This application asks for a document, so you need to be signed in to apply.",
+      "key": "tackquote.widget.wholesale_signin_required"
+    },
+    {
+      "msgid": "Files cannot be attached on this store.",
+      "key": "tackquote.widget.files_unsupported"
+    },
+    {
+      "msgid": "file",
+      "key": "tackquote.widget.file"
     }
   ]
 }

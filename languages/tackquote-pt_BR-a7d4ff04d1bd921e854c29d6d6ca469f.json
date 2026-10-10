@@ -9,8 +9,20 @@
                 "lang": "pt_BR",
                 "plural-forms": "nplurals=2; plural=n > 1;"
             },
+            "%1$s: files can be at most %2$d MB.": [
+                "%1$s: os arquivos podem ter no máximo %2$d MB."
+            ],
+            "%s: attach a PDF, JPEG or PNG file.": [
+                "%s: anexe um arquivo PDF, JPEG ou PNG."
+            ],
             "Address line 2": [
                 "Endereço (linha 2)"
+            ],
+            "Attach at most %d files.": [
+                "Anexe no máximo %d arquivos."
+            ],
+            "Attach files (optional)": [
+                "Anexar arquivos (opcional)"
             ],
             "City": [
                 "Cidade"
@@ -38,6 +50,15 @@
             ],
             "Request a Quote": [
                 "Solicitar orçamento"
+            ],
+            "That file could not be attached. Please try again.": [
+                "Não foi possível anexar esse arquivo. Tente novamente."
+            ],
+            "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them.": [
+                "Até %1$d arquivos PDF, JPEG ou PNG, %2$d MB cada. Somente o vendedor pode abri-los."
+            ],
+            "Uploading %s…": [
+                "Enviando %s…"
             ],
             "Your cart is empty.": [
                 "Seu carrinho está vazio."

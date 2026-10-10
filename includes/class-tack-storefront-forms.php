@@ -36,8 +36,13 @@
  * net-terms application is a credit decision about an ACCOUNT, so it is signed-in
  * only, and the contact email is the account's own address, never a typed one.
  *
- * File-type fields are rendered as a notice rather than an input: uploads stream
- * through TackQuote's upload-then-claim ledger, which a later release wires up.
+ * File-type fields (1.10.0) take a file from a SIGNED-IN customer when the TackQuote
+ * server advertises `attachments`: the handler validates each file, streams it to
+ * `/storefront/v1/wholesale-upload`, deletes the PHP temp file, and submits through
+ * `/storefront/v1/wholesale-signup/<slug>`, which claims the uploads. Without files the
+ * legacy route is used exactly as before. A guest sees "sign in to attach files"; a
+ * server without the capability gets the old notice, and a REQUIRED file field then
+ * blocks the form before it renders a submit button.
  *
  * @package TackQuotes
  */
@@ -113,12 +118,21 @@ class Tack_Storefront_Forms {
 	private $client;
 
 	/**
+	 * File validation and streaming (1.10.0).
+	 *
+	 * @var Tack_Attachments
+	 */
+	private $attachments;
+
+	/**
 	 * Constructor.
 	 *
-	 * @param Tack_Api_Client|null $client Injected in tests; built here otherwise.
+	 * @param Tack_Api_Client|null  $client      Injected in tests; built here otherwise.
+	 * @param Tack_Attachments|null $attachments Injected in tests; built here otherwise.
 	 */
-	public function __construct( $client = null ) {
-		$this->client = $client instanceof Tack_Api_Client ? $client : new Tack_Api_Client();
+	public function __construct( $client = null, $attachments = null ) {
+		$this->client      = $client instanceof Tack_Api_Client ? $client : new Tack_Api_Client();
+		$this->attachments = $attachments instanceof Tack_Attachments ? $attachments : new Tack_Attachments( $this->client );
 	}
 
 	/**
@@ -374,10 +388,11 @@ class Tack_Storefront_Forms {
 			return $this->kses( '<div class="tackquote-storefront-form tackquote-wholesale-application">' . $html . '</div>' );
 		}
 
-		$fields   = isset( $form['fields'] ) && is_array( $form['fields'] ) ? $form['fields'] : array();
-		$refill   = null !== $outcome && isset( $outcome['values'] ) && is_array( $outcome['values'] ) ? $outcome['values'] : array();
-		$prefill  = $this->wholesale_prefill( $fields );
-		$blocking = $this->required_file_field( $fields );
+		$fields    = isset( $form['fields'] ) && is_array( $form['fields'] ) ? $form['fields'] : array();
+		$refill    = null !== $outcome && isset( $outcome['values'] ) && is_array( $outcome['values'] ) ? $outcome['values'] : array();
+		$prefill   = $this->wholesale_prefill( $fields );
+		$blocking  = $this->required_file_field( $fields );
+		$file_mode = $this->file_mode( $fields );
 
 		if ( ! empty( $form['name'] ) ) {
 			$html .= '<h2 class="tackquote-form-title">' . esc_html( (string) $form['name'] ) . '</h2>';
@@ -386,22 +401,26 @@ class Tack_Storefront_Forms {
 			$html .= '<p class="tackquote-form-description">' . esc_html( (string) $form['description'] ) . '</p>';
 		}
 
-		$html .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="woocommerce-form tackquote-form" data-tack-form="wholesale">';
+		$enctype = 'upload' === $file_mode ? ' enctype="multipart/form-data"' : '';
+		$html   .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"' . $enctype . ' class="woocommerce-form tackquote-form" data-tack-form="wholesale">';
 		foreach ( $fields as $field ) {
 			if ( ! is_array( $field ) || empty( $field['key'] ) || empty( $field['type'] ) ) {
 				continue;
 			}
 			$key   = (string) $field['key'];
 			$value = array_key_exists( $key, $refill ) ? $refill[ $key ] : ( isset( $prefill[ $key ] ) ? $prefill[ $key ] : '' );
-			$html .= $this->render_field( $field, 'tack_sf', $value );
+			$html .= $this->render_field( $field, 'tack_sf', $value, $file_mode );
 		}
 
-		if ( null !== $blocking ) {
+		if ( null !== $blocking && 'signin' === $file_mode ) {
+			$html .= $this->notice( 'info', __( 'This application asks for a document, so you need to be signed in to apply.', 'tackquote' ) );
+			$html .= '<p class="tackquote-signin"><a class="button wp-element-button" href="' . esc_url( $this->account_url( 'dashboard' ) ) . '">' . esc_html__( 'Sign in', 'tackquote' ) . '</a></p>';
+		} elseif ( null !== $blocking && 'upload' !== $file_mode ) {
 			$html .= $this->notice(
 				'info',
 				sprintf(
 					/* translators: %s: the label of the attachment field the form requires. */
-					__( 'This form requires an attachment ("%s"). Attachments arrive in a later release of this plugin, so the form cannot be submitted from the store yet. Please contact the store to apply.', 'tackquote' ),
+					__( 'This form requires an attachment ("%s"), which cannot be sent from this store yet. Please contact the store to apply.', 'tackquote' ),
 					(string) $blocking
 				)
 			);
@@ -423,18 +442,79 @@ class Tack_Storefront_Forms {
 	 */
 	public function handle_wholesale_submit() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified inside process_wholesale_submission().
-		$post    = wp_unslash( $_POST );
-		$outcome = $this->process_wholesale_submission( is_array( $post ) ? $post : array() );
+		$post = wp_unslash( $_POST );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- verified inside process_wholesale_submission(); each file is validated there by path, size and content.
+		$files   = isset( $_FILES['tack_sf_files'] ) ? self::files_by_field( $_FILES['tack_sf_files'] ) : array();
+		$outcome = $this->process_wholesale_submission( is_array( $post ) ? $post : array(), $files );
 		$this->respond( $outcome );
+	}
+
+	/**
+	 * `$_FILES['tack_sf_files']` (posted as `tack_sf_files[<field key>]`) as one file per field key.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param mixed $entry The `$_FILES` entry.
+	 * @return array<string, array{name:string,tmp_name:string,size:int,error:int}>
+	 */
+	public static function files_by_field( $entry ) {
+		if ( ! is_array( $entry ) || ! isset( $entry['tmp_name'] ) || ! is_array( $entry['tmp_name'] ) ) {
+			return array();
+		}
+		$files = array();
+		foreach ( $entry['tmp_name'] as $key => $tmp ) {
+			$error = isset( $entry['error'][ $key ] ) && is_scalar( $entry['error'][ $key ] ) ? (int) $entry['error'][ $key ] : UPLOAD_ERR_NO_FILE;
+			if ( ! is_string( $key ) || UPLOAD_ERR_NO_FILE === $error || ! is_string( $tmp ) ) {
+				continue;
+			}
+			$files[ $key ] = array(
+				'name'     => isset( $entry['name'][ $key ] ) && is_string( $entry['name'][ $key ] ) ? $entry['name'][ $key ] : '',
+				'tmp_name' => $tmp,
+				'size'     => isset( $entry['size'][ $key ] ) ? (int) $entry['size'][ $key ] : 0,
+				'error'    => $error,
+			);
+		}
+		return $files;
+	}
+
+	/**
+	 * How this form's file fields behave for the current visitor.
+	 *
+	 * `none` (no file fields), `upload` (server supports attachments and a customer
+	 * with a trusted email is signed in), `signin` (supported, but nobody TackQuote
+	 * may identify is signed in) or `unsupported` (an older server). The capability
+	 * is asked only when the form has a file field.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param array $fields Field definitions.
+	 * @return string
+	 */
+	public function file_mode( array $fields ) {
+		$has_file = false;
+		foreach ( $fields as $field ) {
+			if ( is_array( $field ) && isset( $field['type'] ) && 'file' === $field['type'] ) {
+				$has_file = true;
+				break;
+			}
+		}
+		if ( ! $has_file ) {
+			return 'none';
+		}
+		if ( ! $this->client->supports_attachments() ) {
+			return 'unsupported';
+		}
+		return ( '' !== self::trusted_account_email() && get_current_user_id() > 0 ) ? 'upload' : 'signin';
 	}
 
 	/**
 	 * Validate, sanitise and send a wholesale application. Pure apart from the API call.
 	 *
-	 * @param array $post The unslashed POST body.
+	 * @param array $post  The unslashed POST body.
+	 * @param array $files 1.10.0: files_by_field() output, field key => posted file.
 	 * @return array{kind:string,message:string,redirect:string,form:string,values?:array}
 	 */
-	public function process_wholesale_submission( array $post ) {
+	public function process_wholesale_submission( array $post, array $files = array() ) {
 		$redirect = $this->safe_redirect_target( isset( $post['tack_redirect'] ) ? (string) $post['tack_redirect'] : '' );
 		$outcome  = array(
 			'form'     => 'wholesale',
@@ -442,6 +522,7 @@ class Tack_Storefront_Forms {
 		);
 
 		if ( ! isset( $post['_tack_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( (string) $post['_tack_nonce'] ), self::ACTION_WHOLESALE ) ) {
+			$this->attachments->discard( $files );
 			return $outcome + $this->failure( __( 'Your session has expired. Please reload the page and try again.', 'tackquote' ) );
 		}
 
@@ -452,6 +533,7 @@ class Tack_Storefront_Forms {
 
 		$form = $this->client->get_wholesale_form( $slug );
 		if ( is_wp_error( $form ) ) {
+			$this->attachments->discard( $files );
 			$this->log( 'wholesale-form read (on submit) failed: ' . $this->error_summary( $form ) );
 			return $outcome + $this->failure( $this->friendly_error( $form ) );
 		}
@@ -463,11 +545,23 @@ class Tack_Storefront_Forms {
 
 		$collected = $this->collect_answers( $fields, $raw );
 		if ( null !== $collected['error'] ) {
+			$this->attachments->discard( $files );
 			return $outcome + $this->failure( $collected['error'], $collected['refill'] );
 		}
 
-		$customer_id = is_user_logged_in() ? (string) get_current_user_id() : '';
-		$result      = $this->client->submit_wholesale_form( $slug, $collected['values'], $customer_id );
+		// 1.10.0: files. Every file is checked before anything is sent.
+		$picked = $this->pick_files( $fields, $collected['values'], $files );
+		if ( is_wp_error( $picked ) ) {
+			$this->attachments->discard( $files );
+			return $outcome + $this->failure( $picked->get_error_message(), $collected['refill'] );
+		}
+
+		if ( ! empty( $picked ) ) {
+			$result = $this->submit_with_files( $slug, $collected['values'], $picked );
+		} else {
+			$customer_id = is_user_logged_in() ? (string) get_current_user_id() : '';
+			$result      = $this->client->submit_wholesale_form( $slug, $collected['values'], $customer_id );
+		}
 		if ( is_wp_error( $result ) ) {
 			$this->log( 'wholesale-form submit failed: ' . $this->error_summary( $result ) );
 			return $outcome + $this->failure( $this->friendly_error( $result ), $collected['refill'] );
@@ -486,6 +580,112 @@ class Tack_Storefront_Forms {
 			$outcome['message'] = '' !== $message ? $message : __( 'Your application has been received.', 'tackquote' );
 		}
 		return $outcome;
+	}
+
+	/**
+	 * The posted files for the form's SHOWN file fields, validated, or why not.
+	 *
+	 * One file per field (an application claims one per field). A required, shown
+	 * file field without a file refuses the submission; a file for a field the form
+	 * does not have, or one that is hidden, is ignored (and its temp file deleted).
+	 * Files need a signed-in customer TackQuote may identify and a server that
+	 * advertises attachments.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param array $fields Field definitions.
+	 * @param array $values Answers collected so far (for showIf).
+	 * @param array $files  files_by_field() output.
+	 * @return array<string, array>|WP_Error Field key => validated file.
+	 */
+	public function pick_files( array $fields, array $values, array $files ) {
+		$by_key = array();
+		foreach ( $fields as $field ) {
+			if ( is_array( $field ) && ! empty( $field['key'] ) ) {
+				$by_key[ (string) $field['key'] ] = $field;
+			}
+		}
+
+		$wanted = array();
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) || empty( $field['key'] ) || ! isset( $field['type'] ) || 'file' !== $field['type'] ) {
+				continue;
+			}
+			if ( ! $this->is_shown( $field, $by_key, $values ) ) {
+				continue;
+			}
+			$key   = (string) $field['key'];
+			$label = isset( $field['label'] ) ? (string) $field['label'] : $key;
+			if ( ! isset( $files[ $key ] ) ) {
+				if ( ! empty( $field['required'] ) ) {
+					/* translators: %s: the field's label. */
+					return new WP_Error( 'tack_file_required', sprintf( __( '%s is required.', 'tackquote' ), $label ) );
+				}
+				continue;
+			}
+			$wanted[ $key ] = $field;
+		}
+
+		// Files posted for fields that are not (shown) file fields: dropped now.
+		$this->attachments->discard( array_diff_key( $files, $wanted ) );
+		if ( empty( $wanted ) ) {
+			return array();
+		}
+
+		if ( 'upload' !== $this->file_mode( $fields ) ) {
+			return new WP_Error( 'tack_file_signin', __( 'Sign in to your account to attach files.', 'tackquote' ) );
+		}
+
+		$picked = array();
+		foreach ( $wanted as $key => $field ) {
+			$accept = isset( $field['accept'] ) && is_array( $field['accept'] )
+				? array_values( array_intersect( array_map( 'strval', $field['accept'] ), Tack_Attachments::MIME_TYPES ) )
+				: array_values( array_unique( Tack_Attachments::MIME_TYPES ) );
+			$max_mb = isset( $field['maxSizeMb'] ) && is_numeric( $field['maxSizeMb'] ) ? (int) $field['maxSizeMb'] : Tack_Attachments::MAX_MB;
+			$file   = $this->attachments->validate_file( $files[ $key ], $accept, $max_mb );
+			if ( is_wp_error( $file ) ) {
+				return $file;
+			}
+			$picked[ $key ] = $file;
+		}
+		return $picked;
+	}
+
+	/**
+	 * Upload each file to `/storefront/v1/wholesale-upload`, then submit through
+	 * `/storefront/v1/wholesale-signup/<slug>` with `{uploadId}` as each file
+	 * field's value. The legacy route cannot claim uploads, so there is no fallback.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $slug   Form slug.
+	 * @param array  $values Answers.
+	 * @param array  $picked pick_files() output.
+	 * @return array|WP_Error
+	 */
+	private function submit_with_files( $slug, array $values, array $picked ) {
+		$email  = self::trusted_account_email();
+		$client = $this->client;
+		$keys   = array_keys( $picked );
+		$index  = 0;
+		$sent   = $this->attachments->stream(
+			array_values( $picked ),
+			function ( $bytes, $file ) use ( $client, $slug, $email, $keys, &$index ) {
+				$key = (string) $keys[ $index ];
+				++$index;
+				return $client->upload_wholesale_file( $bytes, $file['name'], $slug, $key, $email );
+			}
+		);
+		if ( is_wp_error( $sent ) ) {
+			$this->log( 'wholesale-form upload failed: ' . $this->error_summary( $sent ) );
+			// Upload wording ("try again shortly", "sign in to attach files"), not the application's.
+			return new WP_Error( 'tack_file_upload', Tack_Attachments::friendly_error( $sent ), array( 'status' => 0 ) );
+		}
+		foreach ( $sent as $i => $answer ) {
+			$values[ $keys[ $i ] ] = array( 'uploadId' => $answer['uploadId'] );
+		}
+		$this->log( 'wholesale-form uploads accepted: ' . implode( ',', wp_list_pluck( $sent, 'uploadId' ) ) );
+		return $this->client->submit_wholesale_signup( $slug, $values, $email );
 	}
 
 	/**
@@ -521,7 +721,7 @@ class Tack_Storefront_Forms {
 			$input = array_key_exists( $key, $raw ) ? $raw[ $key ] : null;
 
 			if ( 'file' === $type ) {
-				// Uploads are not sent by this release; a required one blocks the form before it renders.
+				// Files are posted separately ($_FILES) and checked by pick_files().
 				continue;
 			}
 			if ( ! $this->is_shown( $field, $by_key, $values ) ) {
@@ -1085,12 +1285,13 @@ class Tack_Storefront_Forms {
 	/**
 	 * One form field from its definition.
 	 *
-	 * @param array  $field Field definition (`key`, `label`, `type`, `required`, `options`, `help`, `showIf`, `min`).
-	 * @param string $name  The POST array the field belongs to (`tack_sf`).
-	 * @param mixed  $value Current value (prefill or refill).
+	 * @param array  $field     Field definition (`key`, `label`, `type`, `required`, `options`, `help`, `showIf`, `min`).
+	 * @param string $name      The POST array the field belongs to (`tack_sf`).
+	 * @param mixed  $value     Current value (prefill or refill).
+	 * @param string $file_mode 1.10.0: file_mode() for this visitor (`upload`, `signin`, `unsupported`).
 	 * @return string
 	 */
-	public function render_field( array $field, $name, $value ) {
+	public function render_field( array $field, $name, $value, $file_mode = 'unsupported' ) {
 		$key      = (string) $field['key'];
 		$type     = (string) $field['type'];
 		$label    = isset( $field['label'] ) ? (string) $field['label'] : $key;
@@ -1113,9 +1314,33 @@ class Tack_Storefront_Forms {
 
 		switch ( $type ) {
 			case 'file':
+				if ( 'upload' === $file_mode ) {
+					$max_mb = isset( $field['maxSizeMb'] ) && is_numeric( $field['maxSizeMb'] ) ? max( 1, min( Tack_Attachments::MAX_MB, (int) $field['maxSizeMb'] ) ) : Tack_Attachments::MAX_MB;
+					$accept = isset( $field['accept'] ) && is_array( $field['accept'] )
+						? array_values( array_intersect( array_map( 'strval', $field['accept'] ), Tack_Attachments::MIME_TYPES ) )
+						: array_values( array_unique( Tack_Attachments::MIME_TYPES ) );
+					$tokens = array();
+					foreach ( array_keys( array_intersect( Tack_Attachments::MIME_TYPES, $accept ) ) as $ext ) {
+						$tokens[] = '.' . $ext;
+					}
+					$attr = implode( ',', array_merge( $tokens, $accept ) );
+					$hint = sprintf(
+						/* translators: %d: size limit in megabytes. */
+						__( 'PDF, JPEG or PNG, up to %d MB.', 'tackquote' ),
+						$max_mb
+					);
+					return '<p class="form-row form-row-wide tackquote-field tackquote-field-file" data-tack-field="' . esc_attr( $key ) . '"' . $cond . '>'
+						. '<label for="' . esc_attr( $id ) . '">' . $label_html . '</label>'
+						. '<input type="file" name="' . esc_attr( 'tack_sf_files[' . $key . ']' ) . '" id="' . esc_attr( $id ) . '" accept="' . esc_attr( $attr ) . '"' . $req_attr . ' aria-describedby="' . esc_attr( $id . '_file' ) . '" />'
+						. '<span class="description" id="' . esc_attr( $id . '_file' ) . '">' . esc_html( '' !== $help ? $help . ' ' . $hint : $hint ) . '</span>'
+						. '</p>';
+				}
+				$message = 'signin' === $file_mode
+					? __( 'Sign in to your account to attach files.', 'tackquote' )
+					: __( 'Files cannot be attached on this store yet. If the store needs a document from you, please email it to them.', 'tackquote' );
 				return '<p class="form-row form-row-wide tackquote-field tackquote-field-file" data-tack-field="' . esc_attr( $key ) . '"' . $cond . '>'
 					. '<label>' . $label_html . '</label>'
-					. '<span class="description">' . esc_html__( 'Attachments arrive in a later release of this plugin. If the store needs a document from you, please email it to them.', 'tackquote' ) . '</span>'
+					. '<span class="description">' . esc_html( $message ) . '</span>'
 					. '</p>';
 
 			case 'textarea':
@@ -1411,6 +1636,9 @@ class Tack_Storefront_Forms {
 		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
 		$own    = is_array( $data ) && ! empty( $data['json'] ) && isset( $data['statusCode'] ) && (int) $data['statusCode'] === $status;
 
+		if ( 0 === strpos( (string) $error->get_error_code(), 'tack_file_' ) ) {
+			return (string) $error->get_error_message();
+		}
 		if ( 429 === $status ) {
 			return __( 'Too many applications were sent in a short time. Please wait a few minutes and try again.', 'tackquote' );
 		}
@@ -1543,6 +1771,7 @@ class Tack_Storefront_Forms {
 			'form'     => $common + array(
 				'method'         => true,
 				'action'         => true,
+				'enctype'        => true,
 				'data-tack-form' => true,
 			),
 			'fieldset' => $common + array(
@@ -1572,6 +1801,7 @@ class Tack_Storefront_Forms {
 				'autocomplete'     => true,
 				'inputmode'        => true,
 				'placeholder'      => true,
+				'accept'           => true,
 				'aria-describedby' => true,
 			),
 			'select'   => $common + array(

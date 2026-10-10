@@ -144,5 +144,9 @@ require __DIR__ . '/tax-basis-test.php';
 echo "\n-- storefront follow-ups (variation form on quote, volume table on blocks) --\n";
 require __DIR__ . '/storefront-followups-test.php';
 
+// 1.10.0 attachments: quote-request files and wholesale-form file fields.
+echo "\n-- attachments (quote uploads, wholesale files) --\n";
+require __DIR__ . '/attachments-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

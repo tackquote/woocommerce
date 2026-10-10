@@ -11,6 +11,15 @@
   var __ = wpI18n ? wpI18n.__ : function (text) {
     return text;
   };
+  // Positional printf (%s, %d, %1$s): wp.i18n's own when present.
+  var sprintf = wpI18n && wpI18n.sprintf ? wpI18n.sprintf : function (format) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var next = 0;
+    return String(format).replace(/%(?:(\d+)\$)?[sd]/g, function (m, pos) {
+      var v = pos ? args[Number(pos) - 1] : args[next++];
+      return v == null ? '' : String(v);
+    });
+  };
   TackQuotes.i18n = {
     modalTitle: __('Request a Quote', 'tackquote'),
     firstNameLabel: __('First name', 'tackquote'),
@@ -48,6 +57,15 @@
     targetPrice: __('Target price', 'tackquote'),
     targetPricePlaceholder: __('Optional', 'tackquote'),
     yourPrice: __('Your price', 'tackquote'),
+    // 1.10.0 attachments. The catalogue's wording, so the bundled languages match
+    // the other TackQuote storefronts.
+    filesLabel: __('Attach files (optional)', 'tackquote'),
+    filesHelp: __('Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them.', 'tackquote'),
+    filesMax: __('Attach at most %d files.', 'tackquote'),
+    fileType: __('%s: attach a PDF, JPEG or PNG file.', 'tackquote'),
+    fileSize: __('%1$s: files can be at most %2$d MB.', 'tackquote'),
+    fileFailed: __('That file could not be attached. Please try again.', 'tackquote'),
+    uploading: __('Uploading %s…', 'tackquote'),
     // Company field labels keyed by the names requiredCompanyFields returns; an
     // unlisted key falls back to a humanised version of itself.
     companyFields: {
@@ -515,6 +533,106 @@
     return html;
   }
 
+  // ─── 1.10.0: attachments ───────────────────────────────────────────────────
+  //
+  // Rendered only when the server-side config says so (the merchant's switch AND
+  // the TackQuote server's `attachments` capability). The files go to this store's
+  // own `tack_quote_upload` handler, which validates them again and streams them to
+  // TackQuote; only the opaque upload ids (and a guest's token) come back here and
+  // travel with the quote request.
+  function filesConfig() {
+    var cfg = TackQuotes.attachments;
+    return cfg && cfg.action ? cfg : null;
+  }
+
+  function buildFilesField() {
+    var cfg = filesConfig();
+    if (!cfg) {
+      return '';
+    }
+    var i18n = TackQuotes.i18n;
+    return (
+      '<div class="tack-quote-field tack-quote-files">' +
+      '<label for="tack-quote-files">' + escapeHtml(i18n.filesLabel) + '</label>' +
+      '<input type="file" id="tack-quote-files" name="files[]" multiple accept="' +
+      escapeHtml(cfg.accept || '') + '" aria-describedby="tack-quote-files-help" />' +
+      '<small id="tack-quote-files-help" class="tack-quote-files-help">' +
+      escapeHtml(sprintf(i18n.filesHelp, cfg.maxFiles, cfg.maxMb)) +
+      '</small>' +
+      '</div>'
+    );
+  }
+
+  var ACCEPTED_FILE = /\.(pdf|jpe?g|png)$/i;
+
+  // The same limits the server enforces, checked first so the shopper gets an
+  // inline message instead of a round trip. The server stays the authority.
+  function checkFiles(files, cfg) {
+    var i18n = TackQuotes.i18n;
+    if (files.length > cfg.maxFiles) {
+      return sprintf(i18n.filesMax, cfg.maxFiles);
+    }
+    for (var i = 0; i < files.length; i++) {
+      if (!ACCEPTED_FILE.test(files[i].name || '')) {
+        return sprintf(i18n.fileType, files[i].name);
+      }
+      if (files[i].size > cfg.maxMb * 1024 * 1024) {
+        return sprintf(i18n.fileSize, files[i].name, cfg.maxMb);
+      }
+    }
+    return '';
+  }
+
+  // POST the chosen files; resolves with {uploadIds, uploadToken?}. Retries ONCE
+  // with a fresh nonce when the page's nonce has gone stale (cached HTML).
+  function uploadFiles(files, cfg) {
+    var deferred = $.Deferred();
+    function attempt(allowRetry) {
+      var body = new window.FormData();
+      body.append('action', cfg.action);
+      body.append('nonce', TackQuotes.nonce);
+      for (var i = 0; i < files.length; i++) {
+        body.append('files[]', files[i]);
+      }
+      $.ajax({
+        url: TackQuotes.ajaxUrl,
+        type: 'POST',
+        data: body,
+        processData: false,
+        contentType: false,
+      })
+        .done(function (res) {
+          if (res && res.success && res.data && Array.isArray(res.data.uploadIds)) {
+            deferred.resolve(res.data);
+          } else {
+            deferred.reject((res && res.data) || null);
+          }
+        })
+        .fail(function (xhr) {
+          var data = (xhr && xhr.responseJSON && xhr.responseJSON.data) || null;
+          if (allowRetry && data && data.code === 'tack_nonce_expired' && TackQuotes.nonceUrl) {
+            $.get(TackQuotes.nonceUrl)
+              .done(function (fresh) {
+                var refreshed = fresh && fresh.data && fresh.data.nonce;
+                if (!refreshed) {
+                  deferred.reject(data);
+                  return;
+                }
+                TackQuotes.nonce = refreshed;
+                attempt(false);
+              })
+              .fail(function () {
+                deferred.reject(data);
+              });
+            return;
+          }
+          deferred.reject(data);
+        });
+    }
+    attempt(true);
+    return deferred.promise();
+  }
+
   function buildModal() {
     var i18n = TackQuotes.i18n;
 
@@ -543,6 +661,7 @@
       escapeHtml(i18n.notePlaceholder) +
       '"></textarea>' +
       '</div>' +
+      buildFilesField() +
       '<p class="tack-quote-modal-error" hidden></p>' +
       '<p class="tack-quote-modal-success" hidden></p>' +
       '<div class="tack-quote-modal-actions">' +
@@ -574,6 +693,11 @@
     var $submit = $overlay.find('.tack-quote-modal-submit');
 
     $form[0].reset();
+    // Files uploaded for an earlier request were claimed by it (or will expire).
+    var filesInput = $overlay.find('#tack-quote-files')[0];
+    if (filesInput) {
+      filesInput.tackUploaded = null;
+    }
     $email.val(TackQuotes.customerEmail || '');
     // The quote page's message, when the request comes from there (1.9.0).
     $note.val(context.message || '');
@@ -720,7 +844,46 @@
 
     $submit.prop('disabled', true).text(TackQuotes.i18n.sending);
 
-    send(payload, true);
+    var cfg = filesConfig();
+    var input = cfg ? $overlay.find('#tack-quote-files')[0] : null;
+    var files = input && input.files ? Array.prototype.slice.call(input.files) : [];
+    if (!files.length) {
+      send(payload, true);
+      return;
+    }
+    var problem = checkFiles(files, cfg);
+    if (problem) {
+      $error.text(problem).show();
+      $submit.prop('disabled', false).text(TackQuotes.i18n.submit);
+      return;
+    }
+    // A retry after a failed request reuses the files already uploaded, rather
+    // than sending the same bytes again.
+    if (input.tackUploaded) {
+      withUploads(input.tackUploaded);
+      return;
+    }
+    $submit.text(sprintf(TackQuotes.i18n.uploading, files.map(function (f) { return f.name; }).join(', ')));
+    uploadFiles(files, cfg)
+      .done(function (uploaded) {
+        input.tackUploaded = uploaded;
+        $(input).one('change', function () {
+          input.tackUploaded = null;
+        });
+        withUploads(uploaded);
+      })
+      .fail(function (data) {
+        showFailure(data && data.message ? data : { message: TackQuotes.i18n.fileFailed, reload: data && data.reload });
+      });
+
+    function withUploads(uploaded) {
+      $submit.text(TackQuotes.i18n.sending);
+      payload.upload_ids = uploaded.uploadIds;
+      if (uploaded.uploadToken) {
+        payload.upload_token = uploaded.uploadToken;
+      }
+      send(payload, true);
+    }
 
     /**
      * POST the quote request, refreshing the nonce and retrying ONCE if the nonce is

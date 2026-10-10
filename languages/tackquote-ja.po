@@ -13,10 +13,19 @@ msgstr ""
 "X-Domain: tackquote\n"
 "X-TackQuote-Catalogue: tack packages/widget/locales@8e8b11b1e4279f1aa764e74f57b354769262b4dd\n"
 
+#. catalogue: tackquote.widget.file_size
+msgid "%1$s: files can be at most %2$d MB."
+msgstr "%1$s：ファイルは%2$dMB以下にしてください。"
+
 #. catalogue: tackquote.quote.field_required
 #, php-format
 msgid "%s is required."
 msgstr "%sは必須です。"
+
+#. catalogue: tackquote.widget.file_type
+#, php-format
+msgid "%s: attach a PDF, JPEG or PNG file."
+msgstr "%s：PDF、JPEG、PNGファイルを添付してください。"
 
 #. catalogue: tackquote.widget.add_named_to_quote
 #, php-format
@@ -34,6 +43,15 @@ msgstr "住所2"
 #. catalogue: tackquote.credit.heading
 msgid "Apply for net terms"
 msgstr "掛け払いを申請"
+
+#. catalogue: tackquote.widget.files_max
+#, php-format
+msgid "Attach at most %d files."
+msgstr "添付できるファイルは最大%d件です。"
+
+#. catalogue: tackquote.quote.files
+msgid "Attach files (optional)"
+msgstr "ファイルを添付（任意）"
 
 #. catalogue: tackquote.widget.choose_options_for
 #, php-format
@@ -67,6 +85,10 @@ msgstr "買い物を続ける"
 #. catalogue: tackquote.signup.addr_country
 msgid "Country"
 msgstr "国"
+
+#. catalogue: tackquote.widget.files_unsupported
+msgid "Files cannot be attached on this store."
+msgstr "このストアではファイルを添付できません。"
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
@@ -129,13 +151,34 @@ msgstr "カートの内容で見積を依頼する"
 msgid "Requested credit limit"
 msgstr "希望する与信限度額"
 
+#. catalogue: tackquote.widget.files_signin
+msgid "Sign in to your account to attach files."
+msgstr "ファイルを添付するにはアカウントにログインしてください。"
+
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
 msgstr "申請を送信"
 
+#. catalogue: tackquote.widget.file_failed
+msgid "That file could not be attached. Please try again."
+msgstr "ファイルを添付できませんでした。もう一度お試しください。"
+
+#. catalogue: tackquote.widget.wholesale_signin_required
+msgid "This application asks for a document, so you need to be signed in to apply."
+msgstr "この申請には書類が必要なため、ログインしてから申請してください。"
+
 #. catalogue: tackquote.widget.unit_price
 msgid "Unit price"
 msgstr "単価"
+
+#. catalogue: tackquote.widget.files_help
+msgid "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them."
+msgstr "PDF、JPEG、PNGファイルを最大%1$d件、各%2$dMBまで。ファイルを開けるのは販売者のみです。"
+
+#. catalogue: tackquote.widget.uploading
+#, php-format
+msgid "Uploading %s…"
+msgstr "%sをアップロード中…"
 
 #. catalogue: tackquote.widget.volume_pricing
 msgid "Volume pricing"
@@ -148,3 +191,7 @@ msgstr "カートは空です。"
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "お客様の価格"
+
+#. catalogue: tackquote.widget.file
+msgid "file"
+msgstr "ファイル"

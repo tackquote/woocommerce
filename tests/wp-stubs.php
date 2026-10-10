@@ -739,6 +739,10 @@ if ( ! function_exists( 'wp_remote_request' ) ) {
 		if ( function_exists( 'tack_test_record_http' ) ) {
 			tack_test_record_http( $url, $args );
 		}
+		// A test may answer per URL (1.10.0 attachments: ping, uploads, quote request).
+		if ( isset( $GLOBALS['TACK_HTTP_RESPONDER'] ) && is_callable( $GLOBALS['TACK_HTTP_RESPONDER'] ) ) {
+			return call_user_func( $GLOBALS['TACK_HTTP_RESPONDER'], $url, $args );
+		}
 		return $GLOBALS['TACK_HTTP_RESPONSE'];
 	}
 }

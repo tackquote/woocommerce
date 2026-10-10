@@ -23,6 +23,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-visibility.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-role-mirror.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-attachments.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
@@ -112,6 +113,11 @@ final class Tack_Quotes {
 		// and the admin-post handlers. Registered unconditionally so the rewrite
 		// endpoints always exist; the tab switches only decide what the menu shows.
 		( new Tack_Storefront_Forms() )->init();
+
+		// 1.10.0: the quote-request attachment upload handler. Registered always; it
+		// refuses unless "Allow attachments on quote requests" is on AND the server
+		// advertises `attachments`.
+		( new Tack_Attachments() )->init();
 
 		// Tax exemption TackQuote grants a buyer. Changes what checkout charges,
 		// so it attaches only when the merchant switched it on (default off).
@@ -226,6 +232,8 @@ final class Tack_Quotes {
 			. esc_html__( 'Suggested text for stores using TackQuote for WooCommerce. Edit it to match how your store actually uses the plugin.', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Quote requests', 'tackquote' ) . '</strong><br />'
 			. esc_html__( 'When you request a quote, we send the details you enter in the quote form to our quoting provider, TackQuote: your email address, first and last name, phone number, and — if you are buying on behalf of a company — your company name and any company details the form asks for, together with any note you write. We also send the products, quantities, prices and currency you are asking to be quoted.', 'tackquote' )
+			. '</p><p><strong>' . esc_html__( 'Files you attach (only if the store owner has switched attachments on)', 'tackquote' ) . '</strong><br />'
+			. esc_html__( 'If you attach files to a quote request or to a wholesale application, each file (a PDF, JPEG or PNG of at most 5 MB) and its file name are sent to TackQuote, together with your account email address and your customer account number on this store when you are signed in. The file is not stored on this website. TackQuote keeps it for the seller to review; a file that is never attached to a request is deleted after 24 hours (quote requests) or 7 days (applications).', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Order sync (only if the store owner has switched it on)', 'tackquote' ) . '</strong><br />'
 			. esc_html__( 'When an order is placed or its status changes, we send that order to TackQuote. This includes your full billing address and your full shipping address — name, company, street, city, state or county, postal code, country, email address and phone number — along with any note you left with the order. It also includes the order number and internal order ID, its status, currency, item subtotal, discount, shipping cost, tax and total, any coupon codes used, the payment method and the payment reference our gateway issued, and the created, modified, paid and completed dates. Each line includes the product name, SKU, product and variation IDs, quantity, price, tax and the options chosen (for example size or colour). No card number or card details are ever sent.', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Net terms at checkout (only if the store owner has switched it on)', 'tackquote' ) . '</strong><br />'
