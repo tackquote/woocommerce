@@ -72,6 +72,13 @@ class Tack_B2B_Notices {
 	private $limits = array();
 
 	/**
+	 * Product ids whose order-limit notice was already printed this request.
+	 *
+	 * @var int[]
+	 */
+	private $limit_notice_ids = array();
+
+	/**
 	 * Buyer group for this request, or false when not yet asked.
 	 *
 	 * @var array|false|null
@@ -122,6 +129,10 @@ class Tack_B2B_Notices {
 		if ( 'yes' === get_option( self::OPTION_ORDER_LIMITS, 'no' ) ) {
 			// The courtesy.
 			add_action( 'woocommerce_single_product_summary', array( $this, 'render_order_limit_notice' ), 24 );
+			// Block themes: above the Add to Cart block (see Tack_Block_Product).
+			foreach ( Tack_Block_Product::ADD_TO_CART_BLOCKS as $block_name ) {
+				add_filter( 'render_block_' . $block_name, array( $this, 'prepend_order_limit_notice' ), 10, 3 );
+			}
 			// The enforcement. Runs on the cart page AND on checkout (classic templates).
 			add_action( 'woocommerce_check_cart_items', array( $this, 'enforce_order_limits' ) );
 
@@ -211,11 +222,31 @@ class Tack_B2B_Notices {
 
 	/**
 	 * The courtesy notice on the product page.
+	 *
+	 * Printed once per product: on a block theme the Add to Cart block filter and
+	 * the classic summary hook can both reach it.
+	 *
+	 * @param WC_Product|string|null $for_product The product; anything else (a hook's
+	 *                                            empty argument) means the page's global
+	 *                                            product.
 	 */
-	public function render_order_limit_notice() {
-		global $product;
+	public function render_order_limit_notice( $for_product = null ) {
+		$explicit = is_object( $for_product );
+		if ( ! $explicit && class_exists( 'Tack_Block_Product' ) && Tack_Block_Product::is_compat_hook() ) {
+			// WooCommerce's block-template compatibility layer: the global is not the
+			// product there, and the block filter renders the notice by the form.
+			return;
+		}
+		$product = $explicit ? $for_product : ( $GLOBALS['product'] ?? null );
 		if ( ! is_object( $product ) || ! method_exists( $product, 'get_sku' ) ) {
 			return;
+		}
+		$product_id = method_exists( $product, 'get_id' ) ? (int) $product->get_id() : 0;
+		if ( $product_id && in_array( $product_id, $this->limit_notice_ids, true ) ) {
+			return;
+		}
+		if ( $product_id ) {
+			$this->limit_notice_ids[] = $product_id;
 		}
 		$sku = (string) $product->get_sku();
 		if ( '' === $sku ) {
@@ -228,6 +259,28 @@ class Tack_B2B_Notices {
 		}
 
 		echo '<p class="tackquote-order-limit">' . esc_html( $this->limit_sentence( $limits ) ) . '</p>';
+	}
+
+	/**
+	 * `render_block_woocommerce/add-to-cart-form` and `.../add-to-cart-with-options`:
+	 * the courtesy notice directly above the block, where the classic template
+	 * puts it (summary priority 24, just before the add-to-cart form at 30).
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string               $block_content Rendered block.
+	 * @param array                $parsed_block  Parsed block (unused).
+	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
+	 * @return string
+	 */
+	public function prepend_order_limit_notice( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+		$product = Tack_Block_Product::from_block( $instance );
+		if ( null === $product ) {
+			return $block_content;
+		}
+		ob_start();
+		$this->render_order_limit_notice( $product );
+		return (string) ob_get_clean() . (string) $block_content;
 	}
 
 	/**
