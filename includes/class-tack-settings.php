@@ -150,6 +150,11 @@ class Tack_Settings {
 		}
 		wp_enqueue_style( 'tackquote-admin', TACK_QUOTES_URL . 'assets/css/tack-admin.css', array(), TACK_QUOTES_VERSION );
 		wp_enqueue_script( 'tackquote-admin', TACK_QUOTES_URL . 'assets/js/tack-admin.js', array(), TACK_QUOTES_VERSION, true );
+
+		// 1.10.0: WordPress's own colour picker for the storefront accent colour.
+		wp_enqueue_style( 'wp-color-picker' );
+		wp_enqueue_script( 'wp-color-picker' );
+		wp_add_inline_script( 'wp-color-picker', 'jQuery(function($){$(".tack-color-field").wpColorPicker();});' );
 	}
 
 	// ── Tabs ──────────────────────────────────────────────────────────────────
@@ -2494,6 +2499,75 @@ class Tack_Settings {
 		// 1.10.0: files on quote requests.
 		$this->section( 'storefront', 'tack_quotes_attachments', __( 'Attachments', 'tackquote' ), array( $this, 'section_attachments' ) );
 		$this->field( 'storefront', 'tack_quotes_attachments', Tack_Attachments::OPTION_ENABLED, __( 'Quote requests', 'tackquote' ), array( $this, 'field_enable_attachments' ) );
+
+		// 1.10.0: how the storefront controls look.
+		$this->setting( 'storefront', Tack_Widget::OPT_THEME_STYLES_ONLY, $checkbox );
+		$this->setting( 'storefront', Tack_Widget::OPT_ACCENT_COLOR, array( $this, 'sanitize_accent_color' ) );
+		$this->section( 'storefront', 'tack_quotes_styling', __( 'Styling', 'tackquote' ), array( $this, 'section_styling' ) );
+		$this->field( 'storefront', 'tack_quotes_styling', Tack_Widget::OPT_THEME_STYLES_ONLY, __( 'Theme styles', 'tackquote' ), array( $this, 'field_theme_styles_only' ) );
+		$this->field( 'storefront', 'tack_quotes_styling', Tack_Widget::OPT_ACCENT_COLOR, __( 'Accent colour', 'tackquote' ), array( $this, 'field_accent_color' ), array( 'label_for' => Tack_Widget::OPT_ACCENT_COLOR ) );
+	}
+
+	/**
+	 * Intro copy for the styling section.
+	 *
+	 * @since 1.10.0
+	 */
+	public function section_styling() {
+		echo '<p>' . esc_html__( 'The quote buttons, launcher, drawer, quote page and forms use your theme\'s own buttons, fields, fonts and colours.', 'tackquote' ) . '</p>';
+		$this->learn_more(
+			array(
+				__( 'To change one detail, set a --tackquote-* CSS variable in Appearance > Customize > Additional CSS (classic themes) or in the Site Editor\'s custom CSS (block themes), for example :root { --tackquote-radius: 0; }. Developers can copy the templates in the plugin\'s templates/tackquote/ folder into yourtheme/woocommerce/tackquote/ and edit them there, like WooCommerce\'s own templates.', 'tackquote' ),
+			)
+		);
+	}
+
+	/**
+	 * "Use the theme's styles only".
+	 *
+	 * @since 1.10.0
+	 */
+	public function field_theme_styles_only() {
+		$this->checkbox_default_off(
+			Tack_Widget::OPT_THEME_STYLES_ONLY,
+			__( 'Use the theme\'s styles only', 'tackquote' )
+		);
+		$this->help( __( 'Loads only the layout rules the launcher, drawer and request form need to work; your theme styles everything else.', 'tackquote' ) );
+	}
+
+	/**
+	 * The accent colour picker.
+	 *
+	 * @since 1.10.0
+	 */
+	public function field_accent_color() {
+		printf(
+			'<input type="text" class="tack-color-field" id="%1$s" name="%1$s" value="%2$s" data-default-color="" maxlength="7" />',
+			esc_attr( Tack_Widget::OPT_ACCENT_COLOR ),
+			esc_attr( Tack_Widget::accent_color() )
+		);
+		$this->help( __( 'Optional. Repaints the quote buttons and the launcher in this colour. Leave it empty to use your theme\'s button colours.', 'tackquote' ) );
+	}
+
+	/**
+	 * Sanitize the accent colour: a hex colour, or '' for the theme's.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_accent_color( $value ) {
+		$value = is_string( $value ) ? trim( $value ) : '';
+		if ( '' === $value ) {
+			return '';
+		}
+		$hex = sanitize_hex_color( $value );
+		if ( ! is_string( $hex ) || '' === $hex ) {
+			add_settings_error( Tack_Widget::OPT_ACCENT_COLOR, 'tack_accent_color', __( 'The accent colour must be a hex colour such as #1e73be. It was left unchanged.', 'tackquote' ) );
+			return (string) get_option( Tack_Widget::OPT_ACCENT_COLOR, '' );
+		}
+		return $hex;
 	}
 
 	/**

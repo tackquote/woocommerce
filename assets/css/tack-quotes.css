@@ -1,374 +1,173 @@
-.tack-quote-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
+/*
+ * TackQuote storefront: APPEARANCE (1.10.0).
+ *
+ * Loaded after tack-quotes-layout.css unless the merchant chose "Use the theme's
+ * styles only". The plugin imposes no palette of its own:
+ *
+ * - every button is the theme's button (`button`, plus `wp-element-button` on a
+ *   block theme, `alt` on the final action), so Site Editor > Styles > Elements >
+ *   Button, or a classic theme's `.button` rules, paint it;
+ * - fields wear WooCommerce's `input-text` and tables `shop_table`;
+ * - type, colour and spacing are inherited or read from the theme's theme.json
+ *   presets (--wp--preset--*), with a neutral fallback for classic themes.
+ *
+ * Merchant overrides: set any --tackquote-* custom property, e.g. in Customizer >
+ * Additional CSS:   :root { --tackquote-accent: #0a7c55; --tackquote-radius: 0; }
+ * The full list, the classes and the template overrides are in docs/CUSTOMISATION.md.
+ * Hex and rgb() values appear ONLY as var() fallbacks (tests/theme-blend-test.php
+ * enforces that).
+ */
+
+/* ── Shared ────────────────────────────────────────────────────────────────── */
+
+/* Plugin-only controls (close and remove buttons, quantity inputs) get a visible
+ * keyboard focus ring in the accent, or in the text colour when none is set.
+ * Theme buttons keep the theme's own focus style. */
+.tack-quote-list-close:focus-visible,
+.tack-quote-modal-close:focus-visible,
+.tack-quote-list-item-remove:focus-visible,
+.tack-quote-page-remove:focus-visible,
+.tack-quote-list-item-qty-input:focus-visible,
+.tack-quote-page-table input:focus-visible,
+.tack-quote-field input:focus-visible,
+.tack-quote-field textarea:focus-visible {
+  outline: 2px solid var(--tackquote-focus, var(--tackquote-accent, currentColor));
+  outline-offset: 2px;
 }
 
-.tack-quote-buttons .tack-quote-btn,
-.tack-quote-buttons .tack-add-to-quote-btn {
-  margin-top: 0;
-}
-
-.tack-quote-btn,
-.tack-add-to-quote-btn {
-  margin-top: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* "Checkout as Quote" (quote-list drawer) / "Request a Quote" (product page) — primary, final action. */
-.tack-quote-btn {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-}
-
-.tack-quote-btn:hover {
-  background: #1d4ed8;
-  color: #fff;
-}
-
-/* "Add to Quote" (product page) — secondary, non-final action, sits next to
-   the theme's own Add to Cart button without competing with it visually. */
-.tack-add-to-quote-btn {
-  background: #fff;
-  color: #2563eb;
-  border: 1.5px solid #2563eb;
-}
-
-.tack-add-to-quote-btn:hover {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.tack-quote-btn:disabled,
-.tack-add-to-quote-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.tack-quote-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100000;
-  padding: 16px;
-}
-
-.tack-quote-modal-overlay[hidden] {
-  display: none;
-}
-
-body.tack-quote-modal-open {
-  overflow: hidden;
-}
-
-.tack-quote-modal {
-  position: relative;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
-  width: 100%;
-  max-width: 420px;
-  padding: 28px 24px 22px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.tack-quote-modal h2 {
-  margin: 0 0 16px;
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-  padding-right: 24px;
-}
-
-.tack-quote-modal-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
+/* Icon buttons: the text colour, never a fixed grey (a light grey "x" on a light
+ * surface fails WCAG contrast). */
+.tack-quote-list-close,
+.tack-quote-modal-close,
+.tack-quote-list-item-remove,
+.tack-quote-page-remove {
+  min-width: 1.75em;
+  min-height: 1.75em;
+  padding: 0.15em 0.35em;
+  border: 0;
+  border-radius: var(--tackquote-radius, 4px);
   background: none;
-  border: none;
-  font-size: 22px;
+  color: inherit;
+  font: inherit;
+  font-size: 1.25em;
   line-height: 1;
-  color: #94a3b8;
+  opacity: 0.75;
   cursor: pointer;
-  padding: 4px;
 }
 
-.tack-quote-modal-close:hover {
-  color: #475569;
+.tack-quote-list-close:hover,
+.tack-quote-modal-close:hover,
+.tack-quote-list-item-remove:hover,
+.tack-quote-page-remove:hover {
+  opacity: 1;
 }
 
-.tack-quote-field {
-  margin-bottom: 14px;
+.tack-quote-optional,
+.tack-quote-files-help,
+.tack-quote-page-item-sku {
+  font-weight: 400;
+  font-size: 0.85em;
+  opacity: 0.8;
 }
 
-.tack-quote-field label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 5px;
-}
-
-.tack-quote-field input,
-.tack-quote-field textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 9px 11px;
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.tack-quote-field input:focus,
-.tack-quote-field textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-}
-
-/* 1.10.0: "Attach files (optional)". */
-.tack-quote-files input[type="file"] {
-  padding: 7px;
-  font-size: 13px;
-}
-
+.tack-quote-page-item-sku,
 .tack-quote-files-help {
   display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  color: #64748b;
 }
 
-.tack-quote-modal-error {
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  margin: 0 0 14px;
-}
-
-.tack-quote-modal-success {
-  color: #15803d;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-  margin: 0 0 4px;
-}
-
-.tack-quote-modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.tack-quote-modal-cancel {
-  background: none;
-  border: 1px solid #cbd5e1;
-  color: #334155;
-  border-radius: 8px;
-  padding: 9px 16px;
-  font-size: 14px;
-  font-weight: 600;
+/* ── Product page buttons ──────────────────────────────────────────────────── */
+.tack-quote-buttons .button {
   cursor: pointer;
 }
 
-.tack-quote-modal-cancel:hover {
-  background: #f1f5f9;
-}
-
-.tack-quote-modal-submit {
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 9px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tack-quote-modal-submit:hover {
-  background: #1d4ed8;
-}
-
+.tack-quote-buttons .button:disabled,
+.tack-quote-list-checkout:disabled,
+.tack-quote-page-submit:disabled,
 .tack-quote-modal-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* Floating "quote list" widget — printed site-wide in wp_footer, separate
-   from the WooCommerce cart. Hidden by JS until at least one item is added. */
-.tack-quote-list-widget {
-  position: fixed;
-  /* 1.10.0: the merchant's offsets. The defaults are the 20px this always was. */
-  right: var(--tack-fab-x, 20px);
-  bottom: var(--tack-fab-y, 20px);
-  z-index: 99999;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.tack-quote-list-widget[hidden] {
-  display: none;
-}
-
+/* ── Launcher + drawer ─────────────────────────────────────────────────────── */
 .tack-quote-list-toggle {
-  background: #0f172a;
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 12px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
-}
-
-.tack-quote-list-toggle:hover {
-  background: #1e293b;
+  border-radius: var(--tackquote-launcher-radius, var(--tackquote-radius, 999px));
+  box-shadow: var(--tackquote-shadow, var(--wp--preset--shadow--natural, 0 8px 24px rgb(0 0 0 / 0.25)));
 }
 
 .tack-quote-list-drawer {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 12px);
-  width: 320px;
-  max-width: calc(100vw - 40px);
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.25);
-  padding: 16px;
-}
-
-.tack-quote-list-drawer[hidden] {
-  display: none;
+  padding: var(--tackquote-space, var(--wp--preset--spacing--30, 1rem));
+  border: 1px solid var(--tackquote-border, color-mix(in srgb, currentColor 15%, transparent));
+  border-radius: var(--tackquote-radius, 8px);
+  box-shadow: var(--tackquote-shadow, var(--wp--preset--shadow--natural, 0 20px 60px rgb(0 0 0 / 0.25)));
+  font-size: var(--tackquote-font-size, 0.9375rem);
 }
 
 .tack-quote-list-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  font-size: 14px;
-  color: #0f172a;
-}
-
-.tack-quote-list-drawer-header button {
-  background: none;
-  border: none;
-  font-size: 20px;
-  line-height: 1;
-  color: #94a3b8;
-  cursor: pointer;
+  margin-block-end: 0.5em;
 }
 
 .tack-quote-list-items {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
-  max-height: 240px;
-  overflow-y: auto;
+  margin-block-end: 0.75em;
 }
 
 .tack-quote-list-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f1f5f9;
-  font-size: 13px;
+  padding-block: 0.5em;
+  border-block-end: 1px solid var(--tackquote-border, color-mix(in srgb, currentColor 15%, transparent));
 }
 
-.tack-quote-list-item-name {
-  flex: 1;
-  color: #334155;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tack-quote-list-item-qty,
+.tack-quote-list-item-price {
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.tack-quote-list-item-qty {
-  color: #64748b;
-  font-variant-numeric: tabular-nums;
+.tack-quote-list-item-qty-input {
+  width: 3.75em;
+  margin-inline-start: 2px;
+  padding: 0.2em 0.35em;
+  font: inherit;
 }
 
-.tack-quote-list-item-remove {
-  background: none;
-  border: none;
-  font-size: 16px;
-  line-height: 1;
-  color: #cbd5e1;
-  cursor: pointer;
-  padding: 2px 4px;
+/* ── Request modal ─────────────────────────────────────────────────────────── */
+.tack-quote-modal {
+  padding: var(--tackquote-space, var(--wp--preset--spacing--30, 1.5rem));
+  padding-block-start: calc(var(--tackquote-space, var(--wp--preset--spacing--30, 1.5rem)) + 0.5rem);
+  border-radius: var(--tackquote-radius, 8px);
+  box-shadow: var(--tackquote-shadow, var(--wp--preset--shadow--natural, 0 20px 60px rgb(0 0 0 / 0.25)));
 }
 
-.tack-quote-list-item-remove:hover {
-  color: #b91c1c;
+.tack-quote-modal h2 {
+  margin-block: 0 1rem;
+  padding-inline-end: 2rem;
+  font-size: var(--wp--preset--font-size--large, 1.25em);
+  line-height: 1.3;
 }
 
-.tack-quote-list-checkout {
-  width: 100%;
-  justify-content: center;
-  margin-top: 0;
+.tack-quote-field {
+  margin-block: 0 0.875rem;
 }
 
-/* ─── Registration form fields ──────────────────────────────────────────────────
-   Added when the modal grew from a single email box to a policy-driven buyer +
-   company form. Kept deliberately plain: this markup is injected into whatever
-   theme the store runs, so it inherits the theme's input styling and only lays
-   fields out rather than restyling them. */
-
-.tack-quote-field-row {
-  display: flex;
-  gap: 0.75rem;
+.tack-quote-field > label {
+  display: block;
+  margin-block-end: 0.3em;
 }
 
-.tack-quote-field-half {
-  flex: 1 1 0;
-  /* Without min-width:0 a long placeholder makes a flex item refuse to shrink and
-     the row overflows the modal on narrow screens. */
-  min-width: 0;
+.tack-quote-field textarea {
+  font: inherit;
 }
 
-@media (max-width: 480px) {
-  .tack-quote-field-row {
-    flex-direction: column;
-    gap: 0;
-  }
-}
-
-.tack-quote-optional {
-  font-weight: 400;
-  opacity: 0.6;
-  font-size: 0.85em;
+.tack-quote-files input[type="file"] {
+  padding-block: 0.4em;
 }
 
 .tack-quote-buying-as {
-  border: 0;
-  padding: 0;
   margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
 }
 
 .tack-quote-buying-as legend {
   padding: 0;
-  font-size: 0.9em;
   font-weight: 600;
 }
 
@@ -376,40 +175,78 @@ body.tack-quote-modal-open {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  margin-right: 1rem;
+  margin-inline-end: 1rem;
   font-weight: 400;
 }
 
 .tack-quote-company-section {
-  border-top: 1px solid rgba(15, 23, 42, 0.12);
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-}
-
-/* `hidden` must beat the layout rules above, or toggling the company section leaves
-   it visible — the same specificity trap that kept a modal open in the Magento
-   extension. */
-.tack-quote-company-section[hidden] {
-  display: none !important;
+  margin-block-start: 0.75rem;
+  padding-block-start: 0.75rem;
+  border-block-start: 1px solid var(--tackquote-border, color-mix(in srgb, currentColor 15%, transparent));
 }
 
 .tack-quote-company-heading {
-  font-size: 1em;
   margin: 0 0 0.5rem;
+  font-size: 1em;
 }
 
-/* ── B2B pricing surfaces (1.6.0 / 1.7.0) ─────────────────────────────────────
- *
- * Deliberately restrained: these render inside whatever theme the merchant
- * runs, so they inherit colour and font rather than imposing a palette. Only
- * layout, spacing and emphasis are set here. `currentColor` throughout means a
- * dark theme gets readable text without a second stylesheet.
- */
+/* Messages: the text keeps the surface's colour (always readable); the status is
+ * the edge, in WooCommerce's own notice colours when its stylesheet is loaded. */
+.tack-quote-modal-error,
+.tack-quote-modal-success {
+  margin: 0 0 0.875rem;
+  padding: 0.5em 0.75em;
+  border-inline-start: 4px solid;
+  border-radius: var(--tackquote-radius, 4px);
+}
 
-/* The volume-tier ladder. Scrolls rather than overflowing on a narrow phone. */
+.tack-quote-modal-error {
+  border-inline-start-color: var(--tackquote-error, var(--wc-red, #a00));
+  background-color: color-mix(in srgb, var(--tackquote-error, var(--wc-red, #a00)) 8%, transparent);
+}
+
+.tack-quote-modal-success {
+  border-inline-start-color: var(--tackquote-success, var(--wc-green, #7ad03a));
+  background-color: color-mix(in srgb, var(--tackquote-success, var(--wc-green, #7ad03a)) 10%, transparent);
+}
+
+/* ── Cart page ─────────────────────────────────────────────────────────────── */
+.wc-proceed-to-checkout .tack-quote-cart-btn {
+  margin-block-start: 0.5rem;
+}
+
+.tack-quote-cart-fixed {
+  box-shadow: var(--tackquote-shadow, 0 -8px 24px rgb(0 0 0 / 0.12));
+}
+
+/* ── Quote page ────────────────────────────────────────────────────────────── */
+/* The table's fields sit outside a WooCommerce form row, so they are sized here
+ * in the theme's own type rather than the browser's small default. */
+.tack-quote-page-table input {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.35em 0.5em;
+  font: inherit;
+}
+
+.tack-quote-page-actions {
+  margin-block-start: 1rem;
+}
+
+/* ── Product cards ─────────────────────────────────────────────────────────── */
+.tack-card-quote-btn,
+.tack-card-quote-link {
+  margin-block-start: 0.375rem;
+}
+
+/* ── B2B pricing surfaces ──────────────────────────────────────────────────────
+ * These render inside the theme's own product markup, so they inherit colour and
+ * font; `currentColor` keeps them readable on dark themes. */
+
+/* The volume-tier ladder (also a WooCommerce `shop_table`). */
 .tackquote-quantity-breaks {
   width: 100%;
-  margin: 14px 0;
+  margin-block: 0.875rem;
   border-collapse: collapse;
   font-size: 0.95em;
 }
@@ -417,14 +254,13 @@ body.tack-quote-modal-open {
 .tackquote-quantity-breaks caption {
   text-align: start;
   font-weight: 600;
-  padding-bottom: 6px;
+  padding-block-end: 0.375rem;
 }
 
 .tackquote-quantity-breaks th,
 .tackquote-quantity-breaks td {
-  /* `currentColor` at low alpha, so the rule is visible on light and dark. */
-  border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  padding: 6px 10px;
+  border-block-end: 1px solid var(--tackquote-border, color-mix(in srgb, currentColor 18%, transparent));
+  padding: 0.375rem 0.625rem;
   text-align: start;
 }
 
@@ -432,27 +268,24 @@ body.tack-quote-modal-open {
   font-weight: 600;
 }
 
-/* Minimum/maximum order quantity. An advisory, not an error — so it is not
- * styled red. The refusal at the cart is where the alarming styling belongs,
- * and WooCommerce already owns that. */
+/* Minimum/maximum order quantity: an advisory, not an error, so not red. */
 .tackquote-order-limit {
-  margin: 10px 0;
-  padding: 8px 12px;
-  border-inline-start: 3px solid currentColor;
+  margin-block: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 3px solid var(--tackquote-accent, currentColor);
   background: color-mix(in srgb, currentColor 6%, transparent);
   font-size: 0.95em;
 }
 
-/* "You're on Tier 2 pricing". Sits above the title, so it reads as a status
- * about the viewer rather than a label on the product. */
+/* "You're on Tier 2 pricing". */
 .tackquote-buyer-group {
-  margin: 0 0 8px;
+  margin: 0 0 0.5rem;
 }
 
 .tackquote-buyer-group-name {
   display: inline-block;
-  padding: 3px 10px;
-  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  padding: 0.2em 0.75em;
+  border: 1px solid var(--tackquote-accent, color-mix(in srgb, currentColor 30%, transparent));
   border-radius: 999px;
   font-size: 0.8em;
   font-weight: 600;
@@ -467,186 +300,6 @@ del + ins {
   text-decoration: none;
 }
 
-/* ── 1.10.0: launcher settings ─────────────────────────────────────────────────
- * Position, size, icon, count and mobile behaviour are classes and two custom
- * properties printed by Tack_Widget::render_quote_list_drawer(). With no
- * setting changed, none of these rules change anything. */
-
-.tack-quote-list-widget.tack-fab-left {
-  right: auto;
-  left: var(--tack-fab-x, 20px);
-}
-
-.tack-fab-left .tack-quote-list-drawer {
-  right: auto;
-  left: 0;
-}
-
-.tack-quote-list-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tack-fab-icon {
-  display: none;
-  flex: 0 0 auto;
-}
-
-.tack-fab-icon-only .tack-fab-icon {
-  display: inline-block;
-}
-
-/* The text stays in the DOM for assistive technology; only the pixels go. */
-.tack-fab-icon-only .tack-fab-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.tack-fab-no-count .tack-fab-count {
-  display: none;
-}
-
-.tack-fab-compact .tack-quote-list-toggle {
-  padding: 8px 14px;
-  font-size: 13px;
-}
-
-@media (max-width: 768px) {
-  .tack-quote-list-widget.tack-fab-hide-mobile {
-    display: none;
-  }
-}
-
-/* Narrow phones: always compact, 48px tall, lifted above the home indicator —
- * the same rule the shared TackQuote widget applies at this width. */
-@media (max-width: 480px) {
-  .tack-quote-list-widget {
-    bottom: calc(var(--tack-fab-y, 20px) + env(safe-area-inset-bottom, 0px));
-  }
-
-  .tack-quote-list-toggle {
-    justify-content: center;
-    min-width: 48px;
-    min-height: 48px;
-    padding: 0 14px;
-    font-size: 13px;
-  }
-
-  /* Compact: icon and count only; the label stays for assistive technology
-   * (the button's aria-label carries it too). */
-  .tack-quote-list-widget .tack-fab-icon {
-    display: inline-block;
-  }
-
-  .tack-quote-list-widget .tack-fab-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-}
-
-/* Drawer lines: editable quantity, and the buyer's resolved price when there is one. */
-.tack-quote-list-item-qty-input {
-  width: 3.5em;
-  margin-left: 2px;
-  padding: 2px 4px;
-  font: inherit;
-  font-size: 13px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-}
-
-.tack-quote-list-item-price {
-  color: #334155;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* ── 1.10.0: product-card and cart-page controls ──────────────────────────────
- * Layout only. They wear WooCommerce's own button classes (`button`, and
- * `wp-element-button` on a block theme), so the theme paints them. */
-
-.tack-card-quote-btn,
-.tack-card-quote-link {
-  display: inline-block;
-  margin-top: 6px;
-}
-
-.wc-proceed-to-checkout .tack-quote-cart-btn {
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-  text-align: center;
-}
-
-/* The Cart block has no server-side slot beside its Proceed button, so the
- * control is fixed to the bottom of the cart page. */
-.tack-quote-cart-fixed {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 99998;
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  background: #fff;
-  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
-  text-align: center;
-}
-
-.tack-quote-cart-fixed .tack-quote-cart-btn {
-  margin: 0;
-}
-
-/* The launcher sits above the fixed cart control. */
-body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
-  bottom: calc(var(--tack-fab-y, 20px) + 72px);
-}
-
-/* ── 1.10.0: the quote page ([tackquote_quote_page]) ───────────────────────────
- * Inherits the theme's `shop_table` styling; only the inputs and actions are sized. */
-
-.tack-quote-page-table input[type="number"] {
-  width: 5.5em;
-  font: inherit;
-}
-
-.tack-quote-page-item-sku {
-  display: block;
-  opacity: 0.7;
-  font-size: 0.85em;
-}
-
-.tack-quote-page-remove {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: inherit;
-  opacity: 0.6;
-  font-size: 1.2em;
-  line-height: 1;
-}
-
-.tack-quote-page-remove:hover {
-  opacity: 1;
-}
-
-.tack-quote-page-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-}
-
 /* "Available on quote", beside the price of a quote-only product. */
 .tack-quote-only-cta {
   display: inline-block;
@@ -655,5 +308,25 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  opacity: 0.8;
+  opacity: 0.85;
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .tack-quote-list-drawer:not([hidden]),
+  .tack-quote-modal-overlay:not([hidden]) .tack-quote-modal {
+    animation: tackquote-rise 160ms ease-out;
+  }
+
+  @keyframes tackquote-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }

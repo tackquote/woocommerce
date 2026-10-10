@@ -23,6 +23,10 @@ See the `== External services ==` and `== Privacy ==` sections of [`readme.txt`]
 TackQuote's [Terms of Service](https://tackquote.com/terms) and
 [Privacy Policy](https://tackquote.com/privacy) govern use of the service.
 
+## Customising the look
+
+The storefront controls take the active theme's buttons, fields, fonts and colours by default. Merchants can set an accent colour or "Use the theme's styles only" under TackQuote > Storefront > Styling, or override `--tackquote-*` CSS variables; developers can override the templates in `templates/tackquote/` from `yourtheme/woocommerce/tackquote/` and use the `tackquote_*` filters. Full reference: [`docs/CUSTOMISATION.md`](docs/CUSTOMISATION.md).
+
 ## Installation
 
 1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/tackquote/woocommerce/releases) (direct link: [`tackquote.zip`](https://github.com/tackquote/woocommerce/releases/latest/download/tackquote.zip)), or build locally with `bash bin/build.sh`.

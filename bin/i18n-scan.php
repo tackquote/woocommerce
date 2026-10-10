@@ -144,7 +144,10 @@ function tack_i18n_scan_plugin( $root ) {
 	$files = array_merge(
 		array( $root . '/tackquote.php', $root . '/uninstall.php' ),
 		glob( $root . '/includes/*.php' ),
-		glob( $root . '/includes/*/*.php' )
+		glob( $root . '/includes/*/*.php' ),
+		// 1.10.0: the overridable storefront templates carry translated strings too.
+		glob( $root . '/templates/tackquote/*.php' ),
+		glob( $root . '/templates/tackquote/*/*.php' )
 	);
 	foreach ( $files as $file ) {
 		foreach ( tack_i18n_scan_php( $file ) as $hit ) {
