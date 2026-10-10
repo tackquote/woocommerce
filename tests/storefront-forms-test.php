@@ -347,10 +347,16 @@ $outcome = $forms->process_credit_submission(
 check( 'a signed-out POST to the credit handler is refused with no request made', 'error' === $outcome['kind'] && array() === $client->sent && false !== strpos( $outcome['redirect'], 'wp-login.php' ) );
 
 tack_test_set_logged_in( true, 'buyer@trade-customer.test' );
-$client = new Tack_Test_Forms_Client( array( 'credit-application' => array( 'status' => 'received', 'applicationId' => 'app-1', 'linkedToBuyer' => false ) ) );
+$client = new Tack_Test_Forms_Client(
+	array(
+		'credit-application'     => array( 'status' => 'received', 'applicationId' => 'app-1', 'linkedToBuyer' => false ),
+		// No terms and no application yet: the tab shows the form.
+		'storefront/v1/net-terms' => array( 'status' => 'unlinked', 'reason' => 'customer_not_linked' ),
+	)
+);
 $forms  = new Tack_Storefront_Forms( $client );
 $html   = $forms->render_net_terms_form( 'https://shop.example/my-account/net-terms/' );
-check( 'a signed-in customer sees the net-terms form', false !== strpos( $html, 'name="action" value="tack_credit_application"' ) );
+check( 'a signed-in customer with no terms and no application sees the net-terms form', false !== strpos( $html, 'name="action" value="tack_credit_application"' ) );
 check( 'the contact email is shown from the account and is not an editable field', false !== strpos( $html, 'value="buyer@trade-customer.test" disabled="disabled"' ) && false === strpos( $html, 'name="tack_ct[contactEmail]"' ) );
 check( 'the terms-days choices are the fixed list', 5 === substr_count( $html, '<option value="' ) - substr_count( $html, '<option value=""' ) && false !== strpos( $html, '<option value="30" selected="selected">' ) );
 check( 'three reference rows are offered', 3 === substr_count( $html, 'tack_ct[tradeReferences][' ) / 4 );

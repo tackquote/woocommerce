@@ -103,6 +103,12 @@ msgstr "Continua lo shopping"
 msgid "Country"
 msgstr "Paese"
 
+#. catalogue: tackquote.widget.credit_limit
+#. machine-translated, pending native review
+#, php-format
+msgid "Credit limit: %s"
+msgstr "Limite di credito: %s"
+
 #. catalogue: tackquote.quote.email
 msgid "Email address"
 msgstr "Email"
@@ -253,6 +259,11 @@ msgstr "Prezzi per quantità"
 #. catalogue: tackquote.quote.cart_empty
 msgid "Your cart is empty."
 msgstr "Il Suo carrello è vuoto."
+
+#. catalogue: tackquote.widget.terms_pending
+#. machine-translated, pending native review
+msgid "Your net-terms application is being reviewed."
+msgstr "La Sua richiesta di pagamento dilazionato è in fase di valutazione."
 
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"

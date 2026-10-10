@@ -947,6 +947,10 @@ class Tack_Storefront_Forms {
 	 *
 	 * Keyed by field key. A field's `role` (what its answer IS) decides first; a
 	 * plain `email` field with no role is still prefilled with the account's email.
+	 * A field with no role is also matched on the keys TackQuote's standard wholesale
+	 * form uses (`firstName`, `lastName`, `companyName`, `phone`), which are the keys
+	 * TackQuote reads when it creates the buyer. Names come from WooCommerce billing,
+	 * then the WordPress profile, the same as the quote request form.
 	 *
 	 * @param array $fields Field definitions.
 	 * @return array<string,string>
@@ -960,9 +964,17 @@ class Tack_Storefront_Forms {
 			return array();
 		}
 		$email   = isset( $user->user_email ) ? (string) $user->user_email : '';
-		$name    = trim( ( isset( $user->first_name ) ? (string) $user->first_name : '' ) . ' ' . ( isset( $user->last_name ) ? (string) $user->last_name : '' ) );
+		$first   = self::customer_name( 'first', $user );
+		$last    = self::customer_name( 'last', $user );
+		$name    = trim( $first . ' ' . $last );
 		$name    = '' !== $name ? $name : ( isset( $user->display_name ) ? (string) $user->display_name : '' );
 		$billing = $this->billing_details();
+		$by_key  = array(
+			'firstName'   => array( 'text', $first ),
+			'lastName'    => array( 'text', $last ),
+			'companyName' => array( 'text', $billing['company'] ),
+			'phone'       => array( 'tel', $billing['phone'] ),
+		);
 
 		$out = array();
 		foreach ( $fields as $field ) {
@@ -980,9 +992,26 @@ class Tack_Storefront_Forms {
 				$out[ $key ] = $billing['company'];
 			} elseif ( 'buyer_phone' === $role ) {
 				$out[ $key ] = $billing['phone'];
+			} elseif ( '' === $role && isset( $by_key[ $key ] ) && $by_key[ $key ][0] === $type ) {
+				$out[ $key ] = $by_key[ $key ][1];
 			}
 		}
 		return array_filter( $out, 'strlen' );
+	}
+
+	/**
+	 * The signed-in customer's first or last name for a prefill.
+	 *
+	 * @param string $part `first` or `last`.
+	 * @param object $user The current user (fallback when the widget class is absent).
+	 * @return string
+	 */
+	private static function customer_name( $part, $user ) {
+		if ( class_exists( 'Tack_Widget' ) ) {
+			return Tack_Widget::customer_name( $part );
+		}
+		$prop = $part . '_name';
+		return isset( $user->$prop ) ? trim( (string) $user->$prop ) : '';
 	}
 
 	/**
@@ -1003,8 +1032,9 @@ class Tack_Storefront_Forms {
 	// ── Net-terms application ───────────────────────────────────────────────
 
 	/**
-	 * The net-terms application form, the outcome of a submission, or — signed
-	 * out — a login link and nothing else.
+	 * The net-terms application form, the outcome of a submission, the customer's
+	 * net terms when they already have them, a pending notice when their application
+	 * is under review, or — signed out — a login link and nothing else.
 	 *
 	 * @param string $return_url Where the handler sends the customer back to.
 	 * @return string wp_kses()-filtered markup.
@@ -1022,6 +1052,12 @@ class Tack_Storefront_Forms {
 			$html .= $this->notice( $outcome['kind'], $outcome['message'] );
 			if ( 'error' !== $outcome['kind'] ) {
 				return $this->kses( '<div class="tackquote-storefront-form tackquote-net-terms-application">' . $html . '</div>' );
+			}
+		} else {
+			// Terms already granted, or an application already under review: no form.
+			$standing = $this->net_terms_standing_html();
+			if ( '' !== $standing ) {
+				return $this->kses( '<div class="tackquote-storefront-form tackquote-net-terms-account">' . $standing . '</div>' );
 			}
 		}
 
@@ -1132,6 +1168,112 @@ class Tack_Storefront_Forms {
 		);
 
 		return $this->kses( '<div class="tackquote-storefront-form tackquote-net-terms-application">' . $html . '</div>' );
+	}
+
+	/**
+	 * Classify a `GET /storefront/v1/net-terms` answer for the Net terms tab.
+	 *
+	 * `active`: a `standing` answer whose credit line is active with positive terms
+	 * days and a currency (what the checkout gateway also requires). `pending`: an
+	 * application under review (`state: pending`) and no active line. Anything else,
+	 * including an unknown shape, is `none`, and the tab shows the form.
+	 *
+	 * @since 1.10.2
+	 *
+	 * @param mixed $answer Decoded answer.
+	 * @return array{state:string,termsDays:int,creditLimit:string,available:string,currency:string,pending:bool}
+	 */
+	public static function net_terms_view( $answer ) {
+		$view = array(
+			'state'       => 'none',
+			'termsDays'   => 0,
+			'creditLimit' => '',
+			'available'   => '',
+			'currency'    => '',
+			'pending'     => false,
+		);
+		if ( ! is_array( $answer ) || ! isset( $answer['status'] ) || 'standing' !== $answer['status'] ) {
+			return $view;
+		}
+		$view['pending'] = isset( $answer['state'] ) && 'pending' === $answer['state'];
+		$account         = isset( $answer['account'] ) && is_array( $answer['account'] ) ? $answer['account'] : null;
+		$days            = null !== $account && isset( $account['termsDays'] ) && is_int( $account['termsDays'] ) ? $account['termsDays'] : 0;
+		$currency        = null !== $account && isset( $account['currency'] ) && is_string( $account['currency'] ) ? strtoupper( trim( $account['currency'] ) ) : '';
+		if ( null !== $account && isset( $account['status'] ) && 'active' === $account['status'] && $days > 0 && 1 === preg_match( '/^[A-Z]{3}$/', $currency ) ) {
+			$view['state']     = 'active';
+			$view['termsDays'] = $days;
+			$view['currency']  = $currency;
+			foreach ( array( 'creditLimit', 'available' ) as $field ) {
+				if ( isset( $account[ $field ] ) && is_numeric( $account[ $field ] ) && is_finite( (float) $account[ $field ] ) ) {
+					$view[ $field ] = (string) $account[ $field ];
+				}
+			}
+			return $view;
+		}
+		if ( $view['pending'] ) {
+			$view['state'] = 'pending';
+		}
+		return $view;
+	}
+
+	/**
+	 * What the Net terms tab shows INSTEAD of the form, or '' to show the form.
+	 *
+	 * Reads the same cached standing as the checkout gateway (Tack_Net_Terms_Standing).
+	 * Fails closed to the form: an untrusted email, an unreachable TackQuote or an
+	 * unknown answer claims nothing about the customer's terms.
+	 *
+	 * @since 1.10.2
+	 *
+	 * @return string Escaped markup, or ''.
+	 */
+	private function net_terms_standing_html() {
+		$email = self::trusted_account_email();
+		if ( '' === $email ) {
+			return '';
+		}
+		$answer = Tack_Net_Terms_Standing::read( $this->client, (int) get_current_user_id(), $email );
+		if ( is_wp_error( $answer ) ) {
+			$this->log( 'net-terms standing read failed; showing the application form: ' . $this->error_summary( $answer ) );
+			return '';
+		}
+		$view = self::net_terms_view( $answer );
+		if ( 'pending' === $view['state'] ) {
+			return $this->notice( 'pending', __( 'Your net-terms application is being reviewed.', 'tackquote' ) );
+		}
+		if ( 'active' !== $view['state'] ) {
+			return '';
+		}
+
+		$money = function ( $amount ) use ( $view ) {
+			return wc_price( (float) $amount, array( 'currency' => $view['currency'] ) );
+		};
+		$lines = array(
+			/* translators: %d: number of days. */
+			'terms' => esc_html( sprintf( __( 'Net %d days', 'tackquote' ), $view['termsDays'] ) ),
+		);
+		if ( '' !== $view['creditLimit'] ) {
+			/* translators: %s: the credit limit, formatted as a price. */
+			$lines['credit_limit'] = sprintf( esc_html__( 'Credit limit: %s', 'tackquote' ), $money( $view['creditLimit'] ) );
+		}
+		if ( '' !== $view['available'] ) {
+			/* translators: %s: the credit still available, formatted as a price. */
+			$lines['available'] = sprintf( esc_html__( 'Available credit: %s', 'tackquote' ), $money( $view['available'] ) );
+		}
+
+		return Tack_Templates::html(
+			'myaccount/net-terms-account.php',
+			array(
+				'notices'      => $view['pending'] ? $this->notice( 'pending', __( 'Your net-terms application is being reviewed.', 'tackquote' ) ) : '',
+				'heading'      => __( 'Net terms', 'tackquote' ),
+				'description'  => __( 'Your account can pay on net terms.', 'tackquote' ),
+				'lines'        => $lines,
+				'terms_days'   => $view['termsDays'],
+				'credit_limit' => $view['creditLimit'],
+				'available'    => $view['available'],
+				'currency'     => $view['currency'],
+			)
+		);
 	}
 
 	/**

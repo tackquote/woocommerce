@@ -94,6 +94,11 @@ msgstr "Weiter einkaufen"
 msgid "Country"
 msgstr "Land"
 
+#. catalogue: tackquote.widget.credit_limit
+#, php-format
+msgid "Credit limit: %s"
+msgstr "Kreditlimit: %s"
+
 #. catalogue: tackquote.quote.email
 msgid "Email address"
 msgstr "E-Mail"
@@ -223,6 +228,10 @@ msgstr "Mengenpreise"
 #. catalogue: tackquote.quote.cart_empty
 msgid "Your cart is empty."
 msgstr "Ihr Warenkorb ist leer."
+
+#. catalogue: tackquote.widget.terms_pending
+msgid "Your net-terms application is being reviewed."
+msgstr "Ihr Antrag auf Zahlung auf Ziel wird geprüft."
 
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"

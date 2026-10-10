@@ -177,5 +177,10 @@ require __DIR__ . '/final-polish-test.php';
 echo "\n-- E2E attempt 2 fixes (W11) --\n";
 require __DIR__ . '/e2e-fixes-test.php';
 
+// 1.10.2 My Account tabs: Net terms shows active terms or a pending application
+// instead of the form; Wholesale account prefills names, company and phone.
+echo "\n-- My Account tabs: net terms standing, wholesale prefill --\n";
+require __DIR__ . '/account-tabs-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

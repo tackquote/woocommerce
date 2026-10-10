@@ -67,10 +67,10 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 	const META_TERMS = '_tackquote_net_terms';
 
 	/** Prefix of the per-customer standing transient (suffix: WordPress user id). */
-	const CACHE_PREFIX = 'tack_nt_';
+	const CACHE_PREFIX = Tack_Net_Terms_Standing::CACHE_PREFIX;
 
 	/** Seconds a standing answer is reused for the same customer. */
-	const CACHE_TTL = 60;
+	const CACHE_TTL = Tack_Net_Terms_Standing::CACHE_TTL;
 
 	/** Precision of a credit limit in TackQuote (`DECIMAL(14,4)`). Amounts compare in these units. */
 	const MONEY_SCALE = 10000;
@@ -81,13 +81,6 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 	 * @var Tack_Api_Client
 	 */
 	private $client;
-
-	/**
-	 * Standing answers already read in THIS request, keyed by user id.
-	 *
-	 * @var array<int,array>
-	 */
-	private static $request_cache = array();
 
 	/**
 	 * Constructor.
@@ -310,8 +303,8 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 	/**
 	 * The customer's standing answer, cached for the request and for CACHE_TTL seconds.
 	 *
-	 * Only a successful answer is cached, and only for the email it was read for. An
-	 * error is never cached, so the method reappears as soon as TackQuote answers.
+	 * Shared with the My Account Net terms tab (Tack_Net_Terms_Standing), so a page
+	 * that shows both reads TackQuote once. Only a successful answer is cached.
 	 *
 	 * @param int    $user_id WordPress user id.
 	 * @param string $email   Trusted email.
@@ -319,40 +312,14 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 	 * @return array|WP_Error
 	 */
 	private function standing( $user_id, $email, $fresh ) {
-		$key  = self::CACHE_PREFIX . $user_id;
-		$hash = md5( strtolower( $email ) );
-		if ( ! $fresh ) {
-			if ( isset( self::$request_cache[ $user_id ] ) && $hash === self::$request_cache[ $user_id ]['hash'] ) {
-				return self::$request_cache[ $user_id ]['answer'];
-			}
-			$cached = get_transient( $key );
-			if ( is_array( $cached ) && isset( $cached['hash'], $cached['answer'] ) && $hash === $cached['hash'] && is_array( $cached['answer'] ) ) {
-				self::$request_cache[ $user_id ] = $cached;
-				return $cached['answer'];
-			}
-		}
-		$answer = $this->client->get_net_terms( $email );
-		if ( is_wp_error( $answer ) ) {
-			unset( self::$request_cache[ $user_id ] );
-			return $answer;
-		}
-		if ( ! is_array( $answer ) ) {
-			return new WP_Error( 'tack_net_terms_shape', 'Unexpected net-terms answer.' );
-		}
-		$entry                           = array(
-			'hash'   => $hash,
-			'answer' => $answer,
-		);
-		self::$request_cache[ $user_id ] = $entry;
-		set_transient( $key, $entry, self::CACHE_TTL );
-		return $answer;
+		return Tack_Net_Terms_Standing::read( $this->client, $user_id, $email, $fresh );
 	}
 
 	/**
 	 * Forget every cached standing in this request (tests; a long-running worker).
 	 */
 	public static function reset_request_cache() {
-		self::$request_cache = array();
+		Tack_Net_Terms_Standing::reset_request_cache();
 	}
 
 	/**

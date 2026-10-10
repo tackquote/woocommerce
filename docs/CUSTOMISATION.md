@@ -115,8 +115,9 @@ them. Each template has an `@version`; compare it after updating the plugin.
 | `tackquote/single-product/quantity-breaks.php` | volume pricing table | `$classes`, `$caption`, `$rows` (`qty`, `qty_label`, `price_html`), `$product` |
 | `tackquote/myaccount/form-wholesale-application.php` | wholesale application form | `$notices`, `$title`, `$description`, `$action_url`, `$multipart`, `$fields`, `$blocked`, `$hidden`, `$submit_label`, `$submit_class` |
 | `tackquote/myaccount/form-net-terms-application.php` | net-terms application form | `$notices`, `$description`, `$action_url`, `$fields`, `$hidden`, `$submit_label`, `$submit_class` |
+| `tackquote/myaccount/net-terms-account.php` | the customer's active net terms, shown instead of the application form | `$notices`, `$heading`, `$description`, `$lines` (`terms`, `credit_limit`, `available`), `$terms_days`, `$credit_limit`, `$available`, `$currency` |
 
-The two form templates' output is still passed through the plugin's allowed-HTML list
+The two form templates' output, and the net terms summary's, is still passed through the plugin's allowed-HTML list
 (`Tack_Storefront_Forms::allowed_html()`), so tags and attributes outside it are removed.
 The request form (modal) and the drawer's rows are built by `assets/js/tack-quotes.js`, not
 by a template; restyle them with CSS.
