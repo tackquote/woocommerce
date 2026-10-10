@@ -178,6 +178,14 @@ class Tack_Parity_Product extends WC_Product {
 	public function get_parent_id() {
 		return $this->parent_id;
 	}
+	/** @return string Post status; WC_Product::get_status() (read by Tack_Widget::is_quotable()). */
+	public function get_status() {
+		return 'publish';
+	}
+	/** @return string WC_Product::get_post_password() (read by Tack_Widget::is_quotable()). */
+	public function get_post_password() {
+		return '';
+	}
 	/** @return string */
 	public function get_name() {
 		return $this->name;

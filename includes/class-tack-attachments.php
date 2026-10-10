@@ -634,19 +634,14 @@ class Tack_Attachments {
 	 * @return bool
 	 */
 	private function rate_limited() {
-		$max = $this->rate_limit_max();
-		return $max > 0 && (int) get_transient( $this->rate_limit_key() ) >= $max;
+		return Tack_Rate_Limit::exceeded( 'tack_qu_', 'quote-upload', $this->rate_limit_max() );
 	}
 
 	/**
 	 * Count one upload request against this visitor's allowance.
 	 */
 	private function count_request() {
-		if ( $this->rate_limit_max() <= 0 ) {
-			return;
-		}
-		$key = $this->rate_limit_key();
-		set_transient( $key, (int) get_transient( $key ) + 1, self::RATE_LIMIT_WINDOW );
+		Tack_Rate_Limit::hit( 'tack_qu_', 'quote-upload', $this->rate_limit_max(), self::RATE_LIMIT_WINDOW );
 	}
 
 	/**
@@ -663,22 +658,6 @@ class Tack_Attachments {
 		 * @param int $max Maximum upload requests. Zero or less disables the limit.
 		 */
 		return (int) apply_filters( 'tack_quotes_upload_rate_limit_max', self::RATE_LIMIT_MAX );
-	}
-
-	/**
-	 * Transient key for this visitor's counter: a salted hash, never the address.
-	 *
-	 * @return string
-	 */
-	private function rate_limit_key() {
-		$ip = '';
-		if ( class_exists( 'WC_Geolocation' ) ) {
-			$ip = (string) WC_Geolocation::get_ip_address();
-		}
-		if ( '' === $ip && isset( $_SERVER['REMOTE_ADDR'] ) ) {
-			$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
-		}
-		return 'tack_qu_' . substr( wp_hash( 'quote-upload|' . $ip ), 0, 20 );
 	}
 
 	/**

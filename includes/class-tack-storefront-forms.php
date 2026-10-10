@@ -86,6 +86,12 @@ class Tack_Storefront_Forms {
 	/** How long an outcome waits to be shown, in seconds. */
 	const RESULT_TTL = 300;
 
+	/** Applications (wholesale + net terms together) one visitor may send per RATE_LIMIT_WINDOW. */
+	const RATE_LIMIT_MAX = 5;
+
+	/** The application rate-limit window, in seconds. */
+	const RATE_LIMIT_WINDOW = 600;
+
 	/** The form slug used when the merchant has not chosen one. */
 	const DEFAULT_SLUG = 'default';
 
@@ -525,6 +531,10 @@ class Tack_Storefront_Forms {
 			$this->attachments->discard( $files );
 			return $outcome + $this->failure( __( 'Your session has expired. Please reload the page and try again.', 'tackquote' ) );
 		}
+		if ( self::rate_limited() ) {
+			$this->attachments->discard( $files );
+			return $outcome + $this->failure( self::rate_limit_message() );
+		}
 
 		$slug = isset( $post['tack_slug'] ) ? sanitize_key( (string) $post['tack_slug'] ) : '';
 		if ( '' === $slug ) {
@@ -556,6 +566,7 @@ class Tack_Storefront_Forms {
 			return $outcome + $this->failure( $picked->get_error_message(), $collected['refill'] );
 		}
 
+		self::count_application();
 		if ( ! empty( $picked ) ) {
 			$result = $this->submit_with_files( $slug, $collected['values'], $picked );
 		} else {
@@ -1090,6 +1101,9 @@ class Tack_Storefront_Forms {
 		if ( ! isset( $post['_tack_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( (string) $post['_tack_nonce'] ), self::ACTION_CREDIT ) ) {
 			return $outcome + $this->failure( __( 'Your session has expired. Please reload the page and try again.', 'tackquote' ) );
 		}
+		if ( self::rate_limited() ) {
+			return $outcome + $this->failure( self::rate_limit_message() );
+		}
 
 		$user = wp_get_current_user();
 		if ( $user && ! empty( $user->ID ) && '' === self::trusted_account_email() && isset( $user->user_email ) && '' !== (string) $user->user_email ) {
@@ -1106,6 +1120,7 @@ class Tack_Storefront_Forms {
 			return $outcome + $this->failure( $validated['error'], $validated['refill'] );
 		}
 
+		self::count_application();
 		$result = $this->client->submit_credit_application( $validated['payload'] );
 		if ( is_wp_error( $result ) ) {
 			$this->log( 'credit-application submit failed: ' . $this->error_summary( $result ) );
@@ -1573,6 +1588,54 @@ class Tack_Storefront_Forms {
 	}
 
 	// ── Outcomes, redirects, errors ─────────────────────────────────────────
+
+	/**
+	 * The application allowance per visitor and window.
+	 *
+	 * Both forms are public handlers (`admin-post` with a `nopriv` twin) that send one
+	 * TackQuote request per submission. Until 1.10.0 nothing limited them, so a script
+	 * could fill the seller's workspace with applications. Charged just before the
+	 * outbound call, so a form refused for a missing answer costs nothing.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return int Zero or less disables the limit.
+	 */
+	private static function rate_limit_max() {
+		/**
+		 * Filters how many wholesale and net-terms applications one visitor may send per ten minutes.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param int $max Maximum applications. Zero or less disables the limit.
+		 */
+		return (int) apply_filters( 'tack_quotes_form_rate_limit_max', self::RATE_LIMIT_MAX );
+	}
+
+	/**
+	 * Is this visitor over the application allowance?
+	 *
+	 * @return bool
+	 */
+	public static function rate_limited() {
+		return Tack_Rate_Limit::exceeded( 'tack_qf_', 'application', self::rate_limit_max() );
+	}
+
+	/**
+	 * Charge one application to this visitor.
+	 */
+	private static function count_application() {
+		Tack_Rate_Limit::hit( 'tack_qf_', 'application', self::rate_limit_max(), self::RATE_LIMIT_WINDOW );
+	}
+
+	/**
+	 * What a visitor over the allowance is told.
+	 *
+	 * @return string
+	 */
+	private static function rate_limit_message() {
+		return __( 'Too many applications were sent in a short time. Please wait a few minutes and try again.', 'tackquote' );
+	}
 
 	/**
 	 * Store the outcome under a one-time token and send the browser back.

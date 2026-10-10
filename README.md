@@ -17,7 +17,7 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: paste your TackQuote API key
 - 🌐 Storefront text bundled in German, Spanish, French, Italian, Japanese, Dutch and Brazilian Portuguese (`languages/`, generated from the shared TackQuote catalogue; see [`languages/README.md`](languages/README.md))
-- 🛡️ HPOS- and Cart/Checkout-blocks-compatible; nonce, capability and rate-limit protected; removes its own options and transients on uninstall
+- 🛡️ HPOS- and Cart/Checkout-blocks-compatible; nonce, capability and rate-limit protected; removes its own options, transients, user and product meta and queued jobs on uninstall
 
 See the `== External services ==` and `== Privacy ==` sections of [`readme.txt`](readme.txt) for exactly which fields are sent to TackQuote, when, and what the plugin stores locally.
 TackQuote's [Terms of Service](https://tackquote.com/terms) and
@@ -44,7 +44,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 
 | Purpose | Method & path |
 |---|---|
-| Connection test | `GET /integrations/woocommerce/ping` (`/health` only when ping answers 404: reachable, key not verified; 401/403 = key rejected) |
+| Connection test | `GET /integrations/woocommerce/ping` (`/health` only when ping answers 404: reachable, key not verified; 401/403 = key rejected). Also read at most daily from the storefront for the `attachments` capability |
 | Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` |
 | Order sync | `POST /integrations/woocommerce/order-sync` |
 | B2B pricing (per buyer, per quantity) | `POST /storefront-pricing/resolve` |
@@ -59,7 +59,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Attachments (only when the server's `ping` lists `attachments`) | `POST /storefront/v1/quote-upload?name=` (quote files; opt-in switch; scope `quotes:write`), `POST /storefront/v1/wholesale-upload?form=&field=&name=` (wholesale files, signed-in only; scope `buyers:write`), raw `application/octet-stream`, `X-Api-Key` only; then `uploadIds` (+ a guest's `uploadToken`) on the quote request, or `POST /storefront/v1/wholesale-signup/<slug>` for an application with files |
 | Accepted quote to store checkout (`?tackquote_checkout=` link) | `GET /integrations/woocommerce/quote-checkout/<token>` (once per token, never retried; sends only the token; the order then syncs with `tackQuoteRef`) |
 
-Every request carries `X-TackQuote-Plugin-Version`. `/storefront/v1/*` calls send the key in
+Every request carries `X-TackQuote-Plugin-Version`, and none follows an HTTP redirect (the key is never re-sent elsewhere). `/storefront/v1/*` calls send the key in
 `X-Api-Key` only (that route refuses a second credential), with the signed-in customer as
 `buyerEmail` + `buyerExternalId` (the WordPress user id; never for a guest). The read-only
 lookups need no scope beyond a valid key; the two application forms need `buyers:write`.

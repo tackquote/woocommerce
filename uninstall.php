@@ -89,16 +89,62 @@ $tack_quotes_options = array(
 
 	// The quote-request attachments switch (Tack_Attachments::OPTION_ENABLED), 1.10.0.
 	'tack_quotes_enable_attachments',
+
+	// Storefront layout: card and cart buttons, quote page, floating launcher
+	// (Tack_Widget::OPT_*), 1.10.0. Missing here until the 1.10.0 standards audit.
+	'tack_quotes_card_buttons',
+	'tack_quotes_cart_quote_button',
+	'tack_quotes_cart_button_label',
+	'tack_quotes_quote_button_opens',
+	'tack_quotes_quote_page_url',
+	'tack_quotes_fab_position',
+	'tack_quotes_fab_offset_x',
+	'tack_quotes_fab_offset_y',
+	'tack_quotes_fab_pages',
+	'tack_quotes_fab_label',
+	'tack_quotes_fab_icon_only',
+	'tack_quotes_fab_show_count',
+	'tack_quotes_fab_size',
+	'tack_quotes_fab_hide_mobile',
 );
+
+/**
+ * User meta the plugin writes (Tack_B2B_Notices email-trust guard, Tack_Role_Mirror).
+ * `_tack_known_email` is a copy of the customer's own address, so it must not outlive
+ * the plugin.
+ *
+ * `_tack_email_unverified` is deliberately KEPT. It holds no personal data, and deleting
+ * it would make a reinstalled plugin trust every self-changed address again, handing that
+ * account another buyer's prices and payment terms.
+ */
+$tack_quotes_user_meta = array(
+	'_tack_known_email',
+	'_tack_mirrored_roles',
+	'_tack_role_mirror_checked',
+);
+
+/**
+ * Product meta: the per-product "quote only" switch (Tack_Catalog_Mode::META_QUOTE_ONLY).
+ * Products are posts in every storage mode, so the post-meta API is right here.
+ * Order meta is deliberately kept (see readme): orders are financial records.
+ */
+$tack_quotes_post_meta = array( '_tackquote_quote_only' );
+
+/**
+ * Background jobs (Tack_Order_Sync::SYNC_HOOK / REQUEUE_HOOK), queued in Action Scheduler
+ * group `tackquote` or, without it, in WP-Cron. Left behind, Action Scheduler would fail
+ * each one later with "no callbacks are registered".
+ */
+$tack_quotes_hooks = array( 'tack_quotes_sync_order', 'tack_quotes_requeue_unsynced' );
 
 /**
  * Transients the plugin creates under a fixed name.
  *
- * The per-visitor rate-limit counters (`tack_qr_*`, and `tack_qu_*` for attachment uploads) and the five-minute form-outcome tokens
+ * The per-visitor rate-limit counters (`tack_qr_*`, `tack_qu_*` uploads, `tack_qf_*` applications, `tack_qc_*` checkout links) and the five-minute form-outcome tokens
  * (`tack_sf_*`, Tack_Storefront_Forms::RESULT_PREFIX) are not listed, nor are the one-minute
  * net-terms standing answers (`tack_nt_<user id>`, Tack_Gateway_Net_Terms::CACHE_PREFIX): they
  * are keyed per visitor so there is no fixed name to delete, there is no WordPress API for wildcard transient deletion,
- * and they expire within five minutes on their own. Sweeping them would mean a direct
+ * and they expire within ten minutes on their own. Sweeping them would mean a direct
  * LIKE query against the options table that also silently does nothing on a site using an
  * external object cache, which is a worse trade than letting them lapse.
  */
@@ -119,9 +165,11 @@ $tack_quotes_transients = array(
  *
  * @param array $options    Option names.
  * @param array $transients Transient names.
+ * @param array $post_meta  Product meta keys.
+ * @param array $hooks      Order-sync hooks to unschedule.
  * @return void
  */
-function tack_quotes_delete_site_data( $options, $transients ) {
+function tack_quotes_delete_site_data( $options, $transients, $post_meta = array(), $hooks = array() ) {
 	// Roles the 1.10.0 role mirror created (Tack_Role_Mirror::OPTION_CREATED_ROLES),
 	// removed before the option that lists them. Only names with our prefix.
 	foreach ( (array) get_option( 'tack_quotes_mirror_roles_created', array() ) as $role ) {
@@ -135,9 +183,23 @@ function tack_quotes_delete_site_data( $options, $transients ) {
 	foreach ( $transients as $transient ) {
 		delete_transient( $transient );
 	}
+	foreach ( $post_meta as $key ) {
+		delete_post_meta_by_key( $key );
+	}
+	foreach ( $hooks as $hook ) {
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( $hook, array(), 'tackquote' );
+		}
+		wp_unschedule_hook( $hook );
+	}
 }
 
-tack_quotes_delete_site_data( $tack_quotes_options, $tack_quotes_transients );
+// User meta lives in the network-wide users table, so it is deleted once, not per site.
+foreach ( $tack_quotes_user_meta as $tack_quotes_key ) {
+	delete_metadata( 'user', 0, $tack_quotes_key, '', true );
+}
+
+tack_quotes_delete_site_data( $tack_quotes_options, $tack_quotes_transients, $tack_quotes_post_meta, $tack_quotes_hooks );
 
 /*
  * Multisite: clean every site in the network.
@@ -164,7 +226,7 @@ if ( is_multisite() ) {
 
 		foreach ( $tack_quotes_site_ids as $tack_quotes_site_id ) {
 			switch_to_blog( (int) $tack_quotes_site_id );
-			tack_quotes_delete_site_data( $tack_quotes_options, $tack_quotes_transients );
+			tack_quotes_delete_site_data( $tack_quotes_options, $tack_quotes_transients, $tack_quotes_post_meta, $tack_quotes_hooks );
 			restore_current_blog();
 		}
 
