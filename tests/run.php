@@ -90,6 +90,13 @@ require __DIR__ . '/b2b-notices-test.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
 require __DIR__ . '/group-restrictions-test.php';
 
+// Wholesale + net-terms application forms, the storefront v1 reads and the
+// plugin-version header every request carries.
+echo "\n-- storefront forms: wholesale application, net terms, v1 reads, version header --\n";
+require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
+require __DIR__ . '/storefront-forms-test.php';
+
 // The admin surface: how the settings page is grouped, and what a save does to
 // rules the merchant already had.
 echo "\n-- settings page structure + rule editing --\n";

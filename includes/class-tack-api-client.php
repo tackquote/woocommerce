@@ -67,14 +67,32 @@ class Tack_Api_Client {
 			'timeout' => null === $timeout ? self::DEFAULT_TIMEOUT : max( 1, (int) $timeout ),
 			'headers' => array_merge(
 				array(
-					'Authorization' => 'Bearer ' . $key,
-					'X-Api-Key'     => $key,
-					'Content-Type'  => 'application/json',
-					'Accept'        => 'application/json',
-					'User-Agent'    => 'TackQuotes-WooCommerce/' . TACK_QUOTES_VERSION,
+					'Authorization'              => 'Bearer ' . $key,
+					'X-Api-Key'                  => $key,
+					'Content-Type'               => 'application/json',
+					'Accept'                     => 'application/json',
+					'User-Agent'                 => 'TackQuotes-WooCommerce/' . TACK_QUOTES_VERSION,
+					// Sent on EVERY request so TackQuote can record which plugin build a store
+					// runs and gate newer server features on it. A server that does not know
+					// the header ignores it; the User-Agent above stays because proxies rewrite it.
+					'X-TackQuote-Plugin-Version' => TACK_QUOTES_VERSION,
 				),
 				is_array( $headers ) ? $headers : array()
 			),
+		);
+
+		/*
+		 * A caller may REMOVE a default header by passing it as null. `/storefront/v1/*`
+		 * needs this: it treats `Authorization` as a platform token (Wix) and refuses a
+		 * request carrying two storefront credentials with 401 "Send exactly one
+		 * storefront credential" (tack `storefront-identity.guard.ts`), so those reads
+		 * send the key in `X-Api-Key` only. An empty string would still be a header.
+		 */
+		$args['headers'] = array_filter(
+			$args['headers'],
+			function ( $value ) {
+				return null !== $value;
+			}
 		);
 		if ( null !== $body ) {
 			$args['body'] = wp_json_encode( $body );
@@ -218,5 +236,302 @@ class Tack_Api_Client {
 			? array( 'Idempotency-Key' => (string) $idempotency_key )
 			: array();
 		return $this->request( 'POST', '/integrations/woocommerce/order-sync', $order_payload, self::DEFAULT_TIMEOUT, $headers );
+	}
+
+	/**
+	 * Transient holding the cached wholesale-form definitions, keyed by form slug.
+	 *
+	 * One transient for every slug (rather than one per slug) so uninstall.php can
+	 * delete it by name without a LIKE query against wp_options.
+	 */
+	const FORM_CACHE_TRANSIENT = 'tack_quotes_wholesale_form_cache';
+
+	/**
+	 * Transient set when the server answered 404 for `/storefront/v1/*`.
+	 *
+	 * An older self-hosted TackQuote has no v1 storefront routes. Remembering the
+	 * 404 for an hour keeps a page view at one request instead of two.
+	 */
+	const V1_MISSING_TRANSIENT = 'tack_quotes_storefront_v1_missing';
+
+	/**
+	 * The seller's wholesale application form: its fields, name and success copy.
+	 *
+	 * `GET /integrations/woocommerce/wholesale-form?slug=`. Fetched while rendering a
+	 * storefront page, so it uses the interactive timeout and the same two-TTL cache
+	 * as `get_registration_config()`: a success is kept for 5 minutes, a failure for
+	 * 60 seconds so an outage does not turn every page view into a timeout.
+	 *
+	 * @param string $slug  Form slug (Settings -> Wholesale forms in TackQuote).
+	 * @param bool   $force Bypass the cache.
+	 * @return array|WP_Error The form definition (`fields`, `name`, `description`,
+	 *                        `successMessage`), or a WP_Error naming why not.
+	 */
+	public function get_wholesale_form( $slug, $force = false ) {
+		$slug = (string) $slug;
+		if ( '' === $slug ) {
+			return new WP_Error( 'tack_form_slug', __( 'No wholesale form slug is configured.', 'tackquote' ) );
+		}
+
+		$cache = get_transient( self::FORM_CACHE_TRANSIENT );
+		$cache = is_array( $cache ) ? $cache : array();
+		if ( ! $force && isset( $cache[ $slug ] ) && is_array( $cache[ $slug ] ) ) {
+			$entry = $cache[ $slug ];
+			if ( isset( $entry['until'] ) && (int) $entry['until'] > time() ) {
+				if ( isset( $entry['form'] ) && is_array( $entry['form'] ) ) {
+					return $entry['form'];
+				}
+				// A cached FAILURE: distinguishable from "nothing cached" by the entry
+				// existing with no form in it.
+				return new WP_Error( 'tack_form_unavailable', __( 'The application form is not available right now.', 'tackquote' ), array( 'status' => 0 ) );
+			}
+		}
+
+		$result = $this->request(
+			'GET',
+			'/integrations/woocommerce/wholesale-form?slug=' . rawurlencode( $slug ),
+			null,
+			self::INTERACTIVE_TIMEOUT
+		);
+
+		if ( is_wp_error( $result ) || ! is_array( $result ) || empty( $result['fields'] ) || ! is_array( $result['fields'] ) ) {
+			$cache[ $slug ] = array( 'until' => time() + 60 );
+			set_transient( self::FORM_CACHE_TRANSIENT, $cache, 15 * MINUTE_IN_SECONDS );
+			return is_wp_error( $result )
+				? $result
+				: new WP_Error( 'tack_form_unavailable', __( 'The application form is not available right now.', 'tackquote' ), array( 'status' => 0 ) );
+		}
+
+		$cache[ $slug ] = array(
+			'until' => time() + 5 * MINUTE_IN_SECONDS,
+			'form'  => $result,
+		);
+		set_transient( self::FORM_CACHE_TRANSIENT, $cache, 15 * MINUTE_IN_SECONDS );
+		return $result;
+	}
+
+	/**
+	 * Submit a wholesale application.
+	 *
+	 * `POST /integrations/woocommerce/wholesale-form/submit?slug=`, scope `buyers:write`.
+	 * Interactive timeout: a shopper is waiting on this request. Never queued and
+	 * never retried here: a 429 is reported back so the shopper can try again, since
+	 * re-sending an application on their behalf later is not what they asked for.
+	 *
+	 * @param string $slug            Form slug.
+	 * @param array  $values          Answers keyed by field key, in the shapes
+	 *                                `common/forms/form-schema.ts` validates.
+	 * @param string $woo_customer_id WooCommerce customer id when signed in, else ''.
+	 * @return array|WP_Error `{id, status, message}`.
+	 */
+	public function submit_wholesale_form( $slug, array $values, $woo_customer_id = '' ) {
+		$body = array( 'values' => (object) $values );
+		if ( '' !== (string) $woo_customer_id ) {
+			$body['wooCustomerId'] = (string) $woo_customer_id;
+		}
+		return $this->request(
+			'POST',
+			'/integrations/woocommerce/wholesale-form/submit?slug=' . rawurlencode( (string) $slug ),
+			$body,
+			self::INTERACTIVE_TIMEOUT
+		);
+	}
+
+	/**
+	 * Submit a net-terms (credit) application for a signed-in customer.
+	 *
+	 * Scope `buyers:write` on both routes. The body mirrors
+	 * `SubmitCreditApplicationDto`; the caller has already validated it against the
+	 * same bounds. Two routes, tried in this order:
+	 *
+	 *   1. `POST /storefront/v1/credit-application?buyerEmail=&buyerExternalId=`.
+	 *      The applicant is the ASSERTED identity in the query (the account email
+	 *      and the WordPress user id), never a body field: the DTO validates with
+	 *      `forbidNonWhitelisted`, so an extra body key is a 400. This route also
+	 *      notifies the seller's reviewers.
+	 *   2. The legacy `POST /integrations/woocommerce/credit-application`, only when
+	 *      route 1 answers 404 (a server without v1 routes) or 501 (the workspace has
+	 *      no active WooCommerce connection, which an asserted applicant needs). It
+	 *      carries no user id: an older server has nowhere to put one.
+	 *
+	 * Never queued and never retried: a person is waiting on the answer.
+	 *
+	 * @param array $payload legalBusinessName, contactEmail, contactPhone, taxId,
+	 *                       billingAddress, requestedLimit, requestedTermsDays,
+	 *                       tradeReferences, notes.
+	 * @return array|WP_Error `{status: received|already_pending, applicationId, linkedToBuyer}`.
+	 */
+	public function submit_credit_application( array $payload ) {
+		$email = isset( $payload['contactEmail'] ) ? (string) $payload['contactEmail'] : '';
+		if ( '' !== $email && ! get_transient( self::V1_MISSING_TRANSIENT ) ) {
+			$result = $this->request(
+				'POST',
+				'/storefront/v1/credit-application?' . http_build_query( $this->buyer_query( $email ), '', '&', PHP_QUERY_RFC3986 ),
+				$payload,
+				self::INTERACTIVE_TIMEOUT,
+				array( 'Authorization' => null )
+			);
+			$status = is_wp_error( $result ) ? self::error_status( $result ) : 0;
+			if ( 404 === $status ) {
+				set_transient( self::V1_MISSING_TRANSIENT, 1, HOUR_IN_SECONDS );
+			}
+			if ( 404 !== $status && 501 !== $status ) {
+				return $result;
+			}
+		}
+		return $this->request( 'POST', '/integrations/woocommerce/credit-application', $payload, self::INTERACTIVE_TIMEOUT );
+	}
+
+	/**
+	 * The signed-in buyer's own wholesale unit price for one SKU, through the
+	 * shared storefront contract.
+	 *
+	 * `GET /storefront/v1/wholesale-price?sku=&quantity=&buyerEmail=` answers
+	 * `WholesalePriceResult`: `{status: priced, unitPrice, currency, quantity,
+	 * accountSpecific}`, or a status carrying no price (`anonymous`, `unlinked`,
+	 * `unpriced`, a currency mismatch). null when the server has no v1 routes, so
+	 * the caller keeps the legacy `/storefront-pricing/resolve` answer.
+	 *
+	 * @param string $sku         Product SKU.
+	 * @param int    $quantity    Quantity to price.
+	 * @param string $buyer_email Signed-in buyer's email.
+	 * @return array|WP_Error|null
+	 */
+	public function get_wholesale_price( $sku, $quantity, $buyer_email ) {
+		return $this->storefront_v1_get(
+			'wholesale-price',
+			array(
+				'sku'      => (string) $sku,
+				'quantity' => (string) max( 1, (int) $quantity ),
+			),
+			$buyer_email
+		);
+	}
+
+	/**
+	 * Quantity-break ladder for one SKU through the shared storefront contract.
+	 *
+	 * `GET /storefront/v1/quantity-breaks?sku=&buyerEmail=` answers
+	 * `QuantityBreakResult`: `{status: priced, currency, accountSpecific,
+	 * rows: [{minQty, unitPrice, accountSpecific}]}`, or a status that carries no
+	 * ladder (`anonymous`, `unlinked`, `unpriced`). Returns null when the server has
+	 * no v1 routes (HTTP 404 — an older self-hosted TackQuote), so the caller can
+	 * fall back to probing the legacy `/storefront-pricing/resolve` route.
+	 *
+	 * @param string $sku         Product SKU.
+	 * @param string $buyer_email Signed-in buyer's email, or '' for anonymous.
+	 * @return array|WP_Error|null The result, a WP_Error, or null when v1 is absent.
+	 */
+	public function get_quantity_breaks( $sku, $buyer_email = '' ) {
+		return $this->storefront_v1_get( 'quantity-breaks', array( 'sku' => (string) $sku ), $buyer_email );
+	}
+
+	/**
+	 * Order-limit notice for one SKU through the shared storefront contract.
+	 *
+	 * `GET /storefront/v1/order-limits?sku=&buyerEmail=` answers
+	 * `OrderLimitsNoticeResult`: `{status: limited, accountSpecific, limits:
+	 * [{limitType, sku, min, max, currency, message}]}` or `{status: none}`.
+	 * Falls back to the legacy `/storefront-b2b/order-limits` route, which answers the
+	 * same shape, when v1 is absent.
+	 *
+	 * @param string $sku         Product SKU.
+	 * @param string $buyer_email Signed-in buyer's email, or ''.
+	 * @return array|WP_Error
+	 */
+	public function get_order_limits( $sku, $buyer_email = '' ) {
+		$query  = array( 'sku' => (string) $sku );
+		$result = $this->storefront_v1_get( 'order-limits', $query, $buyer_email );
+		if ( null !== $result ) {
+			return $result;
+		}
+		if ( '' !== (string) $buyer_email ) {
+			$query['buyerEmail'] = (string) $buyer_email;
+		}
+		return $this->request( 'GET', '/storefront-b2b/order-limits?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 ), null, self::INTERACTIVE_TIMEOUT );
+	}
+
+	/**
+	 * The buyer's group through the shared storefront contract.
+	 *
+	 * `GET /storefront/v1/buyer-group?buyerEmail=` answers `BuyerGroupResult`:
+	 * `{status: grouped, name, code}`, `none`, `anonymous` or `unlinked`. Falls back
+	 * to the legacy `/storefront-b2b/buyer-group` route (same shape) when v1 is absent.
+	 *
+	 * @param string $buyer_email Signed-in buyer's email.
+	 * @return array|WP_Error
+	 */
+	public function get_buyer_group( $buyer_email ) {
+		$result = $this->storefront_v1_get( 'buyer-group', array(), $buyer_email );
+		if ( null !== $result ) {
+			return $result;
+		}
+		return $this->request( 'GET', '/storefront-b2b/buyer-group?buyerEmail=' . rawurlencode( (string) $buyer_email ), null, self::INTERACTIVE_TIMEOUT );
+	}
+
+	/**
+	 * One `/storefront/v1/{resource}` read, with the 404 memory the fallbacks rely on.
+	 *
+	 * The buyer is ASSERTED by this server with its secret key (`X-Api-Key` +
+	 * `buyerEmail`), which is the trust model every plugin route has: the merchant's
+	 * server vouches for who is signed in. No browser credential ever reaches this.
+	 *
+	 * @param string $route       `quantity-breaks`, `order-limits`, `buyer-group`.
+	 * @param array  $query       Query parameters (sku, ...).
+	 * @param string $buyer_email Signed-in buyer's email, or '' for anonymous.
+	 * @return array|WP_Error|null null when the server has no v1 routes.
+	 */
+	private function storefront_v1_get( $route, array $query, $buyer_email ) {
+		if ( get_transient( self::V1_MISSING_TRANSIENT ) ) {
+			return null;
+		}
+		$query = array_merge( $query, $this->buyer_query( $buyer_email ) );
+		$path  = '/storefront/v1/' . $route;
+		if ( ! empty( $query ) ) {
+			$path .= '?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 );
+		}
+		// The key in X-Api-Key ONLY: v1 refuses a second credential (see request()).
+		$result = $this->request( 'GET', $path, null, self::INTERACTIVE_TIMEOUT, array( 'Authorization' => null ) );
+		if ( is_wp_error( $result ) && 404 === self::error_status( $result ) ) {
+			set_transient( self::V1_MISSING_TRANSIENT, 1, HOUR_IN_SECONDS );
+			return null;
+		}
+		return $result;
+	}
+
+	/**
+	 * The asserted-buyer query parameters for a `/storefront/v1/*` call.
+	 *
+	 * `buyerEmail` when there is one. `buyerExternalId` — the WordPress user id,
+	 * digits only — only beside an email AND only while a customer is signed in,
+	 * so a guest never sends one and an id never travels without the email it
+	 * belongs to (the server ignores a lone id; tack #726). A server older than
+	 * that ignores the parameter.
+	 *
+	 * @param string $buyer_email Signed-in buyer's email, or ''.
+	 * @return array<string,string>
+	 */
+	private function buyer_query( $buyer_email ) {
+		$buyer_email = (string) $buyer_email;
+		if ( '' === $buyer_email ) {
+			return array();
+		}
+		$query   = array( 'buyerEmail' => $buyer_email );
+		$user_id = is_user_logged_in() ? (int) get_current_user_id() : 0;
+		if ( $user_id > 0 ) {
+			$query['buyerExternalId'] = (string) $user_id;
+		}
+		return $query;
+	}
+
+	/**
+	 * The HTTP status a WP_Error from request() carries, or 0 for a transport failure.
+	 *
+	 * @param WP_Error $error The failure.
+	 * @return int
+	 */
+	private static function error_status( $error ) {
+		$data = $error->get_error_data();
+		return is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
 	}
 }

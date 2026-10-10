@@ -17,8 +17,9 @@ $GLOBALS['TACK_REGISTERED_PAGES'] = array();
 
 function admin_url( $path = '' ) { return 'https://shop.example/wp-admin/' . $path; }
 function esc_url( $url ) { return $url; }
-function esc_attr( $t ) { return $t; }
-function esc_html( $t ) { return $t; }
+// WordPress escapes; an identity stub would let an unescaped renderer pass (W1-forms).
+function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8', false ); }
+function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8', false ); }
 function esc_html__( $text, $domain = null ) { return $text; }
 function __( $text, $domain = null ) { return $text; }
 $GLOBALS['TACK_HOOKS']   = array();
@@ -230,8 +231,9 @@ if ( ! function_exists( 'wc_price' ) ) {
 	 * @param float $amount Amount.
 	 * @return string
 	 */
-	function wc_price( $amount ) {
-		return '<span class="amount">$' . number_format( (float) $amount, 2 ) . '</span>';
+	function wc_price( $amount, $args = array() ) {
+		$symbol = is_array( $args ) && ! empty( $args['currency'] ) ? $args['currency'] . ' ' : '$';
+		return '<span class="amount">' . $symbol . number_format( (float) $amount, 2 ) . '</span>';
 	}
 }
 
@@ -321,6 +323,12 @@ if ( ! class_exists( 'Tack_Stub_WC' ) ) {
 	class Tack_Stub_WC {
 		/** @var object|null */
 		public $cart;
+
+		/** @var object|null */
+		public $customer;
+
+		/** @var object|null */
+		public $session;
 
 		/** @return Tack_Stub_Payment_Gateways|null */
 		public function payment_gateways() {
@@ -432,6 +440,9 @@ if ( ! function_exists( 'WC' ) ) {
 	function WC() { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.FunctionNameInvalid
 		$wc       = new Tack_Stub_WC();
 		$wc->cart = new Tack_Stub_Cart( $GLOBALS['TACK_CART_LINES'] );
+		// W1-forms: the customer and session the tax-exemption tests read.
+		$wc->customer = isset( $GLOBALS['TACK_WC_CUSTOMER'] ) ? $GLOBALS['TACK_WC_CUSTOMER'] : null;
+		$wc->session  = isset( $GLOBALS['TACK_WC_SESSION'] ) ? $GLOBALS['TACK_WC_SESSION'] : null;
 		return $wc;
 	}
 }
@@ -524,7 +535,7 @@ if ( ! function_exists( 'esc_textarea' ) ) {
 	 * @return string
 	 */
 	function esc_textarea( $t ) {
-		return (string) $t;
+		return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8' );
 	}
 }
 
@@ -663,6 +674,9 @@ if ( ! function_exists( 'wp_remote_request' ) ) {
 	 */
 	function wp_remote_request( $url, $args = array() ) {
 		$GLOBALS['TACK_HTTP_CALLS']++;
+		if ( function_exists( 'tack_test_record_http' ) ) {
+			tack_test_record_http( $url, $args );
+		}
 		return $GLOBALS['TACK_HTTP_RESPONSE'];
 	}
 }
@@ -766,5 +780,321 @@ if ( ! function_exists( 'wc_get_order' ) ) {
 	 */
 	function wc_get_order( $id ) {
 		return class_exists( 'WC_Order' ) ? new WC_Order( array( 'id' => (int) $id ) ) : false;
+	}
+}
+
+
+// ── Stubs added for Tack_Storefront_Forms (1.9.0) ────────────────────────────
+//
+// Same guard pattern as above. The HTTP stub now also records the URL and args of
+// the last request, so a test can assert on what left the store (headers, body).
+
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
+if ( ! defined( 'EP_ROOT' ) ) {
+	define( 'EP_ROOT', 64 );
+}
+if ( ! defined( 'EP_PAGES' ) ) {
+	define( 'EP_PAGES', 4096 );
+}
+
+$GLOBALS['TACK_HTTP_LAST_URL']  = '';
+$GLOBALS['TACK_HTTP_LAST_ARGS'] = array();
+$GLOBALS['TACK_HTTP_REQUESTS']  = array();
+
+/**
+ * Wrap the HTTP stub so every request is recorded. Declared as a filterable hook
+ * on the existing stub by re-pointing the stub through this recorder.
+ *
+ * @param string $url  URL.
+ * @param array  $args Args.
+ */
+function tack_test_record_http( $url, $args ) {
+	$GLOBALS['TACK_HTTP_LAST_URL']  = $url;
+	$GLOBALS['TACK_HTTP_LAST_ARGS'] = $args;
+	$GLOBALS['TACK_HTTP_REQUESTS'][] = array(
+		'url'  => $url,
+		'args' => $args,
+	);
+}
+
+$GLOBALS['TACK_TRANSIENTS'] = array();
+if ( ! function_exists( 'get_transient' ) ) {
+	/** @param string $key Key. @return mixed */
+	function get_transient( $key ) {
+		return isset( $GLOBALS['TACK_TRANSIENTS'][ $key ] ) ? $GLOBALS['TACK_TRANSIENTS'][ $key ] : false;
+	}
+}
+if ( ! function_exists( 'set_transient' ) ) {
+	/** @param string $key Key. @param mixed $value Value. @param int $ttl TTL. @return bool */
+	function set_transient( $key, $value, $ttl = 0 ) {
+		$GLOBALS['TACK_TRANSIENTS'][ $key ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'delete_transient' ) ) {
+	/** @param string $key Key. @return bool */
+	function delete_transient( $key ) {
+		unset( $GLOBALS['TACK_TRANSIENTS'][ $key ] );
+		return true;
+	}
+}
+/** Forget every transient. */
+function tack_test_reset_transients() {
+	$GLOBALS['TACK_TRANSIENTS'] = array();
+}
+
+$GLOBALS['TACK_SHORTCODES'] = array();
+if ( ! function_exists( 'add_shortcode' ) ) {
+	/** @param string $tag Tag. @param callable $cb Callback. */
+	function add_shortcode( $tag, $cb ) {
+		$GLOBALS['TACK_SHORTCODES'][ $tag ] = $cb;
+	}
+}
+if ( ! function_exists( 'shortcode_atts' ) ) {
+	/** @param array $pairs Defaults. @param array|string $atts Given. @param string $tag Tag. @return array */
+	function shortcode_atts( $pairs, $atts, $tag = '' ) {
+		$atts = (array) $atts;
+		$out  = array();
+		foreach ( $pairs as $name => $default ) {
+			$out[ $name ] = array_key_exists( $name, $atts ) ? $atts[ $name ] : $default;
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'wp_kses' ) ) {
+	/**
+	 * Keeps only the allowed TAGS (attributes are not filtered here). Enough to prove
+	 * that a tag outside the allowlist — a <script> — is removed from the output.
+	 *
+	 * @param string $html    Markup.
+	 * @param array  $allowed Allowed tags => attributes.
+	 * @return string
+	 */
+	function wp_kses( $html, $allowed, $protocols = array() ) {
+		return strip_tags( (string) $html, '<' . implode( '><', array_keys( (array) $allowed ) ) . '>' );
+	}
+}
+
+$GLOBALS['TACK_NONCE_VALID'] = true;
+if ( ! function_exists( 'wp_create_nonce' ) ) {
+	/** @param string $action Action. @return string */
+	function wp_create_nonce( $action = -1 ) {
+		return 'nonce-' . md5( (string) $action );
+	}
+}
+if ( ! function_exists( 'wp_verify_nonce' ) ) {
+	/** @param string $nonce Nonce. @param string $action Action. @return int|false */
+	function wp_verify_nonce( $nonce, $action = -1 ) {
+		return $GLOBALS['TACK_NONCE_VALID'] && $nonce === wp_create_nonce( $action ) ? 1 : false;
+	}
+}
+if ( ! function_exists( 'wp_nonce_field' ) ) {
+	/** @return string */
+	function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) {
+		$field = '<input type="hidden" name="' . $name . '" value="' . wp_create_nonce( $action ) . '" />';
+		if ( $display ) {
+			echo $field;
+		}
+		return $field;
+	}
+}
+
+if ( ! function_exists( 'wp_login_url' ) ) {
+	/** @param string $redirect Redirect. @return string */
+	function wp_login_url( $redirect = '' ) {
+		return 'https://shop.example/wp-login.php' . ( '' !== $redirect ? '?redirect_to=' . rawurlencode( $redirect ) : '' );
+	}
+}
+if ( ! function_exists( 'wc_get_page_permalink' ) ) {
+	/** @param string $page Page. @return string */
+	function wc_get_page_permalink( $page ) {
+		return 'https://shop.example/' . $page . '/';
+	}
+}
+if ( ! function_exists( 'wc_get_account_endpoint_url' ) ) {
+	/** @param string $endpoint Endpoint. @return string */
+	function wc_get_account_endpoint_url( $endpoint ) {
+		return 'https://shop.example/my-account/' . $endpoint . '/';
+	}
+}
+$GLOBALS['TACK_REWRITE_ENDPOINTS'] = array();
+$GLOBALS['TACK_REWRITE_FLUSHES']   = 0;
+if ( ! function_exists( 'add_rewrite_endpoint' ) ) {
+	/** @param string $name Name. @param int $places Mask. @param string|bool $query_var Query var. */
+	function add_rewrite_endpoint( $name, $places, $query_var = true ) {
+		$GLOBALS['TACK_REWRITE_ENDPOINTS'][ $name ] = $places;
+	}
+}
+if ( ! function_exists( 'flush_rewrite_rules' ) ) {
+	/** @param bool $hard Hard flush. */
+	function flush_rewrite_rules( $hard = true ) {
+		$GLOBALS['TACK_REWRITE_FLUSHES']++;
+	}
+}
+if ( ! function_exists( 'sanitize_email' ) ) {
+	/** @param string $email Email. @return string */
+	function sanitize_email( $email ) {
+		return trim( (string) $email );
+	}
+}
+if ( ! function_exists( 'is_email' ) ) {
+	/** @param string $email Email. @return string|false */
+	function is_email( $email ) {
+		return (bool) preg_match( '/^[^\s@]+@[^\s@]+\.[^\s@]+$/', (string) $email ) ? $email : false;
+	}
+}
+if ( ! function_exists( 'wp_unslash' ) ) {
+	/** @param mixed $value Value. @return mixed */
+	function wp_unslash( $value ) {
+		return $value;
+	}
+}
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	/** @param string $t Text. @return string */
+	function sanitize_textarea_field( $t ) {
+		return trim( strip_tags( (string) $t ) );
+	}
+}
+if ( ! function_exists( 'map_deep' ) ) {
+	/** @param mixed $value Value. @param callable $callback Callback. @return mixed */
+	function map_deep( $value, $callback ) {
+		if ( is_array( $value ) ) {
+			foreach ( $value as $k => $v ) {
+				$value[ $k ] = map_deep( $v, $callback );
+			}
+			return $value;
+		}
+		return call_user_func( $callback, $value );
+	}
+}
+if ( ! function_exists( 'wp_validate_redirect' ) ) {
+	/** @param string $location URL. @param string $fallback Fallback. @return string */
+	function wp_validate_redirect( $location, $fallback = '' ) {
+		return 0 === strpos( (string) $location, 'https://shop.example/' ) ? $location : $fallback;
+	}
+}
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	/** @param string $url URL. @return string */
+	function esc_url_raw( $url ) {
+		return (string) $url;
+	}
+}
+if ( ! function_exists( 'add_query_arg' ) ) {
+	/** @return string */
+	function add_query_arg( ...$args ) {
+		if ( is_array( $args[0] ) ) {
+			$url   = $args[1];
+			$pairs = $args[0];
+		} else {
+			$url   = $args[2];
+			$pairs = array( $args[0] => $args[1] );
+		}
+		return $url . ( false === strpos( $url, '?' ) ? '?' : '&' ) . http_build_query( $pairs );
+	}
+}
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	/** @return int */
+	function get_current_user_id() {
+		return is_user_logged_in() ? 1 : 0;
+	}
+}
+if ( ! function_exists( 'wp_generate_password' ) ) {
+	/** @return string */
+	function wp_generate_password( $length = 12, $special = true, $extra = false ) {
+		return substr( str_repeat( 'abc123xyz789', 4 ), 0, (int) $length );
+	}
+}
+$GLOBALS['TACK_ENQUEUED'] = array();
+if ( ! function_exists( 'wp_enqueue_script' ) ) {
+	/** @param string $handle Handle. */
+	function wp_enqueue_script( $handle, $src = '', $deps = array(), $ver = false, $args = false ) {
+		$GLOBALS['TACK_ENQUEUED'][] = $handle;
+	}
+}
+if ( ! function_exists( 'get_permalink' ) ) {
+	/** @return string */
+	function get_permalink( $post = 0 ) {
+		return 'https://shop.example/apply/';
+	}
+}
+
+// ── W1-forms: product-page context, store currency, WC customer + session ────
+
+$GLOBALS['TACK_IS_PRODUCT']      = false;
+$GLOBALS['TACK_QUERIED_OBJECT']  = 0;
+$GLOBALS['TACK_STORE_CURRENCY']  = 'USD';
+$GLOBALS['TACK_WC_CUSTOMER']     = null;
+$GLOBALS['TACK_WC_SESSION']      = null;
+
+if ( ! function_exists( 'is_product' ) ) {
+	/** @return bool */
+	function is_product() {
+		return (bool) $GLOBALS['TACK_IS_PRODUCT'];
+	}
+}
+if ( ! function_exists( 'get_queried_object_id' ) ) {
+	/** @return int */
+	function get_queried_object_id() {
+		return (int) $GLOBALS['TACK_QUERIED_OBJECT'];
+	}
+}
+if ( ! function_exists( 'get_woocommerce_currency' ) ) {
+	/** @return string */
+	function get_woocommerce_currency() {
+		return (string) $GLOBALS['TACK_STORE_CURRENCY'];
+	}
+}
+
+/** A WC_Customer recording set_is_vat_exempt() calls. */
+class Tack_Stub_Customer {
+	/** @var bool */
+	public $vat_exempt = false;
+	/** @var array<int,bool> */
+	public $calls = array();
+	/** @var int */
+	public $saves = 0;
+
+	/** @param bool $exempt Exempt? */
+	public function set_is_vat_exempt( $exempt ) {
+		$this->vat_exempt = (bool) $exempt;
+		$this->calls[]    = (bool) $exempt;
+	}
+
+	/** @return bool */
+	public function get_is_vat_exempt() {
+		return $this->vat_exempt;
+	}
+
+	/** Persisting the customer: the tests assert this never happens. */
+	public function save() {
+		++$this->saves;
+	}
+}
+
+/** A WC_Session holding values in memory. */
+class Tack_Stub_Session {
+	/** @var array */
+	public $data = array();
+
+	/**
+	 * @param string $key Key.
+	 * @return mixed
+	 */
+	public function get( $key ) {
+		return isset( $this->data[ $key ] ) ? $this->data[ $key ] : null;
+	}
+
+	/**
+	 * @param string $key   Key.
+	 * @param mixed  $value Value.
+	 */
+	public function set( $key, $value ) {
+		$this->data[ $key ] = $value;
 	}
 }

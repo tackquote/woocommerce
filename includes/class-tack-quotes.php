@@ -18,6 +18,8 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-mode.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 
 /**
  * Main plugin class (singleton).
@@ -87,6 +89,17 @@ final class Tack_Quotes {
 		// once for the badge and again for the gateway filter.
 		if ( Tack_Group_Restrictions::is_enabled() ) {
 			( new Tack_Group_Restrictions( $b2b_notices ) )->init();
+		}
+
+		// Wholesale and net-terms application forms: shortcodes, My Account tabs
+		// and the admin-post handlers. Registered unconditionally so the rewrite
+		// endpoints always exist; the tab switches only decide what the menu shows.
+		( new Tack_Storefront_Forms() )->init();
+
+		// Tax exemption TackQuote grants a buyer. Changes what checkout charges,
+		// so it attaches only when the merchant switched it on (default off).
+		if ( Tack_Tax_Exempt::is_enabled() ) {
+			( new Tack_Tax_Exempt() )->init();
 		}
 
 		// Frontend "Request a Quote" widget/button.
@@ -187,12 +200,27 @@ final class Tack_Quotes {
 		add_option( 'tack_quotes_show_add_to_quote', 'yes' );
 		add_option( 'tack_quotes_show_request_quote', 'yes' );
 		add_option( 'tack_quotes_schema_version', TACK_QUOTES_VERSION );
+		// Storefront application forms ship OFF: a merchant adds the tabs deliberately.
+		add_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::DEFAULT_SLUG );
+		add_option( Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, 'no' );
+		add_option( Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, 'no' );
+		add_option( Tack_Tax_Exempt::OPTION_ENABLED, 'no' );
+
+		// The My Account endpoints must be in the rewrite rules before they are
+		// flushed (WooCommerce's own guide for custom account tabs), and
+		// WooCommerce's init already ran without this plugin's filter attached.
+		Tack_Storefront_Forms::register_endpoints();
+		flush_rewrite_rules();
+		update_option( Tack_Storefront_Forms::OPTION_REWRITE_VERSION, TACK_QUOTES_VERSION, false );
 	}
 
 	/**
-	 * Deactivation: clear scheduled events (none yet) — kept for future cron.
+	 * Deactivation: clear scheduled events and the account endpoints' rewrite rules.
 	 */
 	public static function deactivate() {
 		wp_clear_scheduled_hook( 'tack_quotes_retry_sync' );
+		// The account endpoints leave the rewrite rules with the plugin.
+		flush_rewrite_rules();
+		delete_option( Tack_Storefront_Forms::OPTION_REWRITE_VERSION );
 	}
 }
