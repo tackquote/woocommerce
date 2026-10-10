@@ -1,5 +1,46 @@
 {
-  "_comment": "Plugin msgid (English source, exactly as in the PHP/JS __() call) -> the TackQuote shared widget catalogue key whose meaning is IDENTICAL. Read by bin/build-translations.php together with the vendored catalogue in widget/. `placeholders` maps each {name} in the catalogue text to the printf placeholder the plugin msgid uses. A plugin string with no exact catalogue equivalent is deliberately absent and stays English (or comes from translate.wordpress.org). Do not hand-translate here: fix the catalogue in tack (packages/widget/locales) and re-vendor.",
+  "_comment": "Plugin msgid (English source, exactly as in the PHP/JS __() call) -> a catalogue key whose meaning is IDENTICAL. Keys `tackquote.*` come from the TackQuote shared widget catalogue vendored in widget/ (do not hand-translate those: fix the catalogue in tack, packages/widget/locales, and re-vendor). Keys `woo.*` (1.11.0) come from local/, the plugin's own catalogue for storefront text the shared catalogue has no identical entry for; local/en.json must read exactly as the msgid. `placeholders` maps each {name} in the catalogue text to the printf placeholder the plugin msgid uses. `storefront` says which source files shoppers see: tests/i18n-test.php fails when a msgid in them is neither mapped (and translated in every bundled language) nor listed in storefront.notStorefront with the reason.",
+  "storefront": {
+    "sources": [
+      "assets/js/tack-quotes.js",
+      "templates/tackquote/",
+      "includes/class-tack-widget.php",
+      "includes/class-tack-catalog-mode.php",
+      "includes/class-tack-b2b-notices.php",
+      "includes/class-tack-catalog-visibility.php",
+      "includes/class-tack-quote-checkout.php",
+      "includes/class-tack-attachments.php",
+      "includes/class-tack-storefront-forms.php",
+      "includes/class-tack-wholesale-pricing.php",
+      "includes/class-tack-po-number.php",
+      "includes/class-tack-api-client.php",
+      "includes/class-tack-group-restrictions.php",
+      "includes/class-tack-tax-exempt.php",
+      "includes/gateways/class-tack-gateway-net-terms.php",
+      "includes/blocks/class-tack-net-terms-block.php"
+    ],
+    "notStorefront": {
+      "Ask for an optional PO number at checkout (any payment method) and send it to TackQuote with the order": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Description": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Enable/Disable": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Hide Add to cart for this product and take quote requests instead. Variations follow the parent.": "product editor (WooCommerce > Products), seen by the shop manager only",
+      "Lets buyers TackQuote has approved for net terms place an order without paying now. The order is put on hold and TackQuote invoices it on the buyer's terms. Shown only to a signed-in buyer whose TackQuote credit line is active, in the checkout currency, whose remaining available credit (or, when TackQuote does not report it, the limit) covers the order; hidden whenever TackQuote cannot confirm that.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Net terms (TackQuote)": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Offer net terms to approved TackQuote buyers": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Only administrators see this: no TackQuote wholesale form has the slug \"%s\". Create one in TackQuote under Settings, Wholesale forms, or choose another slug on the Forms tab.": "hint rendered only for users who can manage the store",
+      "Open the Forms tab": "hint rendered only for users who can manage the store",
+      "Quote only": "product editor (WooCommerce > Products), seen by the shop manager only",
+      "Server reachable, key not verified: this TackQuote server has no connection check, so the key could not be tested.": "Settings > Connection test result, seen by the shop manager only",
+      "Shown under the title when the buyer chooses this method.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "TackQuote did not accept the connection test.": "Settings > Connection test result, seen by the shop manager only",
+      "TackQuote rejected this API key: check you pasted the whole key and that it is not revoked.": "Settings > Connection test result, seen by the shop manager only",
+      "This TackQuote server has no storefront net-terms route.": "WP_Error text written to the WooCommerce log, never shown",
+      "This TackQuote server has no storefront price-access route.": "WP_Error text written to the WooCommerce log, never shown",
+      "This key lacks permission to connect a store: check its scopes in TackQuote, or create a new key.": "Settings > Connection test result, seen by the shop manager only",
+      "Title": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "What the buyer sees at checkout.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only"
+    }
+  },
   "strings": [
     {
       "msgid": "Add to Quote",
@@ -256,6 +297,639 @@
       "placeholders": {
         "amount": "%s"
       }
+    },
+    {
+      "msgid": "No TackQuote API key configured.",
+      "key": "woo.api.no_key"
+    },
+    {
+      "msgid": "TackQuote API returned HTTP %d.",
+      "key": "woo.api.http_status",
+      "placeholders": {
+        "status": "%d"
+      }
+    },
+    {
+      "msgid": "Could not reach TackQuote. Check the API URL, then try again in a few minutes.",
+      "key": "woo.api.unreachable"
+    },
+    {
+      "msgid": "TackQuote is busy or unavailable right now. Try again in a few minutes.",
+      "key": "woo.api.busy"
+    },
+    {
+      "msgid": "(HTTP %1$d, code %2$s)",
+      "key": "woo.api.http_code",
+      "placeholders": {
+        "status": "%1$d",
+        "code": "%2$s"
+      }
+    },
+    {
+      "msgid": "(HTTP %d)",
+      "key": "woo.api.http_only",
+      "placeholders": {
+        "status": "%d"
+      }
+    },
+    {
+      "msgid": "No wholesale form slug is configured.",
+      "key": "woo.api.no_form_slug"
+    },
+    {
+      "msgid": "The application form is not available right now.",
+      "key": "woo.api.form_unavailable"
+    },
+    {
+      "msgid": "Too many files were sent in a short time. Please try again shortly.",
+      "key": "woo.files.too_many"
+    },
+    {
+      "msgid": "This page has been open too long, or was served from a cache. Reload it and request the quote again.",
+      "key": "woo.page.stale_quote"
+    },
+    {
+      "msgid": "Files you attach are linked to your account email, %s. Use that email address for this request, or remove the files.",
+      "key": "woo.files.account_email",
+      "placeholders": {
+        "email": "%s"
+      }
+    },
+    {
+      "msgid": "%1$s has a minimum order quantity of %2$d. You have %3$d in your cart.",
+      "key": "woo.limits.min_in_cart",
+      "placeholders": {
+        "product": "%1$s",
+        "min": "%2$d",
+        "qty": "%3$d"
+      }
+    },
+    {
+      "msgid": "%1$s has a maximum order quantity of %2$d. You have %3$d in your cart.",
+      "key": "woo.limits.max_in_cart",
+      "placeholders": {
+        "product": "%1$s",
+        "max": "%2$d",
+        "qty": "%3$d"
+      }
+    },
+    {
+      "msgid": "Order between %1$d and %2$d units of this product.",
+      "key": "woo.limits.between",
+      "placeholders": {
+        "min": "%1$d",
+        "max": "%2$d"
+      }
+    },
+    {
+      "msgid": "Minimum order quantity: %d units.",
+      "key": "woo.limits.min",
+      "placeholders": {
+        "qty": "%d"
+      }
+    },
+    {
+      "msgid": "Maximum order quantity: %d units.",
+      "key": "woo.limits.max",
+      "placeholders": {
+        "qty": "%d"
+      }
+    },
+    {
+      "msgid": "This store is currently quote-only. Request a quote instead and we will get back to you.",
+      "key": "woo.catalog.store_quote_only"
+    },
+    {
+      "msgid": "%s is available on quote only. Request a quote instead and we will get back to you.",
+      "key": "woo.catalog.product_quote_only",
+      "placeholders": {
+        "product": "%s"
+      }
+    },
+    {
+      "msgid": "This store is currently quote-only, so those items were removed from your cart. Request a quote instead and we will get back to you.",
+      "key": "woo.catalog.store_removed"
+    },
+    {
+      "msgid": "Available on quote only, so removed from your cart: %s. Request a quote instead and we will get back to you.",
+      "key": "woo.catalog.products_removed",
+      "placeholders": {
+        "products": "%s"
+      }
+    },
+    {
+      "msgid": "Available on quote",
+      "key": "woo.catalog.available_on_quote"
+    },
+    {
+      "msgid": "Invalid product ID.",
+      "key": "woo.visibility.invalid_id"
+    },
+    {
+      "msgid": "Invalid product slug.",
+      "key": "woo.visibility.invalid_slug"
+    },
+    {
+      "msgid": "%s was removed from your cart because it is not available to your account.",
+      "key": "woo.visibility.removed",
+      "placeholders": {
+        "product": "%s"
+      }
+    },
+    {
+      "msgid": "Purchase order number",
+      "key": "woo.po.label"
+    },
+    {
+      "msgid": "The purchase order number can be at most %d characters.",
+      "key": "woo.po.too_long",
+      "placeholders": {
+        "max": "%d"
+      }
+    },
+    {
+      "msgid": "This checkout link is not valid. Please open the quote again and use its checkout button.",
+      "key": "woo.checkout.link_invalid"
+    },
+    {
+      "msgid": "The cart is not available right now, so this quote could not be opened. Please try again from the quote.",
+      "key": "woo.checkout.cart_unavailable"
+    },
+    {
+      "msgid": "Too many checkout links were opened from this connection. Please wait a few minutes and try again.",
+      "key": "woo.checkout.too_many_links"
+    },
+    {
+      "msgid": "This quote could not be opened in the store. Please contact the seller.",
+      "key": "woo.checkout.cannot_open"
+    },
+    {
+      "msgid": "Quote %1$s is priced in %2$s but this store sells in %3$s, so it cannot be checked out here. Please contact the seller.",
+      "key": "woo.checkout.currency",
+      "placeholders": {
+        "quote": "%1$s",
+        "quote_currency": "%2$s",
+        "store_currency": "%3$s"
+      }
+    },
+    {
+      "msgid": "Quote %1$s could not be checked out because these products are not available to buy in this store right now: %2$s. Please contact the seller.",
+      "key": "woo.checkout.unavailable_products",
+      "placeholders": {
+        "quote": "%1$s",
+        "products": "%2$s"
+      }
+    },
+    {
+      "msgid": "This checkout link was already used or has expired. Please open the quote again to get a new link.",
+      "key": "woo.checkout.link_used"
+    },
+    {
+      "msgid": "This quote could not be opened right now. Please open the quote again and use its checkout button.",
+      "key": "woo.checkout.open_failed"
+    },
+    {
+      "msgid": "Quantity set by your accepted quote",
+      "key": "woo.checkout.qty_locked_title"
+    },
+    {
+      "msgid": "The quantities of an accepted quote cannot be changed in the store. Please ask the seller to revise the quote.",
+      "key": "woo.checkout.qty_locked"
+    },
+    {
+      "msgid": "Your cart holds an accepted quote, which is checked out on its own. Complete or remove it before adding other products.",
+      "key": "woo.checkout.quote_alone"
+    },
+    {
+      "msgid": "The accepted quote was removed from your cart. Open the quote again to check it out.",
+      "key": "woo.checkout.quote_removed"
+    },
+    {
+      "msgid": "Your cart no longer matched the accepted quote, so the quote was removed. Open the quote again to check it out.",
+      "key": "woo.checkout.quote_mismatch"
+    },
+    {
+      "msgid": "Wholesale account",
+      "key": "woo.forms.wholesale_tab"
+    },
+    {
+      "msgid": "This form isn't available right now.",
+      "key": "woo.forms.form_unavailable_short"
+    },
+    {
+      "msgid": "The wholesale application form is not available right now. Please try again later.",
+      "key": "woo.forms.wholesale_form_unavailable"
+    },
+    {
+      "msgid": "Sign in",
+      "key": "woo.forms.sign_in"
+    },
+    {
+      "msgid": "This form requires an attachment (\"%s\"), which cannot be sent from this store yet. Please contact the store to apply.",
+      "key": "woo.forms.attachment_unsupported",
+      "placeholders": {
+        "field": "%s"
+      }
+    },
+    {
+      "msgid": "Your wholesale account is approved.",
+      "key": "woo.forms.wholesale_is_approved"
+    },
+    {
+      "msgid": "Your wholesale application is being reviewed. We will email you when it has been decided.",
+      "key": "woo.forms.wholesale_being_reviewed"
+    },
+    {
+      "msgid": "Your session has expired. Please reload the page and try again.",
+      "key": "woo.forms.session_expired"
+    },
+    {
+      "msgid": "Your wholesale account has been approved.",
+      "key": "woo.forms.wholesale_has_been_approved"
+    },
+    {
+      "msgid": "Your application has been received and is awaiting review. We will email you when it has been decided.",
+      "key": "woo.forms.application_awaiting_review"
+    },
+    {
+      "msgid": "Your application has been received.",
+      "key": "woo.forms.application_received"
+    },
+    {
+      "msgid": "%s must be ticked.",
+      "key": "woo.forms.must_be_ticked",
+      "placeholders": {
+        "label": "%s"
+      }
+    },
+    {
+      "msgid": "%s is too long.",
+      "key": "woo.forms.too_long",
+      "placeholders": {
+        "label": "%s"
+      }
+    },
+    {
+      "msgid": "%1$s: %2$s is required.",
+      "key": "woo.forms.address_part_required",
+      "placeholders": {
+        "label": "%1$s",
+        "part": "%2$s"
+      }
+    },
+    {
+      "msgid": "Please log in to your account to apply for net terms.",
+      "key": "woo.forms.login_for_net_terms"
+    },
+    {
+      "msgid": "Your account email. Change it under Account details.",
+      "key": "woo.forms.account_email_help"
+    },
+    {
+      "msgid": "Contact phone",
+      "key": "woo.forms.contact_phone"
+    },
+    {
+      "msgid": "Tax / VAT ID",
+      "key": "woo.forms.tax_vat_id"
+    },
+    {
+      "msgid": "Billing address",
+      "key": "woo.forms.billing_address"
+    },
+    {
+      "msgid": "Requested payment terms",
+      "key": "woo.forms.requested_terms"
+    },
+    {
+      "msgid": "Trade references",
+      "key": "woo.forms.trade_references"
+    },
+    {
+      "msgid": "Up to %d suppliers who can vouch for your payment history. Optional.",
+      "key": "woo.forms.trade_references_help",
+      "placeholders": {
+        "count": "%d"
+      }
+    },
+    {
+      "msgid": "Reference %d",
+      "key": "woo.forms.reference_n",
+      "placeholders": {
+        "n": "%d"
+      }
+    },
+    {
+      "msgid": "Contact name",
+      "key": "woo.forms.contact_name"
+    },
+    {
+      "msgid": "(optional)",
+      "key": "woo.forms.optional_paren"
+    },
+    {
+      "msgid": "Apply to pay on account. The store reviews every application and will email you with its decision.",
+      "key": "woo.forms.net_terms_intro"
+    },
+    {
+      "msgid": "Available credit: %s",
+      "key": "woo.forms.available_credit",
+      "placeholders": {
+        "amount": "%s"
+      }
+    },
+    {
+      "msgid": "Your account can pay on net terms.",
+      "key": "woo.forms.can_pay_net_terms"
+    },
+    {
+      "msgid": "Your account email was changed recently and must be confirmed by the store before you can apply for net terms. Please contact the store.",
+      "key": "woo.forms.email_unconfirmed"
+    },
+    {
+      "msgid": "Your account has no valid email address. Please add one under Account details first.",
+      "key": "woo.forms.no_valid_email"
+    },
+    {
+      "msgid": "You already have a net-terms application awaiting review. The store will email you with its decision.",
+      "key": "woo.forms.net_terms_already_pending"
+    },
+    {
+      "msgid": "Your net-terms application has been submitted. The store will email you with its decision.",
+      "key": "woo.forms.net_terms_submitted"
+    },
+    {
+      "msgid": "Legal business name is required.",
+      "key": "woo.forms.business_required"
+    },
+    {
+      "msgid": "Legal business name is too long.",
+      "key": "woo.forms.business_too_long"
+    },
+    {
+      "msgid": "Contact phone is too long.",
+      "key": "woo.forms.phone_too_long"
+    },
+    {
+      "msgid": "Tax / VAT ID is too long.",
+      "key": "woo.forms.tax_id_too_long"
+    },
+    {
+      "msgid": "Billing address: %s is required.",
+      "key": "woo.forms.billing_part_required",
+      "placeholders": {
+        "part": "%s"
+      }
+    },
+    {
+      "msgid": "Requested credit limit must be a number between 0 and 100,000,000.",
+      "key": "woo.forms.limit_range"
+    },
+    {
+      "msgid": "Please choose one of the offered payment terms.",
+      "key": "woo.forms.choose_terms"
+    },
+    {
+      "msgid": "A trade reference entry is too long.",
+      "key": "woo.forms.reference_too_long"
+    },
+    {
+      "msgid": "A trade reference email address is not valid.",
+      "key": "woo.forms.reference_email_invalid"
+    },
+    {
+      "msgid": "Notes are too long (2,000 characters at most).",
+      "key": "woo.forms.notes_too_long"
+    },
+    {
+      "msgid": "PDF, JPEG or PNG, up to %d MB.",
+      "key": "woo.forms.file_help",
+      "placeholders": {
+        "mb": "%d"
+      }
+    },
+    {
+      "msgid": "Files cannot be attached on this store yet. If the store needs a document from you, please email it to them.",
+      "key": "woo.forms.files_unsupported_email"
+    },
+    {
+      "msgid": "Choose an option",
+      "key": "woo.forms.choose_option"
+    },
+    {
+      "msgid": "Street address",
+      "key": "woo.forms.street_address"
+    },
+    {
+      "msgid": "Choose a country",
+      "key": "woo.forms.choose_country"
+    },
+    {
+      "msgid": "street address",
+      "key": "woo.forms.part_street"
+    },
+    {
+      "msgid": "address line 2",
+      "key": "woo.forms.part_line2"
+    },
+    {
+      "msgid": "city",
+      "key": "woo.forms.part_city"
+    },
+    {
+      "msgid": "state / province",
+      "key": "woo.forms.part_region"
+    },
+    {
+      "msgid": "postal code",
+      "key": "woo.forms.part_postal"
+    },
+    {
+      "msgid": "country",
+      "key": "woo.forms.part_country"
+    },
+    {
+      "msgid": "Too many applications were sent in a short time. Please wait a few minutes and try again.",
+      "key": "woo.forms.rate_limited"
+    },
+    {
+      "msgid": "The store's TackQuote connection refused this request. Please contact the store.",
+      "key": "woo.forms.connection_refused"
+    },
+    {
+      "msgid": "This application form is not available.",
+      "key": "woo.forms.form_not_available"
+    },
+    {
+      "msgid": "TackQuote could not be reached. Please try again in a few minutes.",
+      "key": "woo.forms.unreachable"
+    },
+    {
+      "msgid": "Your account price",
+      "key": "woo.pricing.account_price"
+    },
+    {
+      "msgid": "Volume pricing for your account",
+      "key": "woo.pricing.volume_for_account"
+    },
+    {
+      "msgid": "Checkout as Quote",
+      "key": "woo.widget.checkout_as_quote"
+    },
+    {
+      "msgid": "Too many quote requests from this connection. Please wait a few minutes and try again.",
+      "key": "woo.widget.rate_limited"
+    },
+    {
+      "msgid": "A valid email address is required.",
+      "key": "woo.widget.email_required"
+    },
+    {
+      "msgid": "Please choose the product options before requesting a quote.",
+      "key": "woo.widget.choose_options"
+    },
+    {
+      "msgid": "No products to quote.",
+      "key": "woo.widget.no_products"
+    },
+    {
+      "msgid": "Target prices:",
+      "key": "woo.widget.target_prices"
+    },
+    {
+      "msgid": "This page has been open too long, or was served from a cache. Reload it and try again.",
+      "key": "woo.widget.stale_page"
+    },
+    {
+      "msgid": "Pay on net terms",
+      "key": "woo.gateway.title"
+    },
+    {
+      "msgid": "Place this order on your approved payment terms. We will send an invoice.",
+      "key": "woo.gateway.description"
+    },
+    {
+      "msgid": "Awaiting payment on net terms (%d days).",
+      "key": "woo.gateway.awaiting",
+      "placeholders": {
+        "days": "%d"
+      }
+    },
+    {
+      "msgid": "This order is more than the net-terms credit you have available. Please choose another payment method or contact us.",
+      "key": "woo.gateway.over_credit"
+    },
+    {
+      "msgid": "Net terms are not available for this order right now. Please choose another payment method or contact us.",
+      "key": "woo.gateway.unavailable"
+    },
+    {
+      "msgid": "No products added yet.",
+      "key": "woo.page.no_products"
+    },
+    {
+      "msgid": "Unit price (excl. tax)",
+      "key": "woo.page.unit_price_excl"
+    },
+    {
+      "msgid": "Target price",
+      "key": "woo.page.target_price"
+    },
+    {
+      "msgid": "Message",
+      "key": "woo.page.message"
+    },
+    {
+      "msgid": "First name",
+      "key": "woo.modal.first_name"
+    },
+    {
+      "msgid": "Last name",
+      "key": "woo.modal.last_name"
+    },
+    {
+      "msgid": "Company details",
+      "key": "woo.modal.company_details"
+    },
+    {
+      "msgid": "I am buying as",
+      "key": "woo.modal.buying_as"
+    },
+    {
+      "msgid": "An individual",
+      "key": "woo.modal.individual"
+    },
+    {
+      "msgid": "A company",
+      "key": "woo.modal.company"
+    },
+    {
+      "msgid": "Please enter your first name.",
+      "key": "woo.modal.first_name_required"
+    },
+    {
+      "msgid": "Please complete the required company details.",
+      "key": "woo.modal.company_required"
+    },
+    {
+      "msgid": "Request received. If your company account needs approval, we'll email you when it is ready.",
+      "key": "woo.modal.awaiting_approval"
+    },
+    {
+      "msgid": "Open your buyer portal",
+      "key": "woo.modal.portal_link"
+    },
+    {
+      "msgid": "you@example.com",
+      "key": "woo.modal.email_placeholder"
+    },
+    {
+      "msgid": "Anything the seller should know about this request…",
+      "key": "woo.modal.note_placeholder"
+    },
+    {
+      "msgid": "Cancel",
+      "key": "woo.modal.cancel"
+    },
+    {
+      "msgid": "Could not create the quote. Please try again.",
+      "key": "woo.modal.create_failed"
+    },
+    {
+      "msgid": "Reload page",
+      "key": "woo.modal.reload"
+    },
+    {
+      "msgid": "Your quote request was received. The seller will reply to you by email.",
+      "key": "woo.modal.success"
+    },
+    {
+      "msgid": "Added ✓",
+      "key": "woo.modal.added"
+    },
+    {
+      "msgid": "Optional",
+      "key": "woo.modal.optional"
+    },
+    {
+      "msgid": "Registration number",
+      "key": "woo.modal.registration_number"
+    },
+    {
+      "msgid": "Website",
+      "key": "woo.modal.website"
+    },
+    {
+      "msgid": "Company phone",
+      "key": "woo.modal.company_phone"
+    },
+    {
+      "msgid": "Industry",
+      "key": "woo.modal.industry"
+    },
+    {
+      "msgid": "Number of employees",
+      "key": "woo.modal.employees"
     }
   ]
 }

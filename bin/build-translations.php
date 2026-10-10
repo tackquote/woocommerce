@@ -5,8 +5,12 @@
  * One catalogue for every storefront: TackQuote's shared widget locales
  * (tack `packages/widget/locales/*.json`) are vendored into
  * `languages/source/widget/`, and `languages/source/strings.json` says which plugin
- * msgid means exactly the same as which catalogue key. Nothing is hand-translated
- * here. Output, for de_DE, es_ES, fr_FR, it_IT, ja, nl_NL and pt_BR:
+ * msgid means exactly the same as which catalogue key. Storefront text the shared
+ * catalogue has no identical entry for (WooCommerce-specific notices, the My Account
+ * forms, the quote modal's company fields) comes from the plugin's own catalogue in
+ * `languages/source/local/` (keys `woo.*`, since 1.11.0), in the same format; its
+ * `en.json` must read exactly as each msgid. Output, for de_DE, es_ES, fr_FR, it_IT,
+ * ja, nl_NL and pt_BR:
  *
  *   languages/tackquote-<locale>.po    readable source of the .mo (and for reviewers)
  *   languages/tackquote-<locale>.mo    what load_plugin_textdomain() loads for PHP
@@ -120,24 +124,33 @@ function tack_tr_tables( $root ) {
 	$map     = tack_tr_json( $src . '/strings.json' );
 	$en      = tack_tr_json( $src . '/widget/en.json' );
 	$machine = tack_tr_json( $src . '/widget/machine-translated.json' );
+	$own_en  = tack_tr_json( $src . '/local/en.json' );
 	if ( ! isset( $map['strings'] ) || ! is_array( $map['strings'] ) ) {
 		throw new RuntimeException( 'strings.json has no "strings" list' );
 	}
 	$tables = array();
 	$keys   = array();
 	foreach ( tack_tr_locales() as $code => $meta ) {
-		$catalogue = tack_tr_json( $src . '/widget/' . $code . '.json' );
-		$table     = array();
+		$shared = tack_tr_json( $src . '/widget/' . $code . '.json' );
+		$own    = tack_tr_json( $src . '/local/' . $code . '.json' );
+		$table  = array();
 		foreach ( $map['strings'] as $row ) {
-			$msgid = (string) $row['msgid'];
-			$key   = (string) $row['key'];
-			$ph    = isset( $row['placeholders'] ) && is_array( $row['placeholders'] ) ? $row['placeholders'] : array();
-			if ( ! isset( $en[ $key ] ) ) {
-				throw new RuntimeException( "strings.json: key $key is not in the en.json snapshot" );
+			$msgid     = (string) $row['msgid'];
+			$key       = (string) $row['key'];
+			$ph        = isset( $row['placeholders'] ) && is_array( $row['placeholders'] ) ? $row['placeholders'] : array();
+			$is_own    = tack_tr_is_local_key( $key );
+			$english   = $is_own ? $own_en : $en;
+			$catalogue = $is_own ? $own : $shared;
+			if ( ! isset( $english[ $key ] ) ) {
+				throw new RuntimeException( "strings.json: key $key is not in the " . ( $is_own ? 'local/en.json' : 'en.json snapshot' ) );
 			}
 			// The English catalogue text must convert cleanly too: proves the declared
 			// placeholders are the catalogue's, not invented.
-			tack_tr_convert( (string) $en[ $key ], $ph, "en $key" );
+			$english_text = tack_tr_convert( (string) $english[ $key ], $ph, "en $key" );
+			// The plugin's own catalogue is written for exactly one msgid each.
+			if ( $is_own && $english_text !== $msgid ) {
+				throw new RuntimeException( "local/en.json: $key reads \"$english_text\", not its msgid \"$msgid\"" );
+			}
 			$keys[ $msgid ] = $key;
 			if ( ! isset( $catalogue[ $key ] ) || '' === trim( (string) $catalogue[ $key ] ) ) {
 				continue; // Not translated in this language: WordPress shows the English msgid.
@@ -155,6 +168,16 @@ function tack_tr_tables( $root ) {
 		'machine' => isset( $machine['machineTranslated'] ) && is_array( $machine['machineTranslated'] ) ? $machine['machineTranslated'] : array(),
 		'sha'     => $sha,
 	);
+}
+
+/**
+ * Is this a key of the plugin's own catalogue (`languages/source/local/`)?
+ *
+ * @param string $key Catalogue key.
+ * @return bool
+ */
+function tack_tr_is_local_key( $key ) {
+	return 0 === strpos( (string) $key, 'woo.' );
 }
 
 /**
@@ -210,6 +233,8 @@ function tack_tr_po( $locale, $plural, array $table, array $keys, array $machine
 		$out .= "\n#. catalogue: " . $keys[ $msgid ] . "\n";
 		if ( in_array( $keys[ $msgid ], $machine, true ) ) {
 			$out .= "#. machine-translated, pending native review\n";
+		} elseif ( tack_tr_is_local_key( $keys[ $msgid ] ) ) {
+			$out .= "#. plugin catalogue (languages/source/local), pending native review\n";
 		}
 		if ( preg_match( '/%[sd]/', $msgid ) ) {
 			$out .= "#, php-format\n";

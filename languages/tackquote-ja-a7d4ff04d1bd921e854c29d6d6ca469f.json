@@ -15,11 +15,26 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s：PDF、JPEG、PNGファイルを添付してください。"
             ],
+            "(optional)": [
+                "(任意)"
+            ],
+            "A company": [
+                "法人"
+            ],
+            "Added ✓": [
+                "追加しました ✓"
+            ],
             "Address": [
                 "住所1"
             ],
             "Address line 2": [
                 "住所2"
+            ],
+            "An individual": [
+                "個人"
+            ],
+            "Anything the seller should know about this request…": [
+                "この依頼について販売者に伝えたいこと…"
             ],
             "Attach at most %d files.": [
                 "添付できるファイルは最大%d件です。"
@@ -27,14 +42,26 @@
             "Attach files (optional)": [
                 "ファイルを添付（任意）"
             ],
+            "Cancel": [
+                "キャンセル"
+            ],
             "City": [
                 "市区町村"
             ],
             "Close": [
                 "閉じる"
             ],
+            "Company details": [
+                "会社情報"
+            ],
             "Company name": [
                 "会社名"
+            ],
+            "Company phone": [
+                "会社の電話番号"
+            ],
+            "Could not create the quote. Please try again.": [
+                "見積りを作成できませんでした。もう一度お試しください。"
             ],
             "Country": [
                 "国"
@@ -42,17 +69,44 @@
             "Email address": [
                 "メールアドレス"
             ],
+            "First name": [
+                "名"
+            ],
+            "I am buying as": [
+                "購入者の区分"
+            ],
+            "Industry": [
+                "業種"
+            ],
+            "Last name": [
+                "姓"
+            ],
             "Legal name": [
                 "正式な事業者名"
             ],
             "Note": [
                 "備考"
             ],
+            "Number of employees": [
+                "従業員数"
+            ],
+            "Open your buyer portal": [
+                "購入者ポータルを開く"
+            ],
+            "Optional": [
+                "任意"
+            ],
             "Phone": [
                 "電話番号"
             ],
+            "Please complete the required company details.": [
+                "必須の会社情報を入力してください。"
+            ],
             "Please enter a valid email address.": [
                 "有効なメールアドレスを入力してください。"
+            ],
+            "Please enter your first name.": [
+                "名を入力してください。"
             ],
             "Postal code": [
                 "郵便番号"
@@ -60,11 +114,20 @@
             "Quantity": [
                 "数量"
             ],
+            "Registration number": [
+                "登記番号"
+            ],
+            "Reload page": [
+                "ページを再読み込み"
+            ],
             "Remove": [
                 "削除"
             ],
             "Request a Quote": [
                 "見積りを依頼"
+            ],
+            "Request received. If your company account needs approval, we'll email you when it is ready.": [
+                "ご依頼を受け付けました。法人アカウントの承認が必要な場合は、準備が整いしだいメールでお知らせします。"
             ],
             "Send request": [
                 "見積り依頼を送信する"
@@ -75,6 +138,12 @@
             "State / Province": [
                 "都道府県・地域"
             ],
+            "Target price": [
+                "希望価格"
+            ],
+            "Tax / VAT ID": [
+                "税務 ID・VAT 番号"
+            ],
             "That file could not be attached. Please try again.": [
                 "ファイルを添付できませんでした。もう一度お試しください。"
             ],
@@ -84,11 +153,20 @@
             "Uploading %s…": [
                 "%sをアップロード中…"
             ],
+            "Website": [
+                "ウェブサイト"
+            ],
             "Your cart is empty.": [
                 "カートは空です。"
             ],
             "Your price": [
                 "お客様の価格"
+            ],
+            "Your quote request was received. The seller will reply to you by email.": [
+                "見積り依頼を受け付けました。販売者からメールで返信があります。"
+            ],
+            "you@example.com": [
+                "you@example.com"
             ]
         }
     }

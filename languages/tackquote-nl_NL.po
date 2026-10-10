@@ -13,19 +13,94 @@ msgstr ""
 "X-Domain: tackquote\n"
 "X-TackQuote-Catalogue: 8e8b11b1e4279f1aa764e74f57b354769262b4dd\n"
 
+#. catalogue: woo.limits.max_in_cart
+#. plugin catalogue (languages/source/local), pending native review
+msgid "%1$s has a maximum order quantity of %2$d. You have %3$d in your cart."
+msgstr "Voor %1$s geldt een maximale bestelhoeveelheid van %2$d. U hebt er %3$d in uw winkelwagen."
+
+#. catalogue: woo.limits.min_in_cart
+#. plugin catalogue (languages/source/local), pending native review
+msgid "%1$s has a minimum order quantity of %2$d. You have %3$d in your cart."
+msgstr "Voor %1$s geldt een minimale bestelhoeveelheid van %2$d. U hebt er %3$d in uw winkelwagen."
+
+#. catalogue: woo.forms.address_part_required
+#. plugin catalogue (languages/source/local), pending native review
+msgid "%1$s: %2$s is required."
+msgstr "%1$s: %2$s is verplicht."
+
 #. catalogue: tackquote.widget.file_size
 msgid "%1$s: files can be at most %2$d MB."
 msgstr "%1$s: bestanden mogen maximaal %2$d MB zijn."
+
+#. catalogue: woo.catalog.product_quote_only
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "%s is available on quote only. Request a quote instead and we will get back to you."
+msgstr "%s is alleen op offerte verkrijgbaar. Vraag in plaats daarvan een offerte aan, dan nemen we contact met u op."
 
 #. catalogue: tackquote.quote.field_required
 #, php-format
 msgid "%s is required."
 msgstr "%s is verplicht."
 
+#. catalogue: woo.forms.too_long
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "%s is too long."
+msgstr "‘%s’ is te lang."
+
+#. catalogue: woo.forms.must_be_ticked
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "%s must be ticked."
+msgstr "‘%s’ moet worden aangevinkt."
+
+#. catalogue: woo.visibility.removed
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "%s was removed from your cart because it is not available to your account."
+msgstr "%s is uit uw winkelwagen verwijderd omdat het niet beschikbaar is voor uw account."
+
 #. catalogue: tackquote.widget.file_type
 #, php-format
 msgid "%s: attach a PDF, JPEG or PNG file."
 msgstr "%s: voeg een PDF-, JPEG- of PNG-bestand toe."
+
+#. catalogue: woo.api.http_code
+#. plugin catalogue (languages/source/local), pending native review
+msgid "(HTTP %1$d, code %2$s)"
+msgstr "(HTTP %1$d, code %2$s)"
+
+#. catalogue: woo.api.http_only
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "(HTTP %d)"
+msgstr "(HTTP %d)"
+
+#. catalogue: woo.forms.optional_paren
+#. plugin catalogue (languages/source/local), pending native review
+msgid "(optional)"
+msgstr "(optioneel)"
+
+#. catalogue: woo.modal.company
+#. plugin catalogue (languages/source/local), pending native review
+msgid "A company"
+msgstr "Bedrijf"
+
+#. catalogue: woo.forms.reference_email_invalid
+#. plugin catalogue (languages/source/local), pending native review
+msgid "A trade reference email address is not valid."
+msgstr "Het e-mailadres van een handelsreferentie is ongeldig."
+
+#. catalogue: woo.forms.reference_too_long
+#. plugin catalogue (languages/source/local), pending native review
+msgid "A trade reference entry is too long."
+msgstr "Een gegeven bij een handelsreferentie is te lang."
+
+#. catalogue: woo.widget.email_required
+#. plugin catalogue (languages/source/local), pending native review
+msgid "A valid email address is required."
+msgstr "Een geldig e-mailadres is verplicht."
 
 #. catalogue: tackquote.widget.add_named_to_quote
 #, php-format
@@ -36,6 +111,11 @@ msgstr "%s toevoegen aan offerte"
 msgid "Add to Quote"
 msgstr "Toevoegen aan offerte"
 
+#. catalogue: woo.modal.added
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Added ✓"
+msgstr "Toegevoegd ✓"
+
 #. catalogue: tackquote.widget.addr_line1
 msgid "Address"
 msgstr "Adresregel 1"
@@ -44,9 +124,24 @@ msgstr "Adresregel 1"
 msgid "Address line 2"
 msgstr "Adresregel 2"
 
+#. catalogue: woo.modal.individual
+#. plugin catalogue (languages/source/local), pending native review
+msgid "An individual"
+msgstr "Particulier"
+
+#. catalogue: woo.modal.note_placeholder
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Anything the seller should know about this request…"
+msgstr "Alles wat de verkoper over deze aanvraag moet weten…"
+
 #. catalogue: tackquote.credit.heading
 msgid "Apply for net terms"
 msgstr "Betalen op rekening aanvragen"
+
+#. catalogue: woo.forms.net_terms_intro
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Apply to pay on account. The store reviews every application and will email you with its decision."
+msgstr "Vraag betaling op rekening aan. De winkel beoordeelt elke aanvraag en laat u het besluit per e-mail weten."
 
 #. catalogue: tackquote.widget.files_max
 #, php-format
@@ -56,6 +151,60 @@ msgstr "Voeg maximaal %d bestanden toe."
 #. catalogue: tackquote.quote.files
 msgid "Attach files (optional)"
 msgstr "Bestanden bijvoegen (optioneel)"
+
+#. catalogue: woo.forms.available_credit
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Available credit: %s"
+msgstr "Beschikbaar krediet: %s"
+
+#. catalogue: woo.catalog.available_on_quote
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Available on quote"
+msgstr "Verkrijgbaar op offerte"
+
+#. catalogue: woo.catalog.products_removed
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Available on quote only, so removed from your cart: %s. Request a quote instead and we will get back to you."
+msgstr "Alleen op offerte verkrijgbaar en daarom uit uw winkelwagen verwijderd: %s. Vraag in plaats daarvan een offerte aan, dan nemen we contact met u op."
+
+#. catalogue: woo.gateway.awaiting
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Awaiting payment on net terms (%d days)."
+msgstr "Wacht op betaling op termijn (%d dagen)."
+
+#. catalogue: woo.forms.billing_address
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Billing address"
+msgstr "Factuuradres"
+
+#. catalogue: woo.forms.billing_part_required
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Billing address: %s is required."
+msgstr "Factuuradres: %s is verplicht."
+
+#. catalogue: woo.modal.cancel
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Cancel"
+msgstr "Annuleren"
+
+#. catalogue: woo.widget.checkout_as_quote
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Checkout as Quote"
+msgstr "Afrekenen als offerte"
+
+#. catalogue: woo.forms.choose_country
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Choose a country"
+msgstr "Kies een land"
+
+#. catalogue: woo.forms.choose_option
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Choose an option"
+msgstr "Kies een optie"
 
 #. catalogue: tackquote.widget.choose_options_for
 #, php-format
@@ -78,17 +227,52 @@ msgstr "Sluiten"
 msgid "Company"
 msgstr "Bedrijf"
 
+#. catalogue: woo.modal.company_details
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Company details"
+msgstr "Bedrijfsgegevens"
+
 #. catalogue: tackquote.quote.company
 msgid "Company name"
 msgstr "Bedrijf"
+
+#. catalogue: woo.modal.company_phone
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Company phone"
+msgstr "Telefoonnummer bedrijf"
 
 #. catalogue: tackquote.credit.label_email
 msgid "Contact email"
 msgstr "Contact-e-mail"
 
+#. catalogue: woo.forms.contact_name
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Contact name"
+msgstr "Naam contactpersoon"
+
+#. catalogue: woo.forms.contact_phone
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Contact phone"
+msgstr "Telefoonnummer contactpersoon"
+
+#. catalogue: woo.forms.phone_too_long
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Contact phone is too long."
+msgstr "Het telefoonnummer van de contactpersoon is te lang."
+
 #. catalogue: tackquote.widget.continue_shopping
 msgid "Continue shopping"
 msgstr "Verder winkelen"
+
+#. catalogue: woo.modal.create_failed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Could not create the quote. Please try again."
+msgstr "De offerte kon niet worden aangemaakt. Probeer het opnieuw."
+
+#. catalogue: woo.api.unreachable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Could not reach TackQuote. Check the API URL, then try again in a few minutes."
+msgstr "TackQuote is niet bereikbaar. Controleer de API-URL en probeer het over een paar minuten opnieuw."
 
 #. catalogue: tackquote.signup.addr_country
 msgid "Country"
@@ -103,13 +287,64 @@ msgstr "Kredietlimiet: %s"
 msgid "Email address"
 msgstr "E-mail"
 
+#. catalogue: woo.forms.files_unsupported_email
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Files cannot be attached on this store yet. If the store needs a document from you, please email it to them."
+msgstr "In deze winkel kunnen nog geen bestanden worden toegevoegd. Heeft de winkel een document van u nodig, e-mail het dan."
+
 #. catalogue: tackquote.widget.files_unsupported
 msgid "Files cannot be attached on this store."
 msgstr "In deze winkel kunnen geen bestanden worden bijgevoegd."
 
+#. catalogue: woo.files.account_email
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Files you attach are linked to your account email, %s. Use that email address for this request, or remove the files."
+msgstr "Bijgevoegde bestanden zijn gekoppeld aan het e-mailadres van uw account, %s. Gebruik dat e-mailadres voor deze aanvraag of verwijder de bestanden."
+
+#. catalogue: woo.modal.first_name
+#. plugin catalogue (languages/source/local), pending native review
+msgid "First name"
+msgstr "Voornaam"
+
+#. catalogue: woo.modal.buying_as
+#. plugin catalogue (languages/source/local), pending native review
+msgid "I am buying as"
+msgstr "Ik koop als"
+
+#. catalogue: woo.modal.industry
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Industry"
+msgstr "Branche"
+
+#. catalogue: woo.visibility.invalid_id
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Invalid product ID."
+msgstr "Ongeldige product-ID."
+
+#. catalogue: woo.visibility.invalid_slug
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Invalid product slug."
+msgstr "Ongeldige productslug."
+
+#. catalogue: woo.modal.last_name
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Last name"
+msgstr "Achternaam"
+
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
 msgstr "Officiële bedrijfsnaam"
+
+#. catalogue: woo.forms.business_required
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Legal business name is required."
+msgstr "De officiële bedrijfsnaam is verplicht."
+
+#. catalogue: woo.forms.business_too_long
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Legal business name is too long."
+msgstr "De officiële bedrijfsnaam is te lang."
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal name"
@@ -118,6 +353,23 @@ msgstr "Officiële bedrijfsnaam"
 #. catalogue: tackquote.signup.sign_in
 msgid "Log in"
 msgstr "Inloggen"
+
+#. catalogue: woo.limits.max
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Maximum order quantity: %d units."
+msgstr "Maximale bestelhoeveelheid: %d stuks."
+
+#. catalogue: woo.page.message
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Message"
+msgstr "Bericht"
+
+#. catalogue: woo.limits.min
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Minimum order quantity: %d units."
+msgstr "Minimale bestelhoeveelheid: %d stuks."
 
 #. catalogue: tackquote.widget.terms_days
 #, php-format
@@ -128,6 +380,31 @@ msgstr "Betaling binnen %d dagen"
 msgid "Net terms"
 msgstr "Betaling op termijn"
 
+#. catalogue: woo.gateway.unavailable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Net terms are not available for this order right now. Please choose another payment method or contact us."
+msgstr "Betaling op termijn is op dit moment niet beschikbaar voor deze bestelling. Kies een andere betaalmethode of neem contact met ons op."
+
+#. catalogue: woo.api.no_key
+#. plugin catalogue (languages/source/local), pending native review
+msgid "No TackQuote API key configured."
+msgstr "Er is geen TackQuote-API-sleutel ingesteld."
+
+#. catalogue: woo.page.no_products
+#. plugin catalogue (languages/source/local), pending native review
+msgid "No products added yet."
+msgstr "Nog geen producten toegevoegd."
+
+#. catalogue: woo.widget.no_products
+#. plugin catalogue (languages/source/local), pending native review
+msgid "No products to quote."
+msgstr "Geen producten om een offerte voor te maken."
+
+#. catalogue: woo.api.no_form_slug
+#. plugin catalogue (languages/source/local), pending native review
+msgid "No wholesale form slug is configured."
+msgstr "Er is geen slug voor het groothandelsformulier ingesteld."
+
 #. catalogue: tackquote.widget.notes
 msgid "Note"
 msgstr "Opmerkingen"
@@ -136,13 +413,79 @@ msgstr "Opmerkingen"
 msgid "Notes"
 msgstr "Opmerkingen"
 
+#. catalogue: woo.forms.notes_too_long
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Notes are too long (2,000 characters at most)."
+msgstr "De opmerkingen zijn te lang (maximaal 2.000 tekens)."
+
+#. catalogue: woo.modal.employees
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Number of employees"
+msgstr "Aantal medewerkers"
+
+#. catalogue: woo.modal.portal_link
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Open your buyer portal"
+msgstr "Uw inkoopportaal openen"
+
+#. catalogue: woo.modal.optional
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Optional"
+msgstr "Optioneel"
+
+#. catalogue: woo.limits.between
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Order between %1$d and %2$d units of this product."
+msgstr "Bestel tussen %1$d en %2$d stuks van dit product."
+
+#. catalogue: woo.forms.file_help
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "PDF, JPEG or PNG, up to %d MB."
+msgstr "PDF, JPEG of PNG, maximaal %d MB."
+
+#. catalogue: woo.gateway.title
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Pay on net terms"
+msgstr "Betalen op termijn"
+
 #. catalogue: tackquote.widget.phone
 msgid "Phone"
 msgstr "Telefoon"
 
+#. catalogue: woo.gateway.description
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Place this order on your approved payment terms. We will send an invoice."
+msgstr "Plaats deze bestelling op uw goedgekeurde betalingstermijn. We sturen u een factuur."
+
+#. catalogue: woo.forms.choose_terms
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose one of the offered payment terms."
+msgstr "Kies een van de aangeboden betalingstermijnen."
+
+#. catalogue: woo.widget.choose_options
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose the product options before requesting a quote."
+msgstr "Kies de productopties voordat u een offerte aanvraagt."
+
+#. catalogue: woo.modal.company_required
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please complete the required company details."
+msgstr "Vul de verplichte bedrijfsgegevens in."
+
 #. catalogue: tackquote.widget.email_invalid
 msgid "Please enter a valid email address."
 msgstr "Vul een geldig e-mailadres in."
+
+#. catalogue: woo.modal.first_name_required
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please enter your first name."
+msgstr "Vul uw voornaam in."
+
+#. catalogue: woo.forms.login_for_net_terms
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please log in to your account to apply for net terms."
+msgstr "Log in op uw account om betaling op termijn aan te vragen."
 
 #. catalogue: tackquote.signup.addr_postal_code
 msgid "Postal code"
@@ -156,13 +499,49 @@ msgstr "Prijs op aanvraag"
 msgid "Product"
 msgstr "Product"
 
+#. catalogue: woo.po.label
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Purchase order number"
+msgstr "Inkoopordernummer"
+
 #. catalogue: tackquote.quote.quantity
 msgid "Quantity"
 msgstr "Aantal"
 
+#. catalogue: woo.checkout.qty_locked_title
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Quantity set by your accepted quote"
+msgstr "Aantal vastgelegd door uw geaccepteerde offerte"
+
+#. catalogue: woo.checkout.unavailable_products
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Quote %1$s could not be checked out because these products are not available to buy in this store right now: %2$s. Please contact the seller."
+msgstr "Voor offerte %1$s kon niet worden afgerekend omdat deze producten op dit moment niet in deze winkel te koop zijn: %2$s. Neem contact op met de verkoper."
+
+#. catalogue: woo.checkout.currency
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Quote %1$s is priced in %2$s but this store sells in %3$s, so it cannot be checked out here. Please contact the seller."
+msgstr "Offerte %1$s is geprijsd in %2$s, maar deze winkel verkoopt in %3$s, dus u kunt hier niet afrekenen. Neem contact op met de verkoper."
+
 #. catalogue: tackquote.widget.drawer_title
 msgid "Quote list"
 msgstr "Offertelijst"
+
+#. catalogue: woo.forms.reference_n
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Reference %d"
+msgstr "Referentie %d"
+
+#. catalogue: woo.modal.registration_number
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Registration number"
+msgstr "KvK-nummer"
+
+#. catalogue: woo.modal.reload
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Reload page"
+msgstr "Pagina opnieuw laden"
 
 #. catalogue: tackquote.quote.remove
 msgid "Remove"
@@ -176,9 +555,24 @@ msgstr "Offerte aanvragen"
 msgid "Request a quote for your cart"
 msgstr "Vraag een offerte aan voor uw winkelwagen"
 
+#. catalogue: woo.modal.awaiting_approval
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Request received. If your company account needs approval, we'll email you when it is ready."
+msgstr "Aanvraag ontvangen. Als uw bedrijfsaccount moet worden goedgekeurd, e-mailen we u zodra het klaar is."
+
 #. catalogue: tackquote.credit.label_limit
 msgid "Requested credit limit"
 msgstr "Gewenste kredietlimiet"
+
+#. catalogue: woo.forms.limit_range
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Requested credit limit must be a number between 0 and 100,000,000."
+msgstr "De gewenste kredietlimiet moet een getal tussen 0 en 100.000.000 zijn."
+
+#. catalogue: woo.forms.requested_terms
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Requested payment terms"
+msgstr "Gewenste betalingstermijn"
 
 #. catalogue: tackquote.widget.submit_request
 msgid "Send request"
@@ -188,6 +582,11 @@ msgstr "Offerteaanvraag indienen"
 msgid "Sending…"
 msgstr "Bezig met versturen..."
 
+#. catalogue: woo.forms.sign_in
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Sign in"
+msgstr "Inloggen"
+
 #. catalogue: tackquote.widget.files_signin
 msgid "Sign in to your account to attach files."
 msgstr "Log in op uw account om bestanden toe te voegen."
@@ -196,25 +595,199 @@ msgstr "Log in op uw account om bestanden toe te voegen."
 msgid "State / Province"
 msgstr "Provincie / regio"
 
+#. catalogue: woo.forms.street_address
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Street address"
+msgstr "Straat en huisnummer"
+
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
 msgstr "Aanvraag versturen"
+
+#. catalogue: woo.api.http_status
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "TackQuote API returned HTTP %d."
+msgstr "De TackQuote-API gaf HTTP %d terug."
+
+#. catalogue: woo.forms.unreachable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "TackQuote could not be reached. Please try again in a few minutes."
+msgstr "TackQuote is niet bereikbaar. Probeer het over een paar minuten opnieuw."
+
+#. catalogue: woo.api.busy
+#. plugin catalogue (languages/source/local), pending native review
+msgid "TackQuote is busy or unavailable right now. Try again in a few minutes."
+msgstr "TackQuote is op dit moment bezet of niet beschikbaar. Probeer het over een paar minuten opnieuw."
+
+#. catalogue: woo.page.target_price
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Target price"
+msgstr "Richtprijs"
+
+#. catalogue: woo.widget.target_prices
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Target prices:"
+msgstr "Richtprijzen:"
+
+#. catalogue: woo.forms.tax_vat_id
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Tax / VAT ID"
+msgstr "Fiscaal nummer / btw-nummer"
+
+#. catalogue: woo.forms.tax_id_too_long
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Tax / VAT ID is too long."
+msgstr "Het fiscaal nummer / btw-nummer is te lang."
 
 #. catalogue: tackquote.widget.file_failed
 msgid "That file could not be attached. Please try again."
 msgstr "Dat bestand kon niet worden bijgevoegd. Probeer het opnieuw."
 
+#. catalogue: woo.checkout.quote_removed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The accepted quote was removed from your cart. Open the quote again to check it out."
+msgstr "De geaccepteerde offerte is uit uw winkelwagen verwijderd. Open de offerte opnieuw om af te rekenen."
+
+#. catalogue: woo.api.form_unavailable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The application form is not available right now."
+msgstr "Het aanvraagformulier is op dit moment niet beschikbaar."
+
+#. catalogue: woo.checkout.cart_unavailable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The cart is not available right now, so this quote could not be opened. Please try again from the quote."
+msgstr "De winkelwagen is op dit moment niet beschikbaar, daarom kon deze offerte niet worden geopend. Probeer het opnieuw vanuit de offerte."
+
+#. catalogue: woo.po.too_long
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "The purchase order number can be at most %d characters."
+msgstr "Het inkoopordernummer mag maximaal %d tekens bevatten."
+
+#. catalogue: woo.checkout.qty_locked
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The quantities of an accepted quote cannot be changed in the store. Please ask the seller to revise the quote."
+msgstr "De aantallen van een geaccepteerde offerte kunnen niet in de winkel worden gewijzigd. Vraag de verkoper om de offerte aan te passen."
+
+#. catalogue: woo.forms.connection_refused
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The store's TackQuote connection refused this request. Please contact the store."
+msgstr "De TackQuote-koppeling van de winkel heeft dit verzoek geweigerd. Neem contact op met de winkel."
+
+#. catalogue: woo.forms.wholesale_form_unavailable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The wholesale application form is not available right now. Please try again later."
+msgstr "Het aanvraagformulier voor groothandel is op dit moment niet beschikbaar. Probeer het later opnieuw."
+
 #. catalogue: tackquote.widget.wholesale_signin_required
 msgid "This application asks for a document, so you need to be signed in to apply."
 msgstr "Voor deze aanvraag is een document nodig, dus u moet ingelogd zijn om aan te vragen."
+
+#. catalogue: woo.forms.form_not_available
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This application form is not available."
+msgstr "Dit aanvraagformulier is niet beschikbaar."
+
+#. catalogue: woo.checkout.link_invalid
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This checkout link is not valid. Please open the quote again and use its checkout button."
+msgstr "Deze afrekenlink is ongeldig. Open de offerte opnieuw en gebruik de afrekenknop daarvan."
+
+#. catalogue: woo.checkout.link_used
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This checkout link was already used or has expired. Please open the quote again to get a new link."
+msgstr "Deze afrekenlink is al gebruikt of verlopen. Open de offerte opnieuw om een nieuwe link te krijgen."
+
+#. catalogue: woo.forms.form_unavailable_short
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This form isn't available right now."
+msgstr "Dit formulier is op dit moment niet beschikbaar."
+
+#. catalogue: woo.forms.attachment_unsupported
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "This form requires an attachment (\"%s\"), which cannot be sent from this store yet. Please contact the store to apply."
+msgstr "Dit formulier vereist een bijlage (‘%s’) die nog niet vanuit deze winkel kan worden verstuurd. Neem contact op met de winkel om aan te vragen."
+
+#. catalogue: woo.gateway.over_credit
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This order is more than the net-terms credit you have available. Please choose another payment method or contact us."
+msgstr "Deze bestelling is hoger dan het krediet voor betaling op termijn dat u beschikbaar hebt. Kies een andere betaalmethode of neem contact met ons op."
+
+#. catalogue: woo.page.stale_quote
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This page has been open too long, or was served from a cache. Reload it and request the quote again."
+msgstr "Deze pagina staat te lang open of kwam uit een cache. Laad de pagina opnieuw en vraag de offerte opnieuw aan."
+
+#. catalogue: woo.widget.stale_page
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This page has been open too long, or was served from a cache. Reload it and try again."
+msgstr "Deze pagina staat te lang open of kwam uit een cache. Laad de pagina opnieuw en probeer het nogmaals."
+
+#. catalogue: woo.checkout.cannot_open
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This quote could not be opened in the store. Please contact the seller."
+msgstr "Deze offerte kon niet in de winkel worden geopend. Neem contact op met de verkoper."
+
+#. catalogue: woo.checkout.open_failed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This quote could not be opened right now. Please open the quote again and use its checkout button."
+msgstr "Deze offerte kon op dit moment niet worden geopend. Open de offerte opnieuw en gebruik de afrekenknop daarvan."
+
+#. catalogue: woo.catalog.store_removed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This store is currently quote-only, so those items were removed from your cart. Request a quote instead and we will get back to you."
+msgstr "Deze winkel werkt op dit moment alleen met offertes, daarom zijn die artikelen uit uw winkelwagen verwijderd. Vraag in plaats daarvan een offerte aan, dan nemen we contact met u op."
+
+#. catalogue: woo.catalog.store_quote_only
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This store is currently quote-only. Request a quote instead and we will get back to you."
+msgstr "Deze winkel werkt op dit moment alleen met offertes. Vraag in plaats daarvan een offerte aan, dan nemen we contact met u op."
+
+#. catalogue: woo.forms.rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many applications were sent in a short time. Please wait a few minutes and try again."
+msgstr "Er zijn in korte tijd te veel aanvragen verstuurd. Wacht een paar minuten en probeer het opnieuw."
+
+#. catalogue: woo.checkout.too_many_links
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many checkout links were opened from this connection. Please wait a few minutes and try again."
+msgstr "Er zijn via deze verbinding te veel afrekenlinks geopend. Wacht een paar minuten en probeer het opnieuw."
+
+#. catalogue: woo.files.too_many
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many files were sent in a short time. Please try again shortly."
+msgstr "Er zijn in korte tijd te veel bestanden verstuurd. Probeer het zo meteen opnieuw."
+
+#. catalogue: woo.widget.rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many quote requests from this connection. Please wait a few minutes and try again."
+msgstr "Te veel offerteaanvragen vanaf deze verbinding. Wacht een paar minuten en probeer het opnieuw."
+
+#. catalogue: woo.forms.trade_references
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Trade references"
+msgstr "Handelsreferenties"
 
 #. catalogue: tackquote.widget.unit_price
 msgid "Unit price"
 msgstr "Prijs per stuk"
 
+#. catalogue: woo.page.unit_price_excl
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Unit price (excl. tax)"
+msgstr "Prijs per stuk (excl. belasting)"
+
 #. catalogue: tackquote.widget.files_help
 msgid "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them."
 msgstr "Maximaal %1$d PDF-, JPEG- of PNG-bestanden, elk %2$d MB. Alleen de verkoper kan ze openen."
+
+#. catalogue: woo.forms.trade_references_help
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Up to %d suppliers who can vouch for your payment history. Optional."
+msgstr "Maximaal %d leveranciers die uw betalingsgeschiedenis kunnen bevestigen. Optioneel."
 
 #. catalogue: tackquote.widget.uploading
 #, php-format
@@ -225,9 +798,79 @@ msgstr "%s wordt geüpload…"
 msgid "Volume pricing"
 msgstr "Staffelprijzen"
 
+#. catalogue: woo.pricing.volume_for_account
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Volume pricing for your account"
+msgstr "Staffelprijzen voor uw account"
+
+#. catalogue: woo.modal.website
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Website"
+msgstr "Website"
+
+#. catalogue: woo.forms.wholesale_tab
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Wholesale account"
+msgstr "Groothandelsaccount"
+
+#. catalogue: woo.forms.net_terms_already_pending
+#. plugin catalogue (languages/source/local), pending native review
+msgid "You already have a net-terms application awaiting review. The store will email you with its decision."
+msgstr "U hebt al een aanvraag voor betaling op termijn die op beoordeling wacht. De winkel laat u het besluit per e-mail weten."
+
+#. catalogue: woo.forms.can_pay_net_terms
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your account can pay on net terms."
+msgstr "Uw account kan op termijn betalen."
+
+#. catalogue: woo.forms.email_unconfirmed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your account email was changed recently and must be confirmed by the store before you can apply for net terms. Please contact the store."
+msgstr "Het e-mailadres van uw account is onlangs gewijzigd en moet door de winkel worden bevestigd voordat u betaling op termijn kunt aanvragen. Neem contact op met de winkel."
+
+#. catalogue: woo.forms.account_email_help
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your account email. Change it under Account details."
+msgstr "Het e-mailadres van uw account. Wijzig het onder Accountdetails."
+
+#. catalogue: woo.forms.no_valid_email
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your account has no valid email address. Please add one under Account details first."
+msgstr "Uw account heeft geen geldig e-mailadres. Voeg er eerst een toe onder Accountdetails."
+
+#. catalogue: woo.pricing.account_price
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your account price"
+msgstr "Uw accountprijs"
+
+#. catalogue: woo.forms.application_awaiting_review
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your application has been received and is awaiting review. We will email you when it has been decided."
+msgstr "Uw aanvraag is ontvangen en wacht op beoordeling. We e-mailen u zodra er een besluit is genomen."
+
+#. catalogue: woo.forms.application_received
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your application has been received."
+msgstr "Uw aanvraag is ontvangen."
+
+#. catalogue: woo.checkout.quote_alone
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your cart holds an accepted quote, which is checked out on its own. Complete or remove it before adding other products."
+msgstr "Uw winkelwagen bevat een geaccepteerde offerte, die apart wordt afgerekend. Rond deze af of verwijder deze voordat u andere producten toevoegt."
+
 #. catalogue: tackquote.quote.cart_empty
 msgid "Your cart is empty."
 msgstr "Uw winkelwagen is leeg."
+
+#. catalogue: woo.checkout.quote_mismatch
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your cart no longer matched the accepted quote, so the quote was removed. Open the quote again to check it out."
+msgstr "Uw winkelwagen kwam niet meer overeen met de geaccepteerde offerte, daarom is de offerte verwijderd. Open de offerte opnieuw om af te rekenen."
+
+#. catalogue: woo.forms.net_terms_submitted
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your net-terms application has been submitted. The store will email you with its decision."
+msgstr "Uw aanvraag voor betaling op termijn is verstuurd. De winkel laat u het besluit per e-mail weten."
 
 #. catalogue: tackquote.widget.terms_pending
 msgid "Your net-terms application is being reviewed."
@@ -241,6 +884,66 @@ msgstr "Uw prijs"
 msgid "Your quote list"
 msgstr "Offertelijst"
 
+#. catalogue: woo.modal.success
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your quote request was received. The seller will reply to you by email."
+msgstr "Uw offerteaanvraag is ontvangen. De verkoper antwoordt u per e-mail."
+
+#. catalogue: woo.forms.session_expired
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your session has expired. Please reload the page and try again."
+msgstr "Uw sessie is verlopen. Laad de pagina opnieuw en probeer het nogmaals."
+
+#. catalogue: woo.forms.wholesale_has_been_approved
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your wholesale account has been approved."
+msgstr "Uw groothandelsaccount is goedgekeurd."
+
+#. catalogue: woo.forms.wholesale_is_approved
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your wholesale account is approved."
+msgstr "Uw groothandelsaccount is goedgekeurd."
+
+#. catalogue: woo.forms.wholesale_being_reviewed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Your wholesale application is being reviewed. We will email you when it has been decided."
+msgstr "Uw groothandelsaanvraag wordt beoordeeld. We e-mailen u zodra er een besluit is genomen."
+
+#. catalogue: woo.forms.part_line2
+#. plugin catalogue (languages/source/local), pending native review
+msgid "address line 2"
+msgstr "adresregel 2"
+
+#. catalogue: woo.forms.part_city
+#. plugin catalogue (languages/source/local), pending native review
+msgid "city"
+msgstr "plaats"
+
+#. catalogue: woo.forms.part_country
+#. plugin catalogue (languages/source/local), pending native review
+msgid "country"
+msgstr "land"
+
 #. catalogue: tackquote.widget.file
 msgid "file"
 msgstr "bestand"
+
+#. catalogue: woo.forms.part_postal
+#. plugin catalogue (languages/source/local), pending native review
+msgid "postal code"
+msgstr "postcode"
+
+#. catalogue: woo.forms.part_region
+#. plugin catalogue (languages/source/local), pending native review
+msgid "state / province"
+msgstr "staat / provincie"
+
+#. catalogue: woo.forms.part_street
+#. plugin catalogue (languages/source/local), pending native review
+msgid "street address"
+msgstr "straat en huisnummer"
+
+#. catalogue: woo.modal.email_placeholder
+#. plugin catalogue (languages/source/local), pending native review
+msgid "you@example.com"
+msgstr "you@example.com"

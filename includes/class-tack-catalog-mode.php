@@ -92,14 +92,12 @@ class Tack_Catalog_Mode {
 	const META_QUOTE_ONLY = '_tackquote_quote_only';
 
 	/**
-	 * How long a `price-access` answer is remembered, in seconds. Approval is a
-	 * seller action that happens once; five minutes is the longest an approved
-	 * buyer waits to see the cart, and a page view in between costs nothing.
+	 * How long a `price-access` answer is remembered, in seconds (Tack_Price_Access::CACHE_TTL).
 	 */
-	const ACCESS_CACHE_TTL = 300;
+	const ACCESS_CACHE_TTL = Tack_Price_Access::CACHE_TTL;
 
-	/** How long a FAILED `price-access` call is remembered, so an outage does not retry per page view. */
-	const ACCESS_FAIL_TTL = 60;
+	/** How long a FAILED `price-access` call is remembered (Tack_Price_Access::FAIL_TTL). */
+	const ACCESS_FAIL_TTL = Tack_Price_Access::FAIL_TTL;
 
 	/**
 	 * API client, injected in tests.
@@ -261,31 +259,16 @@ class Tack_Catalog_Mode {
 			return false;
 		}
 
-		// Keyed on a salted hash of the address, never the address: a transient key is
-		// visible in the options table and a shared object cache.
-		$user_id = (int) get_current_user_id();
-		$key     = 'tack_pa_' . substr( wp_hash( 'price-access|' . strtolower( $email ) . '|' . $user_id ), 0, 20 );
-		$cached  = get_transient( $key );
-		if ( is_array( $cached ) && array_key_exists( 'approved', $cached ) ) {
-			$this->approved = (bool) $cached['approved'];
-			return $this->approved;
-		}
-		if ( 'unavailable' === $cached ) {
+		// One read shared with the My Account Wholesale account tab (Tack_Price_Access):
+		// same transient, same per-request memo. Any failure is "not approved" here.
+		$answer = Tack_Price_Access::approved( $this->client(), (int) get_current_user_id(), $email );
+		if ( is_wp_error( $answer ) ) {
+			if ( 'tack_price_access_unavailable' !== $answer->get_error_code() ) {
+				$this->log( 'price-access lookup failed: ' . $answer->get_error_message() );
+			}
 			return false;
 		}
-
-		// `buyerEmail` + `buyerExternalId` (the WordPress user id) are added by the
-		// client's shared asserted-buyer query, key in `X-Api-Key` only.
-		$response = $this->client()->get_price_access( $email );
-		if ( is_wp_error( $response ) ) {
-			$this->log( 'price-access lookup failed: ' . $response->get_error_message() );
-			set_transient( $key, 'unavailable', self::ACCESS_FAIL_TTL );
-			return false;
-		}
-
-		$this->approved = isset( $response['status'] ) && 'linked' === $response['status']
-			&& ! empty( $response['wholesaleApproved'] );
-		set_transient( $key, array( 'approved' => $this->approved ), self::ACCESS_CACHE_TTL );
+		$this->approved = $answer;
 		return $this->approved;
 	}
 
