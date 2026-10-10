@@ -79,6 +79,9 @@ function wp_get_current_user() {
 	// price book, so a stub without it would let a broken lookup pass.
 	$u->user_email = (string) $GLOBALS['TACK_USER_EMAIL'];
 	$u->ID         = 1;
+	// E2E D6: the profile names the quote modal falls back to.
+	$u->first_name = isset( $GLOBALS['TACK_USER_FIRST_NAME'] ) ? (string) $GLOBALS['TACK_USER_FIRST_NAME'] : '';
+	$u->last_name  = isset( $GLOBALS['TACK_USER_LAST_NAME'] ) ? (string) $GLOBALS['TACK_USER_LAST_NAME'] : '';
 	return $u;
 }
 function checked( $a, $b = true, $echo = true ) { return (string) $a === (string) $b ? "checked='checked'" : ''; }

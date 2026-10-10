@@ -15,6 +15,9 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s : joignez un fichier PDF, JPEG ou PNG."
             ],
+            "Address": [
+                "Adresse (ligne 1)"
+            ],
             "Address line 2": [
                 "Adresse (ligne 2)"
             ],
@@ -30,8 +33,20 @@
             "Close": [
                 "Fermer"
             ],
+            "Company name": [
+                "Entreprise"
+            ],
             "Country": [
                 "Pays"
+            ],
+            "Email address": [
+                "E-mail"
+            ],
+            "Legal name": [
+                "Raison sociale"
+            ],
+            "Note": [
+                "Remarques"
             ],
             "Phone": [
                 "Téléphone"
@@ -50,6 +65,15 @@
             ],
             "Request a Quote": [
                 "Demander un devis"
+            ],
+            "Send request": [
+                "Soumettre la demande de devis"
+            ],
+            "Sending…": [
+                "Envoi en cours..."
+            ],
+            "State / Province": [
+                "État / région"
             ],
             "That file could not be attached. Please try again.": [
                 "Ce fichier n’a pas pu être joint. Veuillez réessayer."

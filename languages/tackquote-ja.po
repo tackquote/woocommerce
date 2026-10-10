@@ -36,6 +36,10 @@ msgstr "%sを見積りに追加"
 msgid "Add to Quote"
 msgstr "見積りに追加"
 
+#. catalogue: tackquote.widget.addr_line1
+msgid "Address"
+msgstr "住所1"
+
 #. catalogue: tackquote.widget.addr_line2
 msgid "Address line 2"
 msgstr "住所2"
@@ -74,6 +78,10 @@ msgstr "閉じる"
 msgid "Company"
 msgstr "会社名"
 
+#. catalogue: tackquote.quote.company
+msgid "Company name"
+msgstr "会社名"
+
 #. catalogue: tackquote.credit.label_email
 msgid "Contact email"
 msgstr "連絡先メールアドレス"
@@ -86,12 +94,20 @@ msgstr "買い物を続ける"
 msgid "Country"
 msgstr "国"
 
+#. catalogue: tackquote.quote.email
+msgid "Email address"
+msgstr "メールアドレス"
+
 #. catalogue: tackquote.widget.files_unsupported
 msgid "Files cannot be attached on this store."
 msgstr "このストアではファイルを添付できません。"
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
+msgstr "正式な事業者名"
+
+#. catalogue: tackquote.credit.label_business
+msgid "Legal name"
 msgstr "正式な事業者名"
 
 #. catalogue: tackquote.signup.sign_in
@@ -106,6 +122,10 @@ msgstr "支払期日%d日"
 #. catalogue: tackquote.widget.net_terms_heading
 msgid "Net terms"
 msgstr "掛け払い"
+
+#. catalogue: tackquote.widget.notes
+msgid "Note"
+msgstr "備考"
 
 #. catalogue: tackquote.widget.notes
 msgid "Notes"
@@ -135,6 +155,10 @@ msgstr "商品"
 msgid "Quantity"
 msgstr "数量"
 
+#. catalogue: tackquote.widget.drawer_title
+msgid "Quote list"
+msgstr "見積りカート"
+
 #. catalogue: tackquote.quote.remove
 msgid "Remove"
 msgstr "削除"
@@ -151,9 +175,21 @@ msgstr "カートの内容で見積を依頼する"
 msgid "Requested credit limit"
 msgstr "希望する与信限度額"
 
+#. catalogue: tackquote.widget.submit_request
+msgid "Send request"
+msgstr "見積り依頼を送信する"
+
+#. catalogue: tackquote.widget.submitting
+msgid "Sending…"
+msgstr "送信中…"
+
 #. catalogue: tackquote.widget.files_signin
 msgid "Sign in to your account to attach files."
 msgstr "ファイルを添付するにはアカウントにログインしてください。"
+
+#. catalogue: tackquote.widget.addr_region
+msgid "State / Province"
+msgstr "都道府県・地域"
 
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
@@ -191,6 +227,10 @@ msgstr "カートは空です。"
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "お客様の価格"
+
+#. catalogue: tackquote.widget.drawer_title
+msgid "Your quote list"
+msgstr "見積りカート"
 
 #. catalogue: tackquote.widget.file
 msgid "file"

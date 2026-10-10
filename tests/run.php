@@ -172,5 +172,10 @@ require __DIR__ . '/theme-blend-test.php';
 echo "\n-- final polish (W9) --\n";
 require __DIR__ . '/final-polish-test.php';
 
+// E2E attempt 2 defects (lane W11): success message, variation rows, target prices,
+// name prefill, missing wholesale form, site URL header.
+echo "\n-- E2E attempt 2 fixes (W11) --\n";
+require __DIR__ . '/e2e-fixes-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

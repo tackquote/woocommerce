@@ -15,6 +15,9 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s: anexe um arquivo PDF, JPEG ou PNG."
             ],
+            "Address": [
+                "Endereço (linha 1)"
+            ],
             "Address line 2": [
                 "Endereço (linha 2)"
             ],
@@ -30,8 +33,20 @@
             "Close": [
                 "Fechar"
             ],
+            "Company name": [
+                "Empresa"
+            ],
             "Country": [
                 "País"
+            ],
+            "Email address": [
+                "E-mail"
+            ],
+            "Legal name": [
+                "Razão social"
+            ],
+            "Note": [
+                "Observações"
             ],
             "Phone": [
                 "Telefone"
@@ -50,6 +65,15 @@
             ],
             "Request a Quote": [
                 "Solicitar orçamento"
+            ],
+            "Send request": [
+                "Enviar a solicitação de orçamento"
+            ],
+            "Sending…": [
+                "Enviando..."
+            ],
+            "State / Province": [
+                "Estado / região"
             ],
             "That file could not be attached. Please try again.": [
                 "Não foi possível anexar esse arquivo. Tente novamente."

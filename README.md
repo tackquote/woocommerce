@@ -64,7 +64,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Purpose | Method & path |
 |---|---|
 | Connection test | `GET /integrations/woocommerce/ping` (`/health` only when ping answers 404: reachable, key not verified; 401/403 = key rejected). Also read at most daily from the storefront for the `attachments` capability |
-| Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` |
+| Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` (target prices as `lineItems[].targetPrice` when the ping lists `attachments`, else in the note) |
 | Order sync | `POST /integrations/woocommerce/order-sync` |
 | B2B pricing (per buyer, per quantity) | `POST /storefront-pricing/resolve` |
 | Product-page price (the page's own product) | `GET /storefront/v1/wholesale-price` |
@@ -78,7 +78,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Attachments (only when the server's `ping` lists `attachments`) | `POST /storefront/v1/quote-upload?name=` (quote files; opt-in switch; scope `quotes:write`), `POST /storefront/v1/wholesale-upload?form=&field=&name=` (wholesale files, signed-in only; scope `buyers:write`), raw `application/octet-stream`, `X-Api-Key` only; then `uploadIds` (+ a guest's `uploadToken`) on the quote request, or `POST /storefront/v1/wholesale-signup/<slug>` for an application with files |
 | Accepted quote to store checkout (`?tackquote_checkout=` link) | `GET /integrations/woocommerce/quote-checkout/<token>` (once per token, never retried; sends only the token; the order then syncs with `tackQuoteRef`) |
 
-Every request carries `X-TackQuote-Plugin-Version`, and none follows an HTTP redirect (the key is never re-sent elsewhere). `/storefront/v1/*` calls send the key in
+Every request carries `X-TackQuote-Plugin-Version` and `X-TackQuote-Site-Url` (the store's `home_url()`), and none follows an HTTP redirect (the key is never re-sent elsewhere). `/storefront/v1/*` calls send the key in
 `X-Api-Key` only (that route refuses a second credential), with the signed-in customer as
 `buyerEmail` + `buyerExternalId` (the WordPress user id; never for a guest). The read-only
 lookups need no scope beyond a valid key; the two application forms need `buyers:write`.

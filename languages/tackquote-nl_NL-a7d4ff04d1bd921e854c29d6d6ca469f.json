@@ -15,6 +15,9 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s: voeg een PDF-, JPEG- of PNG-bestand toe."
             ],
+            "Address": [
+                "Adresregel 1"
+            ],
             "Address line 2": [
                 "Adresregel 2"
             ],
@@ -30,8 +33,20 @@
             "Close": [
                 "Sluiten"
             ],
+            "Company name": [
+                "Bedrijf"
+            ],
             "Country": [
                 "Land"
+            ],
+            "Email address": [
+                "E-mail"
+            ],
+            "Legal name": [
+                "Officiële bedrijfsnaam"
+            ],
+            "Note": [
+                "Opmerkingen"
             ],
             "Phone": [
                 "Telefoon"
@@ -50,6 +65,15 @@
             ],
             "Request a Quote": [
                 "Offerte aanvragen"
+            ],
+            "Send request": [
+                "Offerteaanvraag indienen"
+            ],
+            "Sending…": [
+                "Bezig met versturen..."
+            ],
+            "State / Province": [
+                "Provincie / regio"
             ],
             "That file could not be attached. Please try again.": [
                 "Dat bestand kon niet worden bijgevoegd. Probeer het opnieuw."
