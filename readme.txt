@@ -359,10 +359,22 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 == Screenshots ==
 
-1. Quote buttons sit beside Add to Cart on the product page, so a shopper can buy or ask for a price without leaving the page.
-2. The quote list collects several products, then sends them to TackQuote as one request.
-3. Store mode in the plugin settings: run a normal shop that also takes quotes, or switch the whole store to a B2B catalogue.
-4. Quote-only mode on the storefront. Add to Cart is withdrawn and the quote buttons remain, so the catalogue still works and only checkout goes away.
+1. Add to Quote and Request a Quote sit beside Add to cart on the product page (Twenty Twenty-Five).
+2. Product cards in the shop grid can carry an Add to Quote button.
+3. The quote drawer lists the chosen products and quantities, with Checkout as Quote.
+4. The quote page from the `[tackquote_quote_page]` shortcode takes target prices and a message, and the request form can carry attachments.
+5. Quote-only mode shows "Price on request" in place of prices, and single products can be marked "Available on quote".
+6. A signed-in buyer sees their account price, their buyer group badge and a volume pricing table.
+7. Order limits show on the product page and are enforced in the cart and the Checkout block.
+8. Buyers TackQuote has approved can pay on net terms at checkout and add a purchase order number.
+9. The wholesale application form in My Account is the form you design in TackQuote, file fields included.
+10. A checkout link from an accepted quote fills the cart at the quoted prices with the quantities locked.
+11. Categories hidden per buyer group: a guest (left) does not see the trade range that a Tier 2 buyer (right) sees.
+12. Storefront buttons in German from the bundled translations.
+13. The Overview tab shows the connection, the storefront mode, order sync and every B2B switch.
+14. The Styling section of the Storefront tab: use the theme's styles only, or pick an accent colour.
+15. The Buyer groups tab keeps payment and shipping methods for the groups you tick.
+16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
 
