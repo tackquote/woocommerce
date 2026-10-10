@@ -69,7 +69,7 @@ $min25 = array(
 	'order-limits' => array(
 		'status'          => 'limited',
 		'accountSpecific' => true,
-		'limits'          => array( array( 'minQuantity' => 25, 'maxQuantity' => null ) ),
+		'limits'          => array( array( 'limitType' => 'product_qty', 'min' => 25, 'max' => null ) ),
 	),
 );
 
@@ -120,7 +120,7 @@ $client  = new Tack_Test_Notices_Client(
 	array(
 		'order-limits' => array(
 			'status'  => 'limited',
-			'limits'  => array( array( 'minQuantity' => null, 'maxQuantity' => 50 ) ),
+			'limits'  => array( array( 'limitType' => 'product_qty', 'min' => null, 'max' => 50 ) ),
 		),
 	)
 );
@@ -161,7 +161,7 @@ check(
 
 // A rule carrying neither bound constrains nothing and must not say "minimum 0".
 $empty   = new Tack_Test_Notices_Client(
-	array( 'order-limits' => array( 'status' => 'limited', 'limits' => array( array( 'minQuantity' => null, 'maxQuantity' => null ) ) ) )
+	array( 'order-limits' => array( 'status' => 'limited', 'limits' => array( array( 'limitType' => 'product_qty', 'min' => null, 'max' => null ) ) ) )
 );
 $notices = new Tack_B2B_Notices( $empty );
 tack_test_reset_notices();

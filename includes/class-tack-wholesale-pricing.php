@@ -115,6 +115,14 @@ class Tack_Wholesale_Pricing {
 	private $asked = array();
 
 	/**
+	 * `/storefront/v1/wholesale-price` answers for this request, keyed by SKU.
+	 * Request-scoped for the same reason as `$resolved`: a price is per buyer.
+	 *
+	 * @var array<string, array|WP_Error|null>
+	 */
+	private $v1_prices = array();
+
+	/**
 	 * API client.
 	 *
 	 * @var Tack_Api_Client
@@ -281,6 +289,12 @@ class Tack_Wholesale_Pricing {
 			return $html;
 		}
 
+		// The product page's own product reads the shared storefront contract.
+		$single = $this->single_product_price_html( $html, $product, $sku );
+		if ( null !== $single ) {
+			return $single;
+		}
+
 		$unit = $this->unit_price( $sku, 1 );
 		if ( null === $unit ) {
 			return $html;
@@ -299,6 +313,73 @@ class Tack_Wholesale_Pricing {
 		}
 
 		return wp_kses_post( wc_price( $unit ) );
+	}
+
+	/**
+	 * The price label for the product a single-product page is ABOUT, from
+	 * `GET /storefront/v1/wholesale-price`, or null to use the batched legacy path.
+	 *
+	 * Only the page's own product: v1 prices one SKU per request, and a listing or
+	 * a "related products" row would turn into one request per card. Those keep
+	 * the batched `/storefront-pricing/resolve` (also what the cart charges).
+	 *
+	 * Answers, in order:
+	 *   null       not the page's own product, or the server has no v1 routes
+	 *              (404, remembered for an hour by the client).
+	 *   $html      v1 failed, or answered without a price (`anonymous`,
+	 *              `unlinked`, `unpriced`, a currency mismatch): the store's own
+	 *              price stands, exactly as when the legacy route has no answer.
+	 *   markup     a `priced` answer, formatted in the `currency` it carries, with
+	 *              "Your account price" when `accountSpecific` says the price is
+	 *              this buyer's own and not a group or public tier.
+	 *
+	 * @param string $html    Price markup WooCommerce built.
+	 * @param object $product WC_Product.
+	 * @param string $sku     The product's SKU.
+	 * @return string|null
+	 */
+	private function single_product_price_html( $html, $product, $sku ) {
+		if ( ! function_exists( 'is_product' ) || ! is_product() || ! function_exists( 'get_queried_object_id' ) ) {
+			return null;
+		}
+		if ( ! method_exists( $product, 'get_id' ) || (int) $product->get_id() !== (int) get_queried_object_id() ) {
+			return null;
+		}
+
+		// A product page renders its price more than once (summary, sticky bar,
+		// structured data); one request per SKU per page view.
+		if ( ! array_key_exists( $sku, $this->v1_prices ) ) {
+			$this->v1_prices[ $sku ] = $this->client->get_wholesale_price( $sku, 1, $this->buyer_email() );
+		}
+		$result = $this->v1_prices[ $sku ];
+		if ( null === $result ) {
+			return null;
+		}
+		if ( is_wp_error( $result ) ) {
+			$this->log( 'storefront v1 wholesale-price failed: ' . $result->get_error_message() );
+			return $html;
+		}
+		if ( ! isset( $result['status'] ) || 'priced' !== $result['status'] || ! isset( $result['unitPrice'] ) || ! is_numeric( $result['unitPrice'] ) ) {
+			return $html;
+		}
+
+		$currency = isset( $result['currency'] ) && is_string( $result['currency'] ) ? strtoupper( $result['currency'] ) : '';
+		$args     = '' !== $currency ? array( 'currency' => $currency ) : array();
+		$unit     = $this->to_store_tax_basis( (float) $result['unitPrice'], $product );
+		$label    = ! empty( $result['accountSpecific'] )
+			? ' <span class="tackquote-account-price">' . esc_html__( 'Your account price', 'tackquote' ) . '</span>'
+			: '';
+
+		// The struck-through store price only when both are in the same currency.
+		$store_currency = function_exists( 'get_woocommerce_currency' ) ? strtoupper( (string) get_woocommerce_currency() ) : '';
+		$store          = method_exists( $product, 'get_regular_price' ) ? (float) $product->get_regular_price() : 0.0;
+		if ( ( '' === $currency || $currency === $store_currency ) && $store > $unit ) {
+			return '<del aria-hidden="true">' . wp_kses_post( wc_price( $store ) ) . '</del> '
+				. '<ins>' . wp_kses_post( wc_price( $unit, $args ) ) . '</ins>'
+				. '<span class="screen-reader-text">' . esc_html__( 'Your price', 'tackquote' ) . '</span>'
+				. $label;
+		}
+		return wp_kses_post( wc_price( $unit, $args ) ) . $label;
 	}
 
 	/**
@@ -406,6 +487,23 @@ class Tack_Wholesale_Pricing {
 			return;
 		}
 
+		/*
+		 * The shared storefront contract first: `GET /storefront/v1/quantity-breaks`
+		 * answers the whole ladder in ONE request, with the currency it is priced
+		 * in and whether it is this account's own. The probe ladder below stays as
+		 * the fallback for a server without v1 routes (the client answers null
+		 * after a 404 and remembers it for an hour).
+		 */
+		$v1 = $this->client->get_quantity_breaks( $sku, $this->buyer_email() );
+		if ( null !== $v1 ) {
+			if ( is_wp_error( $v1 ) ) {
+				$this->log( 'storefront v1 quantity-breaks failed: ' . $v1->get_error_message() );
+				return;
+			}
+			$this->render_v1_quantity_breaks( $v1, $product );
+			return;
+		}
+
 		/**
 		 * Quantities to price for the break table.
 		 *
@@ -468,6 +566,83 @@ class Tack_Wholesale_Pricing {
 				. '</td><td>'
 				// wc_price() returns markup that is already escaped by WooCommerce.
 				. wp_kses_post( wc_price( $row['unit'] ) )
+				. '</td></tr>';
+		}
+
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Render a `QuantityBreakResult` from `/storefront/v1/quantity-breaks`.
+	 *
+	 * Only a `priced` answer with at least two distinct rungs renders anything —
+	 * `anonymous`, `unlinked` and `unpriced` (including a currency mismatch) all
+	 * mean "no ladder for this shopper", and one rung is the unit price already on
+	 * the page. `currency` formats each rung; `accountSpecific` is said in the
+	 * caption, because a negotiated ladder shown without that word reads as a
+	 * public price list.
+	 *
+	 * @param array  $result  Decoded v1 response.
+	 * @param object $product WC_Product, for its tax class.
+	 */
+	public function render_v1_quantity_breaks( array $result, $product ) {
+		$status = isset( $result['status'] ) ? (string) $result['status'] : '';
+		if ( 'priced' !== $status || empty( $result['rows'] ) || ! is_array( $result['rows'] ) ) {
+			return;
+		}
+		$currency         = isset( $result['currency'] ) && is_string( $result['currency'] ) ? strtoupper( $result['currency'] ) : '';
+		$account_specific = ! empty( $result['accountSpecific'] );
+
+		$rows = array();
+		foreach ( $result['rows'] as $row ) {
+			if ( ! is_array( $row ) || ! isset( $row['minQty'] ) || ! isset( $row['unitPrice'] ) || ! is_numeric( $row['unitPrice'] ) ) {
+				continue;
+			}
+			$rows[] = array(
+				'qty'  => max( 1, (int) $row['minQty'] ),
+				'unit' => (float) $row['unitPrice'],
+			);
+		}
+		usort(
+			$rows,
+			function ( $a, $b ) {
+				return $a['qty'] - $b['qty'];
+			}
+		);
+
+		$distinct = array();
+		$previous = null;
+		foreach ( $rows as $row ) {
+			if ( null !== $previous && abs( $row['unit'] - $previous ) < 0.00001 ) {
+				continue;
+			}
+			$distinct[] = $row;
+			$previous   = $row['unit'];
+		}
+		if ( count( $distinct ) < 2 ) {
+			return;
+		}
+
+		$caption = $account_specific
+			? __( 'Volume pricing for your account', 'tackquote' )
+			: __( 'Volume pricing', 'tackquote' );
+		$args    = '' !== $currency ? array( 'currency' => $currency ) : array();
+
+		echo '<table class="tackquote-quantity-breaks' . ( $account_specific ? ' tackquote-quantity-breaks-account' : '' ) . '"><caption>'
+			. esc_html( $caption )
+			. '</caption><thead><tr><th scope="col">'
+			. esc_html__( 'Quantity', 'tackquote' )
+			. '</th><th scope="col">'
+			. esc_html__( 'Unit price', 'tackquote' )
+			. '</th></tr></thead><tbody>';
+
+		foreach ( $distinct as $row ) {
+			echo '<tr><td>'
+				/* translators: %d: minimum quantity for this price tier. */
+				. esc_html( sprintf( __( '%d+', 'tackquote' ), $row['qty'] ) )
+				. '</td><td>'
+				// wc_price() returns markup that is already escaped by WooCommerce.
+				. wp_kses_post( wc_price( $this->to_store_tax_basis( $row['unit'], $product ), $args ) )
 				. '</td></tr>';
 		}
 

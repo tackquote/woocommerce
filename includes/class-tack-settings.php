@@ -119,6 +119,13 @@ class Tack_Settings {
 		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_HIDE_PRICE, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
 		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_PRICE_TEXT, array( 'sanitize_callback' => 'sanitize_text_field' ) );
 
+		// ── BEGIN Storefront forms (W1-forms) ──────────────────────────────────
+		register_setting( self::OPTION_GROUP, Tack_Storefront_Forms::OPTION_FORM_SLUG, array( 'sanitize_callback' => array( $this, 'sanitize_form_slug' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, array( 'sanitize_callback' => array( $this, 'sanitize_storefront_forms_checkbox' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, array( 'sanitize_callback' => array( $this, 'sanitize_storefront_forms_checkbox' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Tax_Exempt::OPTION_ENABLED, array( 'sanitize_callback' => array( $this, 'sanitize_storefront_forms_checkbox' ) ) );
+		// ── END Storefront forms ──────────────────────────────────────────────
+
 		/*
 		 * ── SECTION ORDER IS THE INSTRUCTIONS ────────────────────────────────
 		 *
@@ -176,6 +183,18 @@ class Tack_Settings {
 			array( $this, 'section_group_rules' ),
 			self::PAGE_SLUG
 		);
+		// ── BEGIN Storefront forms (W1-forms) ──────────────────────────────────
+		add_settings_section(
+			'tack_quotes_storefront_forms',
+			__( '7. Storefront forms', 'tackquote' ),
+			array( $this, 'section_storefront_forms' ),
+			self::PAGE_SLUG
+		);
+		add_settings_field( Tack_Storefront_Forms::OPTION_FORM_SLUG, __( 'Wholesale form', 'tackquote' ), array( $this, 'field_wholesale_form_slug' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
+		add_settings_field( Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, __( '"Wholesale account" tab', 'tackquote' ), array( $this, 'field_enable_wholesale_tab' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
+		add_settings_field( Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, __( '"Net terms" tab', 'tackquote' ), array( $this, 'field_enable_net_terms_tab' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
+		add_settings_field( Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ), array( $this, 'field_apply_tax_exempt' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
+		// ── END Storefront forms ──────────────────────────────────────────────
 
 		add_settings_field( 'tack_quotes_api_key', __( 'TackQuote API Key', 'tackquote' ), array( $this, 'field_api_key' ), self::PAGE_SLUG, 'tack_quotes_connection' );
 		add_settings_field( 'tack_quotes_api_url', __( 'TackQuote API URL', 'tackquote' ), array( $this, 'field_api_url' ), self::PAGE_SLUG, 'tack_quotes_connection' );
@@ -1447,6 +1466,93 @@ class Tack_Settings {
 			esc_html( $label )
 		);
 	}
+
+	// ── BEGIN Storefront forms (W1-forms) ──────────────────────────────────────
+
+	/**
+	 * Section 7 intro.
+	 */
+	public function section_storefront_forms() {
+		echo '<p>' . esc_html__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is the one you design in TackQuote under Settings → Wholesale forms; the net-terms application goes to your TackQuote review queue.', 'tackquote' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'The shortcode [tackquote_wholesale_application] renders the wholesale form on any page; add slug="…" to render a different form. Both tabs below appear on My Account only when ticked. The API key needs the buyers:write scope for applications to be accepted.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * The slug of the wholesale form to render.
+	 */
+	public function field_wholesale_form_slug() {
+		$value = (string) get_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::DEFAULT_SLUG );
+		printf(
+			'<input type="text" class="regular-text code" name="%1$s" value="%2$s" placeholder="%3$s" />',
+			esc_attr( Tack_Storefront_Forms::OPTION_FORM_SLUG ),
+			esc_attr( $value ),
+			esc_attr( Tack_Storefront_Forms::DEFAULT_SLUG )
+		);
+		echo '<p class="description">' . esc_html__( 'The form slug from TackQuote → Settings → Wholesale forms. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * The "Wholesale account" tab switch.
+	 */
+	public function field_enable_wholesale_tab() {
+		$this->checkbox_default_off(
+			Tack_Storefront_Forms::OPTION_WHOLESALE_TAB,
+			__( 'Add a "Wholesale account" tab to My Account with the wholesale application form.', 'tackquote' )
+		);
+	}
+
+	/**
+	 * The "Net terms" tab switch.
+	 */
+	public function field_enable_net_terms_tab() {
+		$this->checkbox_default_off(
+			Tack_Storefront_Forms::OPTION_NET_TERMS_TAB,
+			__( 'Add a "Net terms" tab to My Account where signed-in customers can apply to pay on account.', 'tackquote' )
+		);
+	}
+
+	/**
+	 * The tax-exemption switch.
+	 */
+	public function field_apply_tax_exempt() {
+		$this->checkbox_default_off(
+			Tack_Tax_Exempt::OPTION_ENABLED,
+			__( 'Charge no tax at checkout to signed-in customers whose TackQuote buyer group is marked tax exempt. Off by default: it changes what checkout charges.', 'tackquote' )
+		);
+	}
+
+	/**
+	 * Sanitize the wholesale form slug: a key, never empty.
+	 *
+	 * Guarded by `manage_woocommerce` as well as the page's own `manage_options`:
+	 * a store-management capability is the one this storefront behaviour belongs
+	 * to, and a caller without it keeps the stored value.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_form_slug( $value ) {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return (string) get_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::DEFAULT_SLUG );
+		}
+		$slug = sanitize_key( (string) $value );
+		return '' === $slug ? Tack_Storefront_Forms::DEFAULT_SLUG : $slug;
+	}
+
+	/**
+	 * Sanitize a storefront-forms yes/no switch, with the same capability guard.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_storefront_forms_checkbox( $value ) {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return 'no';
+		}
+		return $this->sanitize_checkbox( $value );
+	}
+
+	// ── END Storefront forms ──────────────────────────────────────────────────
 
 	// ── Page ────────────────────────────────────────────────────────────────────
 

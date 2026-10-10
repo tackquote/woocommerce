@@ -5,7 +5,7 @@ Requires at least: 6.0
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.8.2
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -47,7 +47,10 @@ until you enter an API key.
 
 All requests go to the API base URL set under **TackQuote → TackQuote API URL**, which is
 `https://api.tackquote.com/v1` unless your TackQuote support contact gave you a different
-one. Every request carries your TackQuote API key so the service can identify your account.
+one. Every request carries your TackQuote API key so the service can identify your account,
+and (since 1.9.0) an `X-TackQuote-Plugin-Version` header naming this plugin's version, so
+TackQuote can tell which build your store runs. The API key needs the `buyers:write` scope for
+the two application forms below; the read-only storefront lookups need no extra scope.
 
 1. **Connection test** — `GET /integrations/woocommerce/ping`, falling back to `GET /health`.
 Sent when an administrator clicks "Test TackQuote connection" on the plugin settings screen.
@@ -75,6 +78,30 @@ payment method ID and title, the payment gateway's transaction ID, and every lin
 its name, SKU, product and variation IDs, quantities, totals, taxes and item meta. No card
 numbers, no card details and no gateway credentials are ever sent. The **Privacy** section
 below lists every field individually.
+
+5. **B2B pricing, order limits and buyer group** — `POST /storefront-pricing/resolve` (cart
+prices), `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`,
+`GET /storefront/v1/order-limits` and `GET /storefront/v1/buyer-group`, falling back to the
+older `GET /storefront-b2b/order-limits` and `GET /storefront-b2b/buyer-group` on a TackQuote
+server without the `/storefront/v1` routes. Only when the merchant has switched on B2B pricing,
+order limits, the buyer-group badge, group restrictions or tax-exempt buyers. Sent while a
+signed-in customer views a product, the cart or checkout. Sends the product SKU and quantity,
+the signed-in customer's email address and, since 1.9.0, their WordPress user ID (digits only;
+never for a guest).
+
+6. **Wholesale application** — `GET /integrations/woocommerce/wholesale-form` (the form's
+fields, by form slug; sends no customer data) and `POST /integrations/woocommerce/wholesale-form/submit`.
+Sent when a page with the `[tackquote_wholesale_application]` shortcode or the "Wholesale account"
+My Account tab is viewed, and when a shopper submits that form. Sends the answers the shopper
+typed into the seller's form (for example company name, email, phone, address, tax ID) and,
+for a signed-in customer, their WordPress user ID as `wooCustomerId`. Attachments are not sent.
+
+7. **Net-terms application** — `POST /storefront/v1/credit-application`, falling back to
+`POST /integrations/woocommerce/credit-application` on an older TackQuote server. Signed-in
+customers only, when they submit the "Net terms" form. Sends the account's email address, the
+WordPress user ID (in the query, v1 route only), and what the customer typed: legal business
+name, contact phone, tax/VAT ID, billing address, requested credit limit, requested payment
+terms, up to three trade references (company, contact name, email, phone) and notes.
 
 This plugin sends data to no other external service.
 
@@ -120,6 +147,17 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `GET /integrations/woocommerce/registration-config` — fetches which fields the quote form should ask for. Sends no store or customer data.
 * `POST /integrations/woocommerce/quote-requests` — a shopper's quote request.
 * `POST /integrations/woocommerce/order-sync` — order sync. **Only when the merchant has switched order sync on. It is off by default.**
+* `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits, the buyer group and its tax exemption for a signed-in customer. Only when the matching feature is switched on.
+* `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
+* `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
+
+Every request carries an `X-TackQuote-Plugin-Version` header with the plugin's version number. It identifies the software, not a person.
+
+= What the B2B lookups and application forms send =
+
+* **B2B lookups**: the product SKU and quantity, the signed-in customer's email address, and their WordPress user ID (a number, sent only beside the email and only while they are signed in).
+* **Wholesale application**: exactly the answers the shopper typed into the seller's form, plus the WordPress user ID (`wooCustomerId`) when they are signed in. File fields are not sent in this release.
+* **Net-terms application**: the account's own email address (never a typed one), the WordPress user ID, and the legal business name, phone, tax/VAT ID, billing address, requested limit and terms, up to three trade references and notes the customer typed.
 
 = What a quote request sends =
 
@@ -187,6 +225,10 @@ TackQuote as a recipient; the plugin adds suggested wording to
 * Plugin settings, as WordPress options: the TackQuote API key, API URL, button labels, and the feature toggles.
 * `tack_quotes_registration_config` — a transient caching the quote-form field policy for 15 minutes.
 * `tack_qr_*` — short-lived transients counting quote requests per visitor for rate limiting. They hold a salted hash of the visitor's IP address, never the address itself, and expire after 5 minutes.
+* `tack_quotes_wholesale_form_cache` — a transient caching wholesale form definitions for 5 minutes (60 seconds after a failure).
+* `tack_quotes_storefront_v1_missing` — a transient remembering for one hour that the TackQuote server has no `/storefront/v1` routes.
+* `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
+* `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
 Deleting the plugin removes every option above and the `tack_quotes_registration_config` transient, on every site of a multisite network. The `tack_qr_*` rate-limit counters are left to expire on their own (they last five minutes and are keyed on a hash, so there is no name to delete). The `_tack_quotes_sync_key` order meta is deliberately left in place: orders are financial records and an uninstall routine should not rewrite every one of them.
@@ -237,6 +279,15 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 4. Quote-only mode on the storefront. Add to Cart is withdrawn and the quote buttons remain, so the catalogue still works and only checkout goes away.
 
 == Changelog ==
+
+= 1.9.0 =
+* **Wholesale application form on your store.** New shortcode `[tackquote_wholesale_application slug="…"]` (slug defaults to the one under TackQuote → Storefront forms) renders the form you design in TackQuote under Settings → Wholesale forms, with every field kind (text, email, phone, number, select, multi-select, checkbox, textarea, date, address, tax ID; conditional fields shown and hidden as the server decides). File fields show a notice: attachments arrive in a later release. Submissions are nonce-protected and sent server to server; a signed-in customer's details are prefilled and their WordPress user ID travels as `wooCustomerId` so approval links the account. Shoppers see a friendly success, pending or error message, never a raw server answer.
+* **My Account tabs "Wholesale account" and "Net terms"** (both off by default; TackQuote → Storefront forms). Registered with `add_rewrite_endpoint` through WooCommerce's `woocommerce_get_query_vars` filter and `woocommerce_account_menu_items`; rewrite rules are flushed on activation, deactivation and once after an update. The net-terms form (also `[tackquote_net_terms_application]`) is for signed-in customers only, uses the account's own email, and accepts up to three trade references.
+* **Tax-exempt buyers** (off by default). When TackQuote marks a signed-in customer's buyer group tax exempt, `WC()->customer->set_is_vat_exempt( true )` is applied on `woocommerce_before_calculate_totals`, once per request and never saved to the customer record. Missing, false or unreachable means tax is charged.
+* **Product-page prices, quantity breaks, order limits and the buyer group now read TackQuote's shared storefront API** (`/storefront/v1/*`), showing the currency each price is in and marking a price that is the customer's own ("Your account price"). Cart prices still use `/storefront-pricing/resolve`. On a TackQuote server without these routes the plugin falls back to the previous ones.
+* **Fixed: order limits were never applied.** The plugin read `minQuantity`/`maxQuantity`, which TackQuote has never sent (it sends `min`/`max`), so no minimum or maximum was shown or enforced. Only quantity rules are now read as quantities; an order-total rule's money amount is no longer mistaken for one.
+* Every request now carries an `X-TackQuote-Plugin-Version` header, and buyer lookups send the WordPress user ID beside the email (`buyerExternalId`) so TackQuote can link the account.
+* A customer whose email was self-changed and not re-confirmed cannot apply for net terms or receive a tax exemption in another buyer's name (same rule as B2B pricing since 1.7.1).
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.

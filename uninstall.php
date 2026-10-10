@@ -66,12 +66,20 @@ $tack_quotes_options = array(
 
 	// Order-sync circuit breaker (Tack_Sync_Gate::OPTION) — added after 1.8.1.
 	'tack_quotes_order_sync_block',
+
+	// Storefront application forms (Tack_Storefront_Forms) — 1.9.0.
+	'tack_quotes_wholesale_form_slug',
+	'tack_quotes_enable_wholesale_account_tab',
+	'tack_quotes_enable_net_terms_tab',
+	'tack_quotes_rewrite_version',
+	'tack_quotes_apply_tax_exempt',
 );
 
 /**
  * Transients the plugin creates under a fixed name.
  *
- * The per-visitor rate-limit counters (`tack_qr_*`) are not listed: they are keyed on a hash
+ * The per-visitor rate-limit counters (`tack_qr_*`) and the five-minute form-outcome tokens
+ * (`tack_sf_*`, Tack_Storefront_Forms::RESULT_PREFIX) are not listed: they are keyed on a hash
  * so there is no name to delete, there is no WordPress API for wildcard transient deletion,
  * and they expire within five minutes on their own. Sweeping them would mean a direct
  * LIKE query against the options table that also silently does nothing on a site using an
@@ -79,6 +87,10 @@ $tack_quotes_options = array(
  */
 $tack_quotes_transients = array(
 	'tack_quotes_registration_config',
+	// Wholesale form definitions, every slug in one transient (Tack_Api_Client::FORM_CACHE_TRANSIENT) — 1.9.0.
+	'tack_quotes_wholesale_form_cache',
+	// "The server has no /storefront/v1 routes" memory (Tack_Api_Client::V1_MISSING_TRANSIENT) — 1.9.0.
+	'tack_quotes_storefront_v1_missing',
 );
 
 /**

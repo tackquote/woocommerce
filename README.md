@@ -41,8 +41,17 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` |
 | Order sync | `POST /integrations/woocommerce/order-sync` |
 | B2B pricing (per buyer, per quantity) | `POST /storefront-pricing/resolve` |
-| Order limits | `GET /storefront-b2b/order-limits` |
-| Buyer group | `GET /storefront-b2b/buyer-group` |
+| Product-page price (the page's own product) | `GET /storefront/v1/wholesale-price` |
+| Quantity breaks | `GET /storefront/v1/quantity-breaks` (falls back to probing `/storefront-pricing/resolve`) |
+| Order limits | `GET /storefront/v1/order-limits` (falls back to `GET /storefront-b2b/order-limits`) |
+| Buyer group, tax exemption | `GET /storefront/v1/buyer-group` (falls back to `GET /storefront-b2b/buyer-group`) |
+| Wholesale application form | `GET /integrations/woocommerce/wholesale-form?slug=`, `POST /integrations/woocommerce/wholesale-form/submit?slug=` (scope `buyers:write`) |
+| Net-terms application | `POST /storefront/v1/credit-application` (falls back to `POST /integrations/woocommerce/credit-application`; scope `buyers:write`) |
+
+Every request carries `X-TackQuote-Plugin-Version`. `/storefront/v1/*` calls send the key in
+`X-Api-Key` only (that route refuses a second credential), with the signed-in customer as
+`buyerEmail` + `buyerExternalId` (the WordPress user id; never for a guest). The read-only
+lookups need no scope beyond a valid key; the two application forms need `buyers:write`.
 
 ### What happens when TackQuote cannot be reached
 

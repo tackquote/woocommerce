@@ -148,13 +148,9 @@ class Tack_B2B_Notices {
 			return null;
 		}
 
-		$query = 'sku=' . rawurlencode( $sku );
-		$email = $this->buyer_email();
-		if ( '' !== $email ) {
-			$query .= '&buyerEmail=' . rawurlencode( $email );
-		}
-
-		$response = $this->client->request( 'GET', '/storefront-b2b/order-limits?' . $query, null, self::TIMEOUT );
+		// `/storefront/v1/order-limits` (W1-forms, 1.9.0), falling back to the legacy
+		// `/storefront-b2b/order-limits` inside the client when v1 is absent.
+		$response = $this->client->get_order_limits( $sku, $this->buyer_email() );
 		if ( is_wp_error( $response ) ) {
 			$this->log( 'order-limits lookup failed: ' . $response->get_error_message() );
 			return null;
@@ -167,10 +163,27 @@ class Tack_B2B_Notices {
 			return null;
 		}
 
-		$first = $response['limits'][0];
-		$out   = array(
-			'min'             => isset( $first['minQuantity'] ) && null !== $first['minQuantity'] ? (int) $first['minQuantity'] : null,
-			'max'             => isset( $first['maxQuantity'] ) && null !== $first['maxQuantity'] ? (int) $first['maxQuantity'] : null,
+		/*
+		 * Both routes answer `StorefrontOrderLimit` (tack `order-limits.service.ts`):
+		 * `{limitType, sku, min, max, currency, message}`. Up to 1.8.x this read
+		 * `minQuantity` / `maxQuantity`, keys no server version has ever sent, so
+		 * every limit read as "no bounds" and nothing was shown or enforced. Only a
+		 * QUANTITY rule bounds a line's quantity: an `order_total` rule's `min` is
+		 * money, and reading it as a quantity would refuse carts for the wrong reason.
+		 */
+		$first = null;
+		foreach ( $response['limits'] as $limit ) {
+			if ( is_array( $limit ) && isset( $limit['limitType'] ) && in_array( $limit['limitType'], array( 'product_qty', 'per_product_qty' ), true ) ) {
+				$first = $limit;
+				break;
+			}
+		}
+		if ( null === $first ) {
+			return null;
+		}
+		$out = array(
+			'min'             => isset( $first['min'] ) && is_numeric( $first['min'] ) ? (int) $first['min'] : null,
+			'max'             => isset( $first['max'] ) && is_numeric( $first['max'] ) ? (int) $first['max'] : null,
 			'accountSpecific' => ! empty( $response['accountSpecific'] ),
 		);
 
@@ -314,12 +327,8 @@ class Tack_B2B_Notices {
 			return null;
 		}
 
-		$response = $this->client->request(
-			'GET',
-			'/storefront-b2b/buyer-group?buyerEmail=' . rawurlencode( $email ),
-			null,
-			self::TIMEOUT
-		);
+		// `/storefront/v1/buyer-group`, legacy fallback inside the client (1.9.0).
+		$response = $this->client->get_buyer_group( $email );
 		if ( is_wp_error( $response ) ) {
 			$this->log( 'buyer-group lookup failed: ' . $response->get_error_message() );
 			$this->group_status = 'unavailable';
