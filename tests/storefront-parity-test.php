@@ -194,6 +194,14 @@ class Tack_Parity_Product extends WC_Product {
 	public function is_purchasable() {
 		return (bool) apply_filters( 'woocommerce_is_purchasable', true, $this );
 	}
+	/** @return bool In stock (the with-options quantity rule reads it). */
+	public function is_in_stock() {
+		return true;
+	}
+	/** @return bool */
+	public function has_purchasable_variations() {
+		return $this->is_purchasable();
+	}
 	/** @param string $k Key. @param bool $s Single. @return mixed */
 	public function get_meta( $k, $s = true ) {
 		return isset( $this->meta[ $k ] ) ? $this->meta[ $k ] : '';

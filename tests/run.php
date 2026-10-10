@@ -148,5 +148,9 @@ require __DIR__ . '/storefront-followups-test.php';
 echo "\n-- attachments (quote uploads, wholesale files) --\n";
 require __DIR__ . '/attachments-test.php';
 
+// 1.10.0 Add to Cart with Options block, blockified mode: buttons after its form.
+echo "\n-- add-to-cart-with-options (blockified) --\n";
+require __DIR__ . '/with-options-block-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
