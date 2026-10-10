@@ -152,5 +152,9 @@ require __DIR__ . '/attachments-test.php';
 echo "\n-- add-to-cart-with-options (blockified) --\n";
 require __DIR__ . '/with-options-block-test.php';
 
+// 1.10.0 connection test: only an authenticated ping is "Connected" (defect D1).
+echo "\n-- connection test (401/403 rejected, 404 unverified, ping only) --\n";
+require __DIR__ . '/connection-test-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
