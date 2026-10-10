@@ -188,6 +188,65 @@ class Tack_Widget {
 	}
 
 	/**
+	 * The three merchant-renamable button labels: option => English default.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return array<string, string>
+	 */
+	public static function label_defaults() {
+		return array(
+			'tack_quotes_button_label'          => 'Add to Quote',
+			'tack_quotes_request_button_label'  => 'Request a Quote',
+			'tack_quotes_checkout_button_label' => 'Checkout as Quote',
+		);
+	}
+
+	/**
+	 * The default label in the visitor's language.
+	 *
+	 * Literal __() calls per option so the strings are extractable.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $option One of label_defaults()'s keys.
+	 * @return string
+	 */
+	public static function default_label( $option ) {
+		switch ( $option ) {
+			case 'tack_quotes_request_button_label':
+				return __( 'Request a Quote', 'tackquote' );
+			case 'tack_quotes_checkout_button_label':
+				return __( 'Checkout as Quote', 'tackquote' );
+			default:
+				return __( 'Add to Quote', 'tackquote' );
+		}
+	}
+
+	/**
+	 * A button label: the merchant's own wording, or the translated default.
+	 *
+	 * Before 1.9.0 activation STORED the default (`add_option( …, __( 'Add to Quote' ) )`),
+	 * so every store held the English text in the database and no translation could
+	 * ever reach the button. A blank value, or one equal to the English default, now
+	 * means "the default" and follows the visitor's language; only a label the merchant
+	 * actually changed is shown verbatim.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $option One of label_defaults()'s keys.
+	 * @return string
+	 */
+	public static function button_label( $option ) {
+		$defaults = self::label_defaults();
+		$stored   = trim( (string) get_option( $option, '' ) );
+		if ( '' === $stored || ( isset( $defaults[ $option ] ) && $defaults[ $option ] === $stored ) ) {
+			return self::default_label( $option );
+		}
+		return $stored;
+	}
+
+	/**
 	 * URL that issues a fresh submit nonce.
 	 *
 	 * Prefers WooCommerce's `?wc-ajax=` endpoint because page caches are configured to
@@ -249,7 +308,18 @@ class Tack_Widget {
 			: TACK_QUOTES_VERSION;
 
 		wp_enqueue_style( 'tackquote', TACK_QUOTES_URL . 'assets/css/tack-quotes.css', array(), $css_ver );
-		wp_enqueue_script( 'tackquote', TACK_QUOTES_URL . 'assets/js/tack-quotes.js', array( 'jquery' ), $js_ver, true );
+		wp_enqueue_script( 'tackquote', TACK_QUOTES_URL . 'assets/js/tack-quotes.js', array( 'jquery', 'wp-i18n' ), $js_ver, true );
+
+		/*
+		 * The storefront text lives in the script as wp.i18n __() calls. No path is
+		 * passed ON PURPOSE: with an explicit path WordPress reads that folder's JSON
+		 * BEFORE the translate.wordpress.org language pack (load_script_textdomain()),
+		 * the opposite of the PHP side. Without one it asks the textdomain registry,
+		 * which prefers wp-content/languages/plugins/ and falls back to this plugin's
+		 * languages/ folder registered by Tack_Quotes::load_textdomain(). Same order
+		 * for PHP and JS: a language pack, when one exists, replaces the bundled file.
+		 */
+		wp_set_script_translations( 'tackquote', 'tackquote' );
 		wp_localize_script(
 			'tackquote',
 			'TackQuotes',
@@ -261,7 +331,7 @@ class Tack_Widget {
 				// stays valid no matter how long the HTML sits in a cache.
 				'nonceUrl'            => $this->nonce_endpoint(),
 				'customerEmail'       => $this->current_customer_email(),
-				'checkoutButtonLabel' => (string) get_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) ),
+				'checkoutButtonLabel' => self::button_label( 'tack_quotes_checkout_button_label' ),
 				// The seller's registration policy drives which fields the form renders. Null
 				// when Tack is unreachable, in which case the JS falls back to a minimal
 				// name+email form rather than rendering nothing — a shopper must still be able
@@ -280,74 +350,6 @@ class Tack_Widget {
 				// session cookie: nothing leaves the store.
 				'storeCartUrl'        => function_exists( 'rest_url' ) ? rest_url( 'wc/store/v1/cart' ) : '',
 				'price'               => $this->price_format(),
-				'i18n'                => array(
-					'modalTitle'             => __( 'Request a Quote', 'tackquote' ),
-					'firstNameLabel'         => __( 'First name', 'tackquote' ),
-					'lastNameLabel'          => __( 'Last name', 'tackquote' ),
-					'emailLabel'             => __( 'Email address', 'tackquote' ),
-					'phoneLabel'             => __( 'Phone', 'tackquote' ),
-					'companyHeading'         => __( 'Company details', 'tackquote' ),
-					'companyNameLabel'       => __( 'Company name', 'tackquote' ),
-					'buyingAsLabel'          => __( 'I am buying as', 'tackquote' ),
-					'buyingAsIndividual'     => __( 'An individual', 'tackquote' ),
-					'buyingAsCompany'        => __( 'A company', 'tackquote' ),
-					'optional'               => __( '(optional)', 'tackquote' ),
-					'firstNameRequired'      => __( 'Please enter your first name.', 'tackquote' ),
-					'companyRequired'        => __( 'Please complete the required company details.', 'tackquote' ),
-					// Neutral on purpose (1.8.1): TackQuote answers awaitingApproval for EVERY
-					// company request, so it no longer says whether a company name matched an
-					// existing account. This text must not claim more than that answer does.
-					'awaitingApproval'       => __( "Request received. If your company account needs approval, we'll email you when it is ready.", 'tackquote' ),
-					'portalLink'             => __( 'Go to your buyer portal', 'tackquote' ),
-					// Company field labels, keyed by the field names the API's
-					// requiredCompanyFields returns. Anything not listed here falls back to a
-					// humanised version of the key, so a new policy field still renders.
-					'companyFields'          => array(
-						'legalName'          => __( 'Legal name', 'tackquote' ),
-						'taxId'              => __( 'Tax / VAT ID', 'tackquote' ),
-						'registrationNumber' => __( 'Registration number', 'tackquote' ),
-						'website'            => __( 'Website', 'tackquote' ),
-						'addressLine1'       => __( 'Address', 'tackquote' ),
-						'addressLine2'       => __( 'Address line 2', 'tackquote' ),
-						'city'               => __( 'City', 'tackquote' ),
-						'state'              => __( 'State / Province', 'tackquote' ),
-						'postalCode'         => __( 'Postal code', 'tackquote' ),
-						'country'            => __( 'Country', 'tackquote' ),
-						'phone'              => __( 'Company phone', 'tackquote' ),
-						'industry'           => __( 'Industry', 'tackquote' ),
-						'employeeCount'      => __( 'Number of employees', 'tackquote' ),
-					),
-					'emailPlaceholder'       => __( 'you@example.com', 'tackquote' ),
-					// Just "Note": the optional marker is appended generically by the form
-					// builder now, and leaving it in the string rendered "Note (optional) (optional)".
-					'noteLabel'              => __( 'Note', 'tackquote' ),
-					'notePlaceholder'        => __( 'Anything the seller should know about this request…', 'tackquote' ),
-					'submit'                 => __( 'Send request', 'tackquote' ),
-					'sending'                => __( 'Sending…', 'tackquote' ),
-					'cancel'                 => __( 'Cancel', 'tackquote' ),
-					'close'                  => __( 'Close', 'tackquote' ),
-					'error'                  => __( 'Could not create the quote. Please try again.', 'tackquote' ),
-					'reload'                 => __( 'Reload page', 'tackquote' ),
-					'emailRequired'          => __( 'Please enter a valid email address.', 'tackquote' ),
-					'success'                => __( 'Quote requested! Redirecting you to it now…', 'tackquote' ),
-					'added'                  => __( 'Added ✓', 'tackquote' ),
-					'quoteListTitle'         => __( 'Your quote list', 'tackquote' ),
-					'quoteListEmpty'         => __( 'No products added yet.', 'tackquote' ),
-					'quoteListCount'         => __( 'Quote list', 'tackquote' ),
-					'remove'                 => __( 'Remove', 'tackquote' ),
-					// 1.9.0
-					'cartAddedOne'           => __( '1 item added to your quote list.', 'tackquote' ),
-					/* translators: %d: number of cart lines added to the quote list. */
-					'cartAddedMany'          => __( '%d items added to your quote list.', 'tackquote' ),
-					'cartEmpty'              => __( 'Your cart is empty.', 'tackquote' ),
-					'quantity'               => __( 'Quantity', 'tackquote' ),
-					'unitPrice'              => __( 'Unit price (excl. tax)', 'tackquote' ),
-					'targetPrice'            => __( 'Target price', 'tackquote' ),
-					'targetPricePlaceholder' => __( 'Optional', 'tackquote' ),
-					'product'                => __( 'Product', 'tackquote' ),
-					'yourPrice'              => __( 'Your price', 'tackquote' ),
-					'quoteListOpen'          => __( 'Open your quote list', 'tackquote' ),
-				),
 			)
 		);
 	}
@@ -424,7 +426,7 @@ class Tack_Widget {
 		echo '<div class="tack-quote-buttons">';
 
 		if ( $show_add_to_quote ) {
-			$label = (string) get_option( 'tack_quotes_button_label', __( 'Add to Quote', 'tackquote' ) );
+			$label = self::button_label( 'tack_quotes_button_label' );
 			$this->button(
 				array(
 					'product-id'    => $product->get_id(),
@@ -438,7 +440,7 @@ class Tack_Widget {
 		}
 
 		if ( $show_request_quote ) {
-			$label = (string) get_option( 'tack_quotes_request_button_label', __( 'Request a Quote', 'tackquote' ) );
+			$label = self::button_label( 'tack_quotes_request_button_label' );
 			$this->button( array( 'product-id' => $product->get_id() ), 'tack-quote-btn', $label );
 		}
 
@@ -497,7 +499,7 @@ class Tack_Widget {
 				</div>
 				<ul id="tack-quote-list-items" class="tack-quote-list-items"></ul>
 				<button type="button" id="tack-quote-list-checkout" class="<?php echo esc_attr( self::button_class( 'tack-quote-btn tack-quote-list-checkout' ) ); ?>">
-					<?php echo esc_html( (string) get_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) ) ); ?>
+					<?php echo esc_html( self::button_label( 'tack_quotes_checkout_button_label' ) ); ?>
 				</button>
 			</div>
 		</div>
@@ -723,7 +725,7 @@ class Tack_Widget {
 						$name
 					)
 				),
-				esc_html( (string) get_option( 'tack_quotes_button_label', __( 'Add to Quote', 'tackquote' ) ) )
+				esc_html( self::button_label( 'tack_quotes_button_label' ) )
 			);
 			return;
 		}
@@ -907,7 +909,7 @@ class Tack_Widget {
 				<a class="<?php echo esc_attr( self::button_class( 'tack-quote-page-continue' ) ); ?>" href="<?php echo esc_url( $shop ); ?>"><?php esc_html_e( 'Continue shopping', 'tackquote' ); ?></a>
 				<?php endif; ?>
 				<button type="button" id="tack-quote-page-submit" class="<?php echo esc_attr( self::button_class( 'alt tack-quote-page-submit' ) ); ?>" disabled>
-					<?php echo esc_html( (string) get_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) ) ); ?>
+					<?php echo esc_html( self::button_label( 'tack_quotes_checkout_button_label' ) ); ?>
 				</button>
 			</p>
 		</div>

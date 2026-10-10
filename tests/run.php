@@ -117,5 +117,9 @@ require __DIR__ . '/storefront-parity-test.php';
 echo "\n-- net-terms gateway + Blocks + PO number --\n";
 require __DIR__ . '/net-terms-gateway-test.php';
 
+// Bundled translations: generated .mo/.po/JED, the mapping, and the wp.i18n wiring.
+echo "\n-- translations (languages/) --\n";
+require __DIR__ . '/i18n-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

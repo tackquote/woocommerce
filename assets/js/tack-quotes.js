@@ -2,6 +2,71 @@
 (function ($) {
   'use strict';
 
+  // Storefront text, translated through wp.i18n (the script is enqueued with the
+  // `wp-i18n` dependency and wp_set_script_translations( 'tackquote', 'tackquote' )).
+  // The literals stay here, in __() calls, so make-pot and translate.wordpress.org
+  // can extract them; the JED files in languages/ carry the bundled translations.
+  // Falls back to English if wp.i18n is somehow absent, never to blank labels.
+  var wpI18n = window.wp && window.wp.i18n ? window.wp.i18n : null;
+  var __ = wpI18n ? wpI18n.__ : function (text) {
+    return text;
+  };
+  TackQuotes.i18n = {
+    modalTitle: __('Request a Quote', 'tackquote'),
+    firstNameLabel: __('First name', 'tackquote'),
+    lastNameLabel: __('Last name', 'tackquote'),
+    emailLabel: __('Email address', 'tackquote'),
+    phoneLabel: __('Phone', 'tackquote'),
+    companyHeading: __('Company details', 'tackquote'),
+    companyNameLabel: __('Company name', 'tackquote'),
+    buyingAsLabel: __('I am buying as', 'tackquote'),
+    buyingAsIndividual: __('An individual', 'tackquote'),
+    buyingAsCompany: __('A company', 'tackquote'),
+    optional: __('(optional)', 'tackquote'),
+    firstNameRequired: __('Please enter your first name.', 'tackquote'),
+    companyRequired: __('Please complete the required company details.', 'tackquote'),
+    // Neutral on purpose (1.8.1): TackQuote answers awaitingApproval for EVERY company
+    // request, so this must not say whether a company name matched an existing account.
+    awaitingApproval: __("Request received. If your company account needs approval, we'll email you when it is ready.", 'tackquote'),
+    portalLink: __('Go to your buyer portal', 'tackquote'),
+    emailPlaceholder: __('you@example.com', 'tackquote'),
+    // Just "Note": the form builder appends the optional marker itself.
+    noteLabel: __('Note', 'tackquote'),
+    notePlaceholder: __('Anything the seller should know about this request…', 'tackquote'),
+    submit: __('Send request', 'tackquote'),
+    sending: __('Sending…', 'tackquote'),
+    cancel: __('Cancel', 'tackquote'),
+    close: __('Close', 'tackquote'),
+    error: __('Could not create the quote. Please try again.', 'tackquote'),
+    reload: __('Reload page', 'tackquote'),
+    emailRequired: __('Please enter a valid email address.', 'tackquote'),
+    success: __('Quote requested! Redirecting you to it now…', 'tackquote'),
+    added: __('Added ✓', 'tackquote'),
+    remove: __('Remove', 'tackquote'),
+    cartEmpty: __('Your cart is empty.', 'tackquote'),
+    quantity: __('Quantity', 'tackquote'),
+    targetPrice: __('Target price', 'tackquote'),
+    targetPricePlaceholder: __('Optional', 'tackquote'),
+    yourPrice: __('Your price', 'tackquote'),
+    // Company field labels keyed by the names requiredCompanyFields returns; an
+    // unlisted key falls back to a humanised version of itself.
+    companyFields: {
+      legalName: __('Legal name', 'tackquote'),
+      taxId: __('Tax / VAT ID', 'tackquote'),
+      registrationNumber: __('Registration number', 'tackquote'),
+      website: __('Website', 'tackquote'),
+      addressLine1: __('Address', 'tackquote'),
+      addressLine2: __('Address line 2', 'tackquote'),
+      city: __('City', 'tackquote'),
+      state: __('State / Province', 'tackquote'),
+      postalCode: __('Postal code', 'tackquote'),
+      country: __('Country', 'tackquote'),
+      phone: __('Company phone', 'tackquote'),
+      industry: __('Industry', 'tackquote'),
+      employeeCount: __('Number of employees', 'tackquote'),
+    },
+  };
+
   var modal = null;
   var STORAGE_KEY = 'tack_quote_list';
 
@@ -215,7 +280,7 @@
       var $qty = $('<span class="tack-quote-list-item-qty"></span>');
       $qty.append(document.createTextNode('×'));
       var $input = $('<input type="number" min="1" step="1" class="tack-quote-list-item-qty-input" />')
-        .attr('aria-label', TackQuotes.i18n.quantity || 'Quantity')
+        .attr('aria-label', TackQuotes.i18n.quantity)
         .val(row.quantity);
       $input.on('change', function () {
         setQuantity(row.productId, row.variationId, $input.val());
@@ -272,7 +337,7 @@
       $tr.append($name);
 
       var $qty = $('<input type="number" min="1" step="1" class="tack-quote-page-qty" />')
-        .attr('aria-label', TackQuotes.i18n.quantity || 'Quantity')
+        .attr('aria-label', TackQuotes.i18n.quantity)
         .val(row.quantity);
       $qty.on('change', function () {
         setQuantity(row.productId, row.variationId, $qty.val());
@@ -284,7 +349,7 @@
 
       if (withTarget) {
         var $target = $('<input type="number" min="0" step="any" class="tack-quote-page-target" />')
-          .attr('aria-label', TackQuotes.i18n.targetPrice || 'Target price')
+          .attr('aria-label', TackQuotes.i18n.targetPrice)
           .attr('placeholder', TackQuotes.i18n.targetPricePlaceholder || '')
           .val(row.targetPrice == null ? '' : row.targetPrice);
         $target.on('change', function () {

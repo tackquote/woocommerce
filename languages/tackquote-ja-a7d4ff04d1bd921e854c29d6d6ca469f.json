@@ -1,0 +1,50 @@
+{
+    "generator": "bin/build-translations.php",
+    "domain": "messages",
+    "source": "assets/js/tack-quotes.js",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "ja",
+                "plural-forms": "nplurals=1; plural=0;"
+            },
+            "Address line 2": [
+                "住所2"
+            ],
+            "City": [
+                "市区町村"
+            ],
+            "Close": [
+                "閉じる"
+            ],
+            "Country": [
+                "国"
+            ],
+            "Phone": [
+                "電話番号"
+            ],
+            "Please enter a valid email address.": [
+                "有効なメールアドレスを入力してください。"
+            ],
+            "Postal code": [
+                "郵便番号"
+            ],
+            "Quantity": [
+                "数量"
+            ],
+            "Remove": [
+                "削除"
+            ],
+            "Request a Quote": [
+                "見積りを依頼"
+            ],
+            "Your cart is empty.": [
+                "カートは空です。"
+            ],
+            "Your price": [
+                "お客様の価格"
+            ]
+        }
+    }
+}

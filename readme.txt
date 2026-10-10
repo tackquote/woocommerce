@@ -308,6 +308,10 @@ Yes. Turn on quote-only mode and choose "Everyone except approved wholesale acco
 
 Into the request's note, one line per product ("Target prices: …"), after the shopper's own message. The quote itself keeps your store price for each line.
 
+= Which languages does it ship in? =
+
+English, plus German, Spanish, French, Italian, Japanese, Dutch and Brazilian Portuguese for the storefront text, in `languages/` (machine-assisted from the TackQuote storefront catalogue; Italian awaits native review). A translate.wordpress.org language pack, when one exists, replaces the bundled file.
+
 == Screenshots ==
 
 1. Quote buttons sit beside Add to Cart on the product page, so a shopper can buy or ask for a price without leaving the page.
@@ -335,6 +339,7 @@ Into the request's note, one line per product ("Target prices: …"), after the 
 * **Order limits now also stop the Cart and Checkout blocks** through `woocommerce_store_api_cart_errors`, beside `woocommerce_check_cart_items`, with the same message and the error code `tackquote_order_limit`.
 * **Net terms at checkout** (off by default). A new offline payment method "Net terms (TackQuote)", gateway id `tackquote_net_terms`, registered on `woocommerce_payment_gateways` and, for the Checkout block, as an `AbstractPaymentMethodType` on `woocommerce_blocks_payment_method_type_registration`. Settings live in WooCommerce → Settings → Payments. It is offered only to a signed-in customer with a confirmed email whose TackQuote credit line (`GET /storefront/v1/net-terms`) is active, in the checkout currency, whose remaining available credit covers the order (the limit when TackQuote omits it). It FAILS CLOSED: any error, timeout, 404 or unknown answer hides it. Placing the order reads the standing again and refuses if it no longer qualifies; otherwise the order goes on hold with the note "Awaiting payment on net terms (N days)" and order meta `_tackquote_net_terms`. It is never marked paid. The Checkout block receives only a yes/no, never the limit. Order sync sends `payment.method = tackquote_net_terms` so TackQuote can invoice it.
 * **Optional purchase-order number at checkout** (off by default; a setting of the net-terms payment method). Checkout block: `woocommerce_register_additional_checkout_field` (`tackquote/po-number`, order section, at most 64 characters). Classic checkout: a field under the order notes. Saved as order meta `_tackquote_po_number` and sent as `poNumber` through the existing `tack_quotes_order_po_number` filter (a value your own filter supplies still wins).
+* **Translations bundled** for de_DE, es_ES, fr_FR, it_IT, ja, nl_NL and pt_BR (`languages/`, generated from TackQuote's shared storefront catalogue by `bin/build-translations.php`; Italian pending native review). Header `Domain Path: /languages`; the textdomain is registered on `init`. The quote form and quote list script now reads its text through `wp.i18n` (`wp-i18n` dependency, `wp_set_script_translations`) instead of a localised array. A translate.wordpress.org language pack still takes precedence. The "Add to Quote", "Request a Quote" and "Checkout as Quote" labels left at their default now follow the visitor's language: activation no longer stores them in English, and a stored English default or a blank field means the translated default.
 * The plugin's buttons use WooCommerce's own button classes (`button`, plus `wp-element-button` on a block theme), so they match the theme.
 
 = 1.8.2 =

@@ -1,0 +1,149 @@
+{
+  "_comment": "Plugin msgid (English source, exactly as in the PHP/JS __() call) -> the TackQuote shared widget catalogue key whose meaning is IDENTICAL. Read by bin/build-translations.php together with the vendored catalogue in widget/. `placeholders` maps each {name} in the catalogue text to the printf placeholder the plugin msgid uses. A plugin string with no exact catalogue equivalent is deliberately absent and stays English (or comes from translate.wordpress.org). Do not hand-translate here: fix the catalogue in tack (packages/widget/locales) and re-vendor.",
+  "strings": [
+    {
+      "msgid": "Add to Quote",
+      "key": "tackquote.quote.add_button"
+    },
+    {
+      "msgid": "Request a Quote",
+      "key": "tackquote.widget.request_a_quote"
+    },
+    {
+      "msgid": "Request a quote for your cart",
+      "key": "tackquote.quote.cart_request"
+    },
+    {
+      "msgid": "Price on request",
+      "key": "tackquote.widget.price_on_request"
+    },
+    {
+      "msgid": "Close",
+      "key": "tackquote.quote.close"
+    },
+    {
+      "msgid": "Remove",
+      "key": "tackquote.quote.remove"
+    },
+    {
+      "msgid": "Your cart is empty.",
+      "key": "tackquote.quote.cart_empty"
+    },
+    {
+      "msgid": "Quantity",
+      "key": "tackquote.quote.quantity"
+    },
+    {
+      "msgid": "Your price",
+      "key": "tackquote.quote.your_price"
+    },
+    {
+      "msgid": "Volume pricing",
+      "key": "tackquote.widget.volume_pricing"
+    },
+    {
+      "msgid": "Unit price",
+      "key": "tackquote.widget.unit_price"
+    },
+    {
+      "msgid": "Product",
+      "key": "tackquote.widget.product"
+    },
+    {
+      "msgid": "Continue shopping",
+      "key": "tackquote.widget.continue_shopping"
+    },
+    {
+      "msgid": "Please enter a valid email address.",
+      "key": "tackquote.widget.email_invalid"
+    },
+    {
+      "msgid": "Phone",
+      "key": "tackquote.widget.phone"
+    },
+    {
+      "msgid": "Company",
+      "key": "tackquote.quote.company"
+    },
+    {
+      "msgid": "Notes",
+      "key": "tackquote.widget.notes"
+    },
+    {
+      "msgid": "Address line 2",
+      "key": "tackquote.widget.addr_line2"
+    },
+    {
+      "msgid": "City",
+      "key": "tackquote.signup.addr_city"
+    },
+    {
+      "msgid": "Country",
+      "key": "tackquote.signup.addr_country"
+    },
+    {
+      "msgid": "Postal code",
+      "key": "tackquote.signup.addr_postal_code"
+    },
+    {
+      "msgid": "Legal business name",
+      "key": "tackquote.credit.label_business"
+    },
+    {
+      "msgid": "Contact email",
+      "key": "tackquote.credit.label_email"
+    },
+    {
+      "msgid": "Requested credit limit",
+      "key": "tackquote.credit.label_limit"
+    },
+    {
+      "msgid": "Apply for net terms",
+      "key": "tackquote.credit.heading"
+    },
+    {
+      "msgid": "Submit application",
+      "key": "tackquote.signup.submit"
+    },
+    {
+      "msgid": "Log in",
+      "key": "tackquote.signup.sign_in"
+    },
+    {
+      "msgid": "Net terms",
+      "key": "tackquote.widget.net_terms_heading"
+    },
+    {
+      "msgid": "Net %d days",
+      "key": "tackquote.widget.terms_days",
+      "placeholders": {
+        "days": "%d"
+      }
+    },
+    {
+      "msgid": "Add %s to quote",
+      "key": "tackquote.widget.add_named_to_quote",
+      "placeholders": {
+        "name": "%s"
+      }
+    },
+    {
+      "msgid": "Choose options to quote",
+      "key": "tackquote.widget.choose_options_to_quote"
+    },
+    {
+      "msgid": "Choose options for %s to quote",
+      "key": "tackquote.widget.choose_options_for",
+      "placeholders": {
+        "name": "%s"
+      }
+    },
+    {
+      "msgid": "%s is required.",
+      "key": "tackquote.quote.field_required",
+      "placeholders": {
+        "label": "%s"
+      }
+    }
+  ]
+}
