@@ -39,6 +39,11 @@ msgstr "Aggiungi %s al preventivo"
 msgid "Add to Quote"
 msgstr "Aggiungi al preventivo"
 
+#. catalogue: tackquote.widget.addr_line1
+#. machine-translated, pending native review
+msgid "Address"
+msgstr "Indirizzo (riga 1)"
+
 #. catalogue: tackquote.widget.addr_line2
 #. machine-translated, pending native review
 msgid "Address line 2"
@@ -81,6 +86,10 @@ msgstr "Chiudi"
 msgid "Company"
 msgstr "Azienda"
 
+#. catalogue: tackquote.quote.company
+msgid "Company name"
+msgstr "Azienda"
+
 #. catalogue: tackquote.credit.label_email
 msgid "Contact email"
 msgstr "Email di contatto"
@@ -94,6 +103,10 @@ msgstr "Continua lo shopping"
 msgid "Country"
 msgstr "Paese"
 
+#. catalogue: tackquote.quote.email
+msgid "Email address"
+msgstr "Email"
+
 #. catalogue: tackquote.widget.files_unsupported
 #. machine-translated, pending native review
 msgid "Files cannot be attached on this store."
@@ -101,6 +114,10 @@ msgstr "In questo negozio non è possibile allegare file."
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
+msgstr "Ragione sociale"
+
+#. catalogue: tackquote.credit.label_business
+msgid "Legal name"
 msgstr "Ragione sociale"
 
 #. catalogue: tackquote.signup.sign_in
@@ -117,6 +134,11 @@ msgstr "Pagamento a %d giorni"
 #. machine-translated, pending native review
 msgid "Net terms"
 msgstr "Pagamento dilazionato"
+
+#. catalogue: tackquote.widget.notes
+#. machine-translated, pending native review
+msgid "Note"
+msgstr "Note"
 
 #. catalogue: tackquote.widget.notes
 #. machine-translated, pending native review
@@ -151,6 +173,11 @@ msgstr "Prodotto"
 msgid "Quantity"
 msgstr "Quantità"
 
+#. catalogue: tackquote.widget.drawer_title
+#. machine-translated, pending native review
+msgid "Quote list"
+msgstr "Carrello del preventivo"
+
 #. catalogue: tackquote.quote.remove
 msgid "Remove"
 msgstr "Rimuovi"
@@ -168,10 +195,25 @@ msgstr "Richiedi un preventivo per il carrello"
 msgid "Requested credit limit"
 msgstr "Fido richiesto"
 
+#. catalogue: tackquote.widget.submit_request
+#. machine-translated, pending native review
+msgid "Send request"
+msgstr "Invia la richiesta di preventivo"
+
+#. catalogue: tackquote.widget.submitting
+#. machine-translated, pending native review
+msgid "Sending…"
+msgstr "Invio in corso..."
+
 #. catalogue: tackquote.widget.files_signin
 #. machine-translated, pending native review
 msgid "Sign in to your account to attach files."
 msgstr "Acceda al Suo account per allegare file."
+
+#. catalogue: tackquote.widget.addr_region
+#. machine-translated, pending native review
+msgid "State / Province"
+msgstr "Stato / regione"
 
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
@@ -215,6 +257,11 @@ msgstr "Il Suo carrello è vuoto."
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "Il Suo prezzo"
+
+#. catalogue: tackquote.widget.drawer_title
+#. machine-translated, pending native review
+msgid "Your quote list"
+msgstr "Carrello del preventivo"
 
 #. catalogue: tackquote.widget.file
 #. machine-translated, pending native review

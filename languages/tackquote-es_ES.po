@@ -36,6 +36,10 @@ msgstr "Añadir %s al presupuesto"
 msgid "Add to Quote"
 msgstr "Añadir al presupuesto"
 
+#. catalogue: tackquote.widget.addr_line1
+msgid "Address"
+msgstr "Dirección (línea 1)"
+
 #. catalogue: tackquote.widget.addr_line2
 msgid "Address line 2"
 msgstr "Dirección (línea 2)"
@@ -74,6 +78,10 @@ msgstr "Cerrar"
 msgid "Company"
 msgstr "Empresa"
 
+#. catalogue: tackquote.quote.company
+msgid "Company name"
+msgstr "Empresa"
+
 #. catalogue: tackquote.credit.label_email
 msgid "Contact email"
 msgstr "Correo electrónico de contacto"
@@ -86,12 +94,20 @@ msgstr "Seguir comprando"
 msgid "Country"
 msgstr "País"
 
+#. catalogue: tackquote.quote.email
+msgid "Email address"
+msgstr "Correo electrónico"
+
 #. catalogue: tackquote.widget.files_unsupported
 msgid "Files cannot be attached on this store."
 msgstr "En esta tienda no se pueden adjuntar archivos."
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
+msgstr "Razón social"
+
+#. catalogue: tackquote.credit.label_business
+msgid "Legal name"
 msgstr "Razón social"
 
 #. catalogue: tackquote.signup.sign_in
@@ -106,6 +122,10 @@ msgstr "Pago a %d días"
 #. catalogue: tackquote.widget.net_terms_heading
 msgid "Net terms"
 msgstr "Pago aplazado"
+
+#. catalogue: tackquote.widget.notes
+msgid "Note"
+msgstr "Notas"
 
 #. catalogue: tackquote.widget.notes
 msgid "Notes"
@@ -135,6 +155,10 @@ msgstr "Producto"
 msgid "Quantity"
 msgstr "Cantidad"
 
+#. catalogue: tackquote.widget.drawer_title
+msgid "Quote list"
+msgstr "Carrito de presupuesto"
+
 #. catalogue: tackquote.quote.remove
 msgid "Remove"
 msgstr "Quitar"
@@ -151,9 +175,21 @@ msgstr "Solicitar un presupuesto para su carrito"
 msgid "Requested credit limit"
 msgstr "Límite de crédito solicitado"
 
+#. catalogue: tackquote.widget.submit_request
+msgid "Send request"
+msgstr "Enviar la solicitud de presupuesto"
+
+#. catalogue: tackquote.widget.submitting
+msgid "Sending…"
+msgstr "Enviando..."
+
 #. catalogue: tackquote.widget.files_signin
 msgid "Sign in to your account to attach files."
 msgstr "Inicie sesión en su cuenta para adjuntar archivos."
+
+#. catalogue: tackquote.widget.addr_region
+msgid "State / Province"
+msgstr "Estado / región"
 
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
@@ -191,6 +227,10 @@ msgstr "Su carrito está vacío."
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "Su precio"
+
+#. catalogue: tackquote.widget.drawer_title
+msgid "Your quote list"
+msgstr "Carrito de presupuesto"
 
 #. catalogue: tackquote.widget.file
 msgid "file"

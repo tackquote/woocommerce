@@ -36,6 +36,10 @@ msgstr "Ajouter %s au devis"
 msgid "Add to Quote"
 msgstr "Ajouter au devis"
 
+#. catalogue: tackquote.widget.addr_line1
+msgid "Address"
+msgstr "Adresse (ligne 1)"
+
 #. catalogue: tackquote.widget.addr_line2
 msgid "Address line 2"
 msgstr "Adresse (ligne 2)"
@@ -74,6 +78,10 @@ msgstr "Fermer"
 msgid "Company"
 msgstr "Entreprise"
 
+#. catalogue: tackquote.quote.company
+msgid "Company name"
+msgstr "Entreprise"
+
 #. catalogue: tackquote.credit.label_email
 msgid "Contact email"
 msgstr "E-mail de contact"
@@ -86,12 +94,20 @@ msgstr "Continuer mes achats"
 msgid "Country"
 msgstr "Pays"
 
+#. catalogue: tackquote.quote.email
+msgid "Email address"
+msgstr "E-mail"
+
 #. catalogue: tackquote.widget.files_unsupported
 msgid "Files cannot be attached on this store."
 msgstr "Impossible de joindre des fichiers sur cette boutique."
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
+msgstr "Raison sociale"
+
+#. catalogue: tackquote.credit.label_business
+msgid "Legal name"
 msgstr "Raison sociale"
 
 #. catalogue: tackquote.signup.sign_in
@@ -106,6 +122,10 @@ msgstr "Paiement à %d jours"
 #. catalogue: tackquote.widget.net_terms_heading
 msgid "Net terms"
 msgstr "Paiement à terme"
+
+#. catalogue: tackquote.widget.notes
+msgid "Note"
+msgstr "Remarques"
 
 #. catalogue: tackquote.widget.notes
 msgid "Notes"
@@ -135,6 +155,10 @@ msgstr "Produit"
 msgid "Quantity"
 msgstr "Quantité"
 
+#. catalogue: tackquote.widget.drawer_title
+msgid "Quote list"
+msgstr "Panier de devis"
+
 #. catalogue: tackquote.quote.remove
 msgid "Remove"
 msgstr "Retirer"
@@ -151,9 +175,21 @@ msgstr "Demander un devis pour votre panier"
 msgid "Requested credit limit"
 msgstr "Plafond de crédit demandé"
 
+#. catalogue: tackquote.widget.submit_request
+msgid "Send request"
+msgstr "Soumettre la demande de devis"
+
+#. catalogue: tackquote.widget.submitting
+msgid "Sending…"
+msgstr "Envoi en cours..."
+
 #. catalogue: tackquote.widget.files_signin
 msgid "Sign in to your account to attach files."
 msgstr "Connectez-vous à votre compte pour joindre des fichiers."
+
+#. catalogue: tackquote.widget.addr_region
+msgid "State / Province"
+msgstr "État / région"
 
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
@@ -191,6 +227,10 @@ msgstr "Votre panier est vide."
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "Votre prix"
+
+#. catalogue: tackquote.widget.drawer_title
+msgid "Your quote list"
+msgstr "Panier de devis"
 
 #. catalogue: tackquote.widget.file
 msgid "file"

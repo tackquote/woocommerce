@@ -185,3 +185,17 @@ unset( $GLOBALS['TACK_WC_CUSTOMER'], $GLOBALS['TACK_USER_FIRST_NAME'], $GLOBALS[
 tack_test_set_logged_in( false, '' );
 check( 'D6: the names are localized to the script', false !== strpos( $e2e_widget_src, "'customerFirstName'   => \$this->current_customer_name( 'first' )," ) && false !== strpos( $e2e_widget_src, "'customerLastName'    => \$this->current_customer_name( 'last' )," ) );
 check( 'D6: openModal() fills both name fields after the form reset', 1 === preg_match( "/\\\$form\\[0\\]\\.reset\\(\\);.*\\\$firstName\\.val\\(TackQuotes\\.customerFirstName \\|\\| ''\\);\\s*\\\$overlay\\.find\\('#tack-quote-last-name'\\)\\.val\\(TackQuotes\\.customerLastName \\|\\| ''\\);/s", $e2e_js ) );
+
+// ── D8: modal, drawer and launcher strings mapped to the catalogue ──────────
+
+$e2e_jed  = json_decode( (string) file_get_contents( TACK_QUOTES_DIR . 'languages/tackquote-de_DE-' . md5( 'assets/js/tack-quotes.js' ) . '.json' ), true );
+$e2e_msgs = is_array( $e2e_jed ) && isset( $e2e_jed['locale_data']['messages'] ) ? $e2e_jed['locale_data']['messages'] : array();
+$e2e_de   = function ( $msgid ) use ( $e2e_msgs ) {
+	return isset( $e2e_msgs[ $msgid ][0] ) ? $e2e_msgs[ $msgid ][0] : null;
+};
+check( 'D8: German modal buttons: "Send request" and "Sending…" are translated', 'Angebotsanfrage absenden' === $e2e_de( 'Send request' ) && 'Wird gesendet...' === $e2e_de( 'Sending…' ), var_export( array( $e2e_de( 'Send request' ), $e2e_de( 'Sending…' ) ), true ) );
+check( 'D8: German modal labels: Email address, Note, Company name', 'E-Mail' === $e2e_de( 'Email address' ) && 'Anmerkungen' === $e2e_de( 'Note' ) && 'Unternehmen' === $e2e_de( 'Company name' ) );
+check( 'D8: German company field labels: Legal name, Address, State / Province', null !== $e2e_de( 'Legal name' ) && 'Adresszeile 1' === $e2e_de( 'Address' ) && null !== $e2e_de( 'State / Province' ) );
+$e2e_po = (string) file_get_contents( TACK_QUOTES_DIR . 'languages/tackquote-de_DE.po' );
+check( 'D8: the drawer title and launcher label (PHP) are in the German .po', false !== strpos( $e2e_po, "msgid \"Your quote list\"\nmsgstr \"Angebotskorb\"" ) && false !== strpos( $e2e_po, "msgid \"Quote list\"\nmsgstr \"Angebotskorb\"" ), 'see languages/tackquote-de_DE.po' );
+check( 'D8: strings with no catalogue equivalent stay English (Cancel, First name)', null === $e2e_de( 'Cancel' ) && null === $e2e_de( 'First name' ) );

@@ -15,6 +15,9 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s: alleghi un file PDF, JPEG o PNG."
             ],
+            "Address": [
+                "Indirizzo (riga 1)"
+            ],
             "Address line 2": [
                 "Indirizzo (riga 2)"
             ],
@@ -30,8 +33,20 @@
             "Close": [
                 "Chiudi"
             ],
+            "Company name": [
+                "Azienda"
+            ],
             "Country": [
                 "Paese"
+            ],
+            "Email address": [
+                "Email"
+            ],
+            "Legal name": [
+                "Ragione sociale"
+            ],
+            "Note": [
+                "Note"
             ],
             "Phone": [
                 "Telefono"
@@ -50,6 +65,15 @@
             ],
             "Request a Quote": [
                 "Richiedi un preventivo"
+            ],
+            "Send request": [
+                "Invia la richiesta di preventivo"
+            ],
+            "Sending…": [
+                "Invio in corso..."
+            ],
+            "State / Province": [
+                "Stato / regione"
             ],
             "That file could not be attached. Please try again.": [
                 "Non è stato possibile allegare il file. Riprovi."

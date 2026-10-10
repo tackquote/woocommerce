@@ -15,6 +15,9 @@
             "%s: attach a PDF, JPEG or PNG file.": [
                 "%s：PDF、JPEG、PNGファイルを添付してください。"
             ],
+            "Address": [
+                "住所1"
+            ],
             "Address line 2": [
                 "住所2"
             ],
@@ -30,8 +33,20 @@
             "Close": [
                 "閉じる"
             ],
+            "Company name": [
+                "会社名"
+            ],
             "Country": [
                 "国"
+            ],
+            "Email address": [
+                "メールアドレス"
+            ],
+            "Legal name": [
+                "正式な事業者名"
+            ],
+            "Note": [
+                "備考"
             ],
             "Phone": [
                 "電話番号"
@@ -50,6 +65,15 @@
             ],
             "Request a Quote": [
                 "見積りを依頼"
+            ],
+            "Send request": [
+                "見積り依頼を送信する"
+            ],
+            "Sending…": [
+                "送信中…"
+            ],
+            "State / Province": [
+                "都道府県・地域"
             ],
             "That file could not be attached. Please try again.": [
                 "ファイルを添付できませんでした。もう一度お試しください。"

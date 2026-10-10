@@ -205,6 +205,46 @@
     {
       "msgid": "file",
       "key": "tackquote.widget.file"
+    },
+    {
+      "msgid": "Email address",
+      "key": "tackquote.quote.email"
+    },
+    {
+      "msgid": "Note",
+      "key": "tackquote.widget.notes"
+    },
+    {
+      "msgid": "Company name",
+      "key": "tackquote.quote.company"
+    },
+    {
+      "msgid": "Send request",
+      "key": "tackquote.widget.submit_request"
+    },
+    {
+      "msgid": "Sending…",
+      "key": "tackquote.widget.submitting"
+    },
+    {
+      "msgid": "Legal name",
+      "key": "tackquote.credit.label_business"
+    },
+    {
+      "msgid": "Address",
+      "key": "tackquote.widget.addr_line1"
+    },
+    {
+      "msgid": "State / Province",
+      "key": "tackquote.widget.addr_region"
+    },
+    {
+      "msgid": "Quote list",
+      "key": "tackquote.widget.drawer_title"
+    },
+    {
+      "msgid": "Your quote list",
+      "key": "tackquote.widget.drawer_title"
     }
   ]
 }
