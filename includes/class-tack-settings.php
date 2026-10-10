@@ -89,9 +89,9 @@ class Tack_Settings {
 	public function register_settings() {
 		register_setting( self::OPTION_GROUP, 'tack_quotes_api_key', array( 'sanitize_callback' => array( $this, 'sanitize_api_key' ) ) );
 		register_setting( self::OPTION_GROUP, 'tack_quotes_api_url', array( 'sanitize_callback' => array( $this, 'sanitize_url' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_button_label', array( 'sanitize_callback' => 'sanitize_text_field' ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_request_button_label', array( 'sanitize_callback' => 'sanitize_text_field' ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_checkout_button_label', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		register_setting( self::OPTION_GROUP, 'tack_quotes_button_label', array( 'sanitize_callback' => array( $this, 'sanitize_button_label' ) ) );
+		register_setting( self::OPTION_GROUP, 'tack_quotes_request_button_label', array( 'sanitize_callback' => array( $this, 'sanitize_button_label' ) ) );
+		register_setting( self::OPTION_GROUP, 'tack_quotes_checkout_button_label', array( 'sanitize_callback' => array( $this, 'sanitize_button_label' ) ) );
 		register_setting( self::OPTION_GROUP, 'tack_quotes_show_add_to_quote', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
 		register_setting( self::OPTION_GROUP, 'tack_quotes_show_request_quote', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
 		register_setting( self::OPTION_GROUP, 'tack_quotes_enable_widget', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
@@ -901,14 +901,48 @@ class Tack_Settings {
 	}
 
 	/**
+	 * The label the merchant typed, or '' while the translated default applies.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $option Label option.
+	 * @return string
+	 */
+	private static function custom_label( $option ) {
+		$defaults = Tack_Widget::label_defaults();
+		$stored   = trim( (string) get_option( $option, '' ) );
+		return ( isset( $defaults[ $option ] ) && $defaults[ $option ] === $stored ) ? '' : $stored;
+	}
+
+	/**
+	 * Save a button label; the default text (English, or as translated for the admin
+	 * saving the form) is stored as '' so it keeps following the visitor's language.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_button_label( $value ) {
+		$value = trim( sanitize_text_field( (string) $value ) );
+		foreach ( Tack_Widget::label_defaults() as $option => $english ) {
+			if ( $english === $value || Tack_Widget::default_label( $option ) === $value ) {
+				return '';
+			}
+		}
+		return $value;
+	}
+
+	/**
 	 * The "Add to Quote" button label field.
 	 */
 	public function field_button_label() {
 		printf(
-			'<input type="text" name="tack_quotes_button_label" value="%s" class="regular-text" />',
-			esc_attr( (string) get_option( 'tack_quotes_button_label', __( 'Add to Quote', 'tackquote' ) ) )
+			'<input type="text" name="tack_quotes_button_label" value="%1$s" placeholder="%2$s" class="regular-text" />',
+			esc_attr( self::custom_label( 'tack_quotes_button_label' ) ),
+			esc_attr( Tack_Widget::default_label( 'tack_quotes_button_label' ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown next to Add to Cart on product pages. Clicking it adds the product to a separate quote list — never the WooCommerce cart — and does not submit a quote by itself.', 'tackquote' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Shown next to Add to Cart on product pages. Clicking it adds the product to a separate quote list — never the WooCommerce cart — and does not submit a quote by itself.', 'tackquote' ) . ' ' . esc_html__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ) . '</p>';
 	}
 
 	/**
@@ -916,10 +950,11 @@ class Tack_Settings {
 	 */
 	public function field_request_button_label() {
 		printf(
-			'<input type="text" name="tack_quotes_request_button_label" value="%s" class="regular-text" />',
-			esc_attr( (string) get_option( 'tack_quotes_request_button_label', __( 'Request a Quote', 'tackquote' ) ) )
+			'<input type="text" name="tack_quotes_request_button_label" value="%1$s" placeholder="%2$s" class="regular-text" />',
+			esc_attr( self::custom_label( 'tack_quotes_request_button_label' ) ),
+			esc_attr( Tack_Widget::default_label( 'tack_quotes_request_button_label' ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown on product pages when enabled above. Clicking it immediately submits a quote request for just that product (does not add it to the cart).', 'tackquote' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Shown on product pages when enabled above. Clicking it immediately submits a quote request for just that product (does not add it to the cart).', 'tackquote' ) . ' ' . esc_html__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ) . '</p>';
 	}
 
 	/**
@@ -927,10 +962,11 @@ class Tack_Settings {
 	 */
 	public function field_checkout_button_label() {
 		printf(
-			'<input type="text" name="tack_quotes_checkout_button_label" value="%s" class="regular-text" />',
-			esc_attr( (string) get_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) ) )
+			'<input type="text" name="tack_quotes_checkout_button_label" value="%1$s" placeholder="%2$s" class="regular-text" />',
+			esc_attr( self::custom_label( 'tack_quotes_checkout_button_label' ) ),
+			esc_attr( Tack_Widget::default_label( 'tack_quotes_checkout_button_label' ) )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown in the floating quote-list drawer (bottom-right of every page, once at least one product is added). Clicking it submits every item in the quote list as a single TackQuote quote request.', 'tackquote' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Shown in the floating quote-list drawer (bottom-right of every page, once at least one product is added). Clicking it submits every item in the quote list as a single TackQuote quote request.', 'tackquote' ) . ' ' . esc_html__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ) . '</p>';
 	}
 
 	/**

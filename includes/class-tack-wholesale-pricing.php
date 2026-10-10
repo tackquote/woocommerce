@@ -712,16 +712,20 @@ class Tack_Wholesale_Pricing {
 	}
 
 	/**
-	 * Email of the signed-in customer, or '' when nobody is signed in.
+	 * Email of the signed-in customer TackQuote may price, or '' for nobody.
+	 *
+	 * Delegates to `Tack_B2B_Notices::trusted_buyer_email()`, the rule the badge,
+	 * restrictions and price gate already apply: '' for a guest AND for an account
+	 * whose address was self-changed on My Account and not re-confirmed
+	 * (`_tack_email_unverified`). Before 1.9.0 this read `user_email` directly, so
+	 * a new account that retyped an approved buyer's address was charged that
+	 * buyer's price book in listings and the cart. '' here means "priced as a
+	 * guest" (`should_apply()` stands down), never an outage.
 	 *
 	 * @return string
 	 */
 	private function buyer_email() {
-		if ( ! is_user_logged_in() ) {
-			return '';
-		}
-		$user = wp_get_current_user();
-		return ( $user && isset( $user->user_email ) ) ? (string) $user->user_email : '';
+		return Tack_B2B_Notices::trusted_buyer_email();
 	}
 
 	/**

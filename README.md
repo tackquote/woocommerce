@@ -14,6 +14,7 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: paste your TackQuote API key
+- 🌐 Storefront text bundled in German, Spanish, French, Italian, Japanese, Dutch and Brazilian Portuguese (`languages/`, generated from the shared TackQuote catalogue; see [`languages/README.md`](languages/README.md))
 - 🛡️ HPOS- and Cart/Checkout-blocks-compatible; nonce, capability and rate-limit protected; removes its own options and transients on uninstall
 
 See the `== External services ==` and `== Privacy ==` sections of [`readme.txt`](readme.txt) for exactly which fields are sent to TackQuote, when, and what the plugin stores locally.

@@ -7,8 +7,8 @@
  * WHAT IT DOES
  * ─────────────────────────────────────────────────────────────────────────────
  * Nothing is charged. A buyer whose TackQuote credit line is active, in the
- * cart's currency, with a limit that covers the order, may choose "pay on net
- * terms" at checkout. The order is placed ON HOLD with a note naming the terms;
+ * cart's currency, with remaining credit (`available`, else the limit) that
+ * covers the order, may choose "pay on net terms" at checkout. The order is placed ON HOLD with a note naming the terms;
  * order sync sends `payment.method = tackquote_net_terms` and TackQuote books it
  * as a terms order and invoices it. `payment_complete()` is deliberately never
  * called, because nothing was paid (WooCommerce Payment Gateway API, the Cheque
@@ -99,7 +99,7 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 		$this->id                 = self::ID;
 		$this->has_fields         = false;
 		$this->method_title       = __( 'Net terms (TackQuote)', 'tackquote' );
-		$this->method_description = __( 'Lets buyers TackQuote has approved for net terms place an order without paying now. The order is put on hold and TackQuote invoices it on the buyer\'s terms. Shown only to a signed-in buyer whose TackQuote credit line is active, in the checkout currency, with a limit that covers the order; hidden whenever TackQuote cannot confirm that.', 'tackquote' );
+		$this->method_description = __( 'Lets buyers TackQuote has approved for net terms place an order without paying now. The order is put on hold and TackQuote invoices it on the buyer\'s terms. Shown only to a signed-in buyer whose TackQuote credit line is active, in the checkout currency, whose remaining available credit (or, when TackQuote does not report it, the limit) covers the order; hidden whenever TackQuote cannot confirm that.', 'tackquote' );
 		$this->supports           = array( 'products' );
 
 		$this->init_form_fields();

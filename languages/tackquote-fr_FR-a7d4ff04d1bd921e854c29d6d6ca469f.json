@@ -1,0 +1,50 @@
+{
+    "generator": "bin/build-translations.php",
+    "domain": "messages",
+    "source": "assets/js/tack-quotes.js",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "fr_FR",
+                "plural-forms": "nplurals=2; plural=n > 1;"
+            },
+            "Address line 2": [
+                "Adresse (ligne 2)"
+            ],
+            "City": [
+                "Ville"
+            ],
+            "Close": [
+                "Fermer"
+            ],
+            "Country": [
+                "Pays"
+            ],
+            "Phone": [
+                "Téléphone"
+            ],
+            "Please enter a valid email address.": [
+                "Veuillez saisir une adresse e-mail valide."
+            ],
+            "Postal code": [
+                "Code postal"
+            ],
+            "Quantity": [
+                "Quantité"
+            ],
+            "Remove": [
+                "Retirer"
+            ],
+            "Request a Quote": [
+                "Demander un devis"
+            ],
+            "Your cart is empty.": [
+                "Votre panier est vide."
+            ],
+            "Your price": [
+                "Votre prix"
+            ]
+        }
+    }
+}

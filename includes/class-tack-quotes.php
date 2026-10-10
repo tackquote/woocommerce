@@ -133,12 +133,9 @@ final class Tack_Quotes {
 		// hook rather than an inline call here on plugins_loaded.
 		add_action( 'admin_init', array( $this, 'add_privacy_policy_content' ) );
 
-		// There is deliberately NO manual textdomain load here — see
-		// https://make.wordpress.org/core/2016/07/06/i18n-improvements-in-4-6/
-		// WordPress.org serves translations for hosted plugins automatically from the
-		// plugin slug as of WP 4.6, Plugin Check flags the manual call as a discouraged
-		// function, and this plugin ships no /languages directory — so the call was
-		// loading nothing anyway.
+		// The textdomain is registered on `init` by tack_quotes_load_textdomain() in
+		// tackquote.php, not here: this runs on plugins_loaded, which WordPress 6.7+
+		// reports as too early for translation loading.
 	}
 
 	/**
@@ -251,9 +248,9 @@ final class Tack_Quotes {
 		// Order sync ships OFF. It sends personal data to a third party, so it is the
 		// merchant's decision to make, not a default to be discovered later.
 		add_option( 'tack_quotes_enable_order_sync', 'no' );
-		add_option( 'tack_quotes_button_label', __( 'Add to Quote', 'tackquote' ) );
-		add_option( 'tack_quotes_request_button_label', __( 'Request a Quote', 'tackquote' ) );
-		add_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) );
+		// The button labels are NOT stored here (they were until 1.9.0): a stored default
+		// freezes the activation-time language. Blank means the translated default; see
+		// Tack_Widget::button_label().
 		add_option( 'tack_quotes_show_add_to_quote', 'yes' );
 		add_option( 'tack_quotes_show_request_quote', 'yes' );
 		add_option( 'tack_quotes_schema_version', TACK_QUOTES_VERSION );

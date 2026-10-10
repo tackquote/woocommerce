@@ -1,0 +1,50 @@
+{
+    "generator": "bin/build-translations.php",
+    "domain": "messages",
+    "source": "assets/js/tack-quotes.js",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "it_IT",
+                "plural-forms": "nplurals=2; plural=n != 1;"
+            },
+            "Address line 2": [
+                "Indirizzo (riga 2)"
+            ],
+            "City": [
+                "Città"
+            ],
+            "Close": [
+                "Chiudi"
+            ],
+            "Country": [
+                "Paese"
+            ],
+            "Phone": [
+                "Telefono"
+            ],
+            "Please enter a valid email address.": [
+                "Inserisca un indirizzo email valido."
+            ],
+            "Postal code": [
+                "CAP"
+            ],
+            "Quantity": [
+                "Quantità"
+            ],
+            "Remove": [
+                "Rimuovi"
+            ],
+            "Request a Quote": [
+                "Richiedi un preventivo"
+            ],
+            "Your cart is empty.": [
+                "Il Suo carrello è vuoto."
+            ],
+            "Your price": [
+                "Il Suo prezzo"
+            ]
+        }
+    }
+}

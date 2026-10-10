@@ -20,8 +20,11 @@ function esc_url( $url ) { return $url; }
 // WordPress escapes; an identity stub would let an unescaped renderer pass (W1-forms).
 function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8', false ); }
 function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8', false ); }
-function esc_html__( $text, $domain = null ) { return $text; }
-function __( $text, $domain = null ) { return $text; }
+// A test can load a "translation" into TACK_TRANSLATIONS (msgid => msgstr) to prove a
+// string really goes through gettext at render time; empty by default, so identity.
+$GLOBALS['TACK_TRANSLATIONS'] = array();
+function esc_html__( $text, $domain = null ) { return __( $text, $domain ); }
+function __( $text, $domain = null ) { return $GLOBALS['TACK_TRANSLATIONS'][ $text ] ?? $text; }
 $GLOBALS['TACK_HOOKS']   = array();
 $GLOBALS['TACK_REMOVED'] = array();
 $GLOBALS['TACK_FILTERS'] = array();

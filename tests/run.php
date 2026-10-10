@@ -80,6 +80,8 @@ require __DIR__ . '/order-payload-test.php';
 // takes by injection so no HTTP is ever attempted here.
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
+// Pricing reads the shared email-trust rule from the notices class.
+require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require __DIR__ . '/wholesale-pricing-test.php';
 
 // Order limits and the buyer-group badge.
@@ -114,6 +116,10 @@ require __DIR__ . '/storefront-parity-test.php';
 // 1.9.0 net-terms payment gateway, its Checkout block integration, the PO field.
 echo "\n-- net-terms gateway + Blocks + PO number --\n";
 require __DIR__ . '/net-terms-gateway-test.php';
+
+// Bundled translations: generated .mo/.po/JED, the mapping, and the wp.i18n wiring.
+echo "\n-- translations (languages/) --\n";
+require __DIR__ . '/i18n-test.php';
 
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
