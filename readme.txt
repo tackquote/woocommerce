@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.10.2
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,7 @@ Request a quote from WooCommerce for B2B wholesale quoting — sync orders to yo
 
 **TackQuote for WooCommerce** lets B2B and wholesale shoppers ask for a price instead of checking out, and can sync orders one way to your TackQuote account.
 
-It is for stores that sell to trade customers (wholesalers, distributors, manufacturers) and quote prices per account, per quantity or per order. Setup is one field: paste your TackQuote API key.
+It is for stores that sell to trade customers (wholesalers, distributors, manufacturers) and quote prices per account, per quantity or per order. Setup is one button: press **Connect with TackQuote**, sign in or create a TackQuote account, and approve. Pasting a TackQuote API key still works too.
 
 [Learn more about the WooCommerce integration](https://tackquote.com/integrations/woocommerce) &middot; [Create a free TackQuote account](https://app.tackquote.com/register)
 
@@ -33,6 +33,7 @@ It is for stores that sell to trade customers (wholesalers, distributors, manufa
 * **Wholesale** and **net-terms application forms**, and a **Net terms** payment method with an optional PO number.
 * **Accepted quote checkout**: the buyer pays an accepted quote at your normal checkout, at the quoted prices.
 * Optional one-way **order sync** to TackQuote, off by default and queued so it never runs inside checkout.
+* **Connect with TackQuote**: connect the store by signing in and approving, with no key to copy, or paste an API key as before.
 * Works with **HPOS**, the Cart and Checkout blocks, and block and classic themes.
 * Storefront text in English and seven more languages.
 
@@ -54,11 +55,12 @@ switch it on — to send data about orders placed in your store.
 
 The service is required for the plugin to work. Without a TackQuote account and API key the
 plugin cannot create quotes, and its storefront buttons do nothing. Nothing is sent anywhere
-until you enter an API key.
+until you enter an API key or press **Connect with TackQuote**.
 
 All requests go to the API base URL set under **TackQuote → TackQuote API URL**, which is
 `https://api.tackquote.com/v1` unless your TackQuote support contact gave you a different
-one. Every request carries your TackQuote API key so the service can identify your account,
+one. Every request (except the two Connect with TackQuote calls in item 12, made before the
+store has a key) carries your TackQuote API key so the service can identify your account,
 and (since 1.10.0) headers naming this plugin's version (`X-TackQuote-Plugin-Version`) and the
 store's address (`X-TackQuote-Site-Url`), so TackQuote can tell which build and store sent it. The API key needs the `buyers:write` scope for
 the two application forms below; the read-only storefront lookups need no extra scope.
@@ -148,6 +150,24 @@ token (`uploadToken`). TackQuote deletes a file that was never attached to a req
 hours (quote files) or 7 days (application files); attached files are kept with the quote or
 application for the seller.
 
+12. **Connect with TackQuote** (since 1.11.0) — `POST /woocommerce-connect/requests` and
+`POST /woocommerce-connect/exchange`. Sent only when an administrator presses "Connect with
+TackQuote" on the Connection tab, and carry no API key. The first sends your store's address
+(`home_url()`), its WordPress admin address, the return address on your own site
+(`wp-admin/admin-post.php?action=tackquote_connect_return`), the site name, the plugin,
+WordPress and WooCommerce versions, the site language, a random value signed by your site,
+and a one-way code challenge (SHA-256 of a secret that stays on your site). No customer,
+order or product data. TackQuote answers with an address on its own web app, and your browser
+is sent there to sign in (or create an account) and approve or cancel; TackQuote then sends
+your browser back to your site's return address with a one-time code. The second call sends
+that code, the secret behind the code challenge, and your store's address, and TackQuote
+answers once with an API key, which is stored exactly like a pasted one.
+
+13. **Revoke a Connect key** (since 1.11.0) — `POST /integrations/woocommerce/plugin-key/revoke`.
+Sent only when an administrator presses "Remove saved API key" and the saved key came from
+Connect with TackQuote. Sends that key (to say which key to revoke) and nothing else. A key you
+pasted is never revoked: it is only deleted from your site.
+
 This plugin sends data to no other external service.
 
 The TackQuote service is provided by TackQuote. By using this plugin you agree to their
@@ -166,9 +186,9 @@ WooCommerce must be installed and active first, and you need a TackQuote account
 1. In WP Admin go to **Plugins → Add New**, search for **TackQuote for WooCommerce**, and click **Install Now**.
 2. Activate **TackQuote for WooCommerce**.
 3. Open **TackQuote** in the admin menu.
-4. Paste your **TackQuote API Key** (TackQuote → Settings → Developer → API Keys). Leave the API URL as the default unless support gives you another base URL.
+4. On the **Connection** tab press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; you come back to the Connection tab connected. Or paste your **TackQuote API Key** (TackQuote → Settings → Developer → API Keys) and save. Leave the API URL as the default unless support gives you another base URL.
 5. Work down the numbered sections in order — they are arranged as a setup sequence, and each one only depends on the ones above it. Then click **Save TackQuote settings**.
-6. Click **Test TackQuote connection** to verify.
+6. Click **Test TackQuote connection** to verify (Connect with TackQuote runs this test for you).
 
 Before you enter an API key, read the **External services** section above: the plugin cannot
 create quotes without sending data to the TackQuote API.
@@ -198,6 +218,8 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `GET /storefront/v1/net-terms` — a signed-in customer's net terms, at checkout and on the "Net terms" My Account tab (both off by default).
 * `GET /integrations/woocommerce/quote-checkout/<token>` — opens an accepted quote's checkout link. Sends only the token.
 * `POST /storefront/v1/quote-upload`, `POST /storefront/v1/wholesale-upload`, `POST /storefront/v1/wholesale-signup/<slug>` — files a shopper attaches to a quote request (only when "Allow attachments on quote requests" is on; off by default) or to a wholesale application (signed-in customers only), and an application that carries files. Sends the file's bytes and name, and the signed-in customer's account email address and WordPress user ID; a guest's quote files carry only a single-use upload token. Unattached files are deleted by TackQuote after 24 hours (quote) or 7 days (application).
+* `POST /woocommerce-connect/requests`, `POST /woocommerce-connect/exchange` — **Connect with TackQuote**, only when an administrator presses the button. Sends the store's and admin addresses, the return address on your site, the site name, plugin, WordPress and WooCommerce versions, the site language, a signed random value, a code challenge, and then the one-time code and its secret. No customer data.
+* `POST /integrations/woocommerce/plugin-key/revoke` — when an administrator removes a saved key that Connect with TackQuote created. Sends only that key.
 * `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
 
 Every request carries `X-TackQuote-Plugin-Version` (the plugin's version) and `X-TackQuote-Site-Url` (your store's address, `home_url()`).
@@ -229,7 +251,11 @@ The plugin adds suggested wording to **Settings → Privacy → Policy guide** i
 
 = Where do I get an API key? =
 
-In TackQuote, go to **Settings → Developer → API Keys**.
+You may not need one: press **Connect with TackQuote** on the plugin's Connection tab, sign in and approve, and TackQuote creates a key for this store and sends it back to your site directly. To paste one by hand instead, in TackQuote go to **Settings → Developer → API Keys**.
+
+= Does Connect with TackQuote work on a local or staging site? =
+
+It needs your site to use https. A development address (such as a `.test` name or a private IP) may use plain http. Other http sites can paste an API key instead.
 
 = Does it work with High-Performance Order Storage (HPOS)? =
 
@@ -348,6 +374,8 @@ transaction ID is a reference the gateway issued, not an instrument.
 = What does the plugin store on my site, and what does deleting it remove? =
 
 * Plugin settings, as WordPress options: the TackQuote API key, API URL, button labels, and the feature toggles.
+* `tack_quotes_connect_secret` — a random value, created the first time Connect with TackQuote is pressed, that signs the connect request so this site can recognise the answer. Never sent anywhere. `tack_quotes_connected_via` (`connect` or `key`) and `tack_quotes_connected_at` record how and when the saved key arrived.
+* `tack_quotes_connect_<hash>` — a 15-minute transient holding one pending Connect with TackQuote (the code verifier, a hash of the signed value, the administrator's user ID and TackQuote's request ID), deleted when the administrator comes back. `tack_quotes_connect_notice_<user id>` — a 5-minute transient carrying the outcome to the settings page.
 * `tack_quotes_registration_config` — a transient caching the quote-form field policy for 15 minutes.
 * `tack_qr_*` — short-lived transients counting quote requests per visitor for rate limiting. They hold a salted hash of the visitor's IP address, never the address itself, and expire after 5 minutes.
 * `tack_quotes_wholesale_form_cache` — a transient caching wholesale form definitions for 5 minutes (60 seconds after a failure).
@@ -386,6 +414,12 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= 1.11.0 =
+* **Connect with TackQuote.** On the Connection tab, press Connect with TackQuote, sign in to TackQuote or create an account, and approve: the plugin is connected, with no API key to copy. TackQuote creates a key for this store and the plugin fetches it server to server with a one-time code and a PKCE (S256) verifier that never leaves your site; the return is checked against a value your site signed, the administrator who started it and your site's address, and it works once. The key is stored and masked exactly like a pasted one, and the connection test runs straight away. A cancel, an expired or reused link, a site address mismatch, a plain-http public site, a plan limit or an unreachable server each gets its own message, and nothing changes. Connect needs https (plain http only on a development address).
+* **Pasting an API key works exactly as before**, under "Or paste an API key". The Overview and the Connection tab show whether the saved key came from Connect with TackQuote or was pasted.
+* **Remove saved API key** also revokes the key in TackQuote when Connect with TackQuote created it (best effort; the key is removed from your site either way, and you are told if TackQuote could not be reached). A pasted key is only removed from your site, as before.
+* The plugin sends data to TackQuote for Connect only when an administrator presses the button; see External services items 12 and 13. Uninstall removes the three new options.
 
 = 1.10.2 =
 * **Fixed: after a quote request the shopper is no longer sent to a sign-in page.** The quote form used to show its confirmation for under a second and then load the buyer portal, which asks a shopper without a portal account to sign in. The form now stays open on "Your quote request was received. The seller will reply to you by email." and offers "Open your buyer portal" as a link when TackQuote sends one. Same for "Checkout as Quote".

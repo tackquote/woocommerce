@@ -471,6 +471,16 @@
 	border-color: #f0b8b9;
 }
 
+/* Connect with TackQuote: the primary way in, above the paste-a-key form. */
+.tack-connect {
+	margin-top: 20px;
+	border-inline-start: 4px solid var(--tack-accent);
+}
+
+.tack-connect__form {
+	margin: 4px 0 8px;
+}
+
 .tack-checklist-card {
 	margin-top: 20px;
 	border-inline-start: 4px solid var(--tack-accent);
