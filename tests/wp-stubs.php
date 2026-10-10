@@ -342,7 +342,6 @@ function tack_test_set_logged_in( $logged_in, $email ) {
 
 // ── Tax stubs, for the net -> store-basis conversion ────────────────────────
 $GLOBALS['TACK_PRICES_INCLUDE_TAX'] = false;
-$GLOBALS['TACK_TAX_RATE']           = 0.20;
 
 if ( ! function_exists( 'wc_prices_include_tax' ) ) {
 	/** @return bool */
@@ -351,18 +350,9 @@ if ( ! function_exists( 'wc_prices_include_tax' ) ) {
 	}
 }
 
-if ( ! function_exists( 'wc_get_price_including_tax' ) ) {
-	/**
-	 * @param object $product Product.
-	 * @param array  $args    qty/price.
-	 * @return float
-	 */
-	function wc_get_price_including_tax( $product, $args = array() ) {
-		$price = isset( $args['price'] ) ? (float) $args['price'] : 0.0;
-		unset( $product );
-		return round( $price * ( 1 + (float) $GLOBALS['TACK_TAX_RATE'] ), 2 );
-	}
-}
+// wc_get_price_including_tax(), WC_Tax and the cart maths: tests/wc-tax-stubs.php,
+// transcribed from WooCommerce 11.2.1. The stub that stood here grossed a price up
+// on an inclusive store, which WooCommerce does not do: it encoded the bug.
 
 /**
  * Switch the store's tax basis from a test.
@@ -1320,3 +1310,5 @@ if ( ! function_exists( 'woocommerce_form_field' ) ) {
 	}
 }
 // ═══ END W2-net-terms stubs ═══
+
+require_once __DIR__ . '/wc-tax-stubs.php';

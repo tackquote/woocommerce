@@ -79,6 +79,7 @@ require __DIR__ . '/order-payload-test.php';
 // B2B pricing resolved by Tack. Requires the API client, which the pricing class
 // takes by injection so no HTTP is ever attempted here.
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-basis.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
 // Pricing reads the shared email-trust rule from the notices class.
 require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
@@ -135,6 +136,9 @@ require __DIR__ . '/i18n-test.php';
 // 1.9.0 accepted quote -> store checkout link (parity row 10).
 echo "\n-- quote checkout link --\n";
 require __DIR__ . '/quote-checkout-test.php';
+
+// Tack_Tax_Basis: net TackQuote prices on inclusive / exclusive stores.
+require __DIR__ . '/tax-basis-test.php';
 
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

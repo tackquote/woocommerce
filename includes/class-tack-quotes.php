@@ -16,6 +16,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-widget.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-sync-gate.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-order-sync.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-mode.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-basis.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';

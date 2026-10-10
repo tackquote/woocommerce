@@ -36,6 +36,29 @@ class Tack_Test_Product {
 	/** @var float The store's own price. */
 	public $regular = 0.0;
 
+	/** @var bool Taxable (tax status `taxable` and taxes on). */
+	public $taxable = true;
+
+	/**
+	 * Taxable?
+	 *
+	 * @return bool
+	 */
+	public function is_taxable() {
+		return $this->taxable;
+	}
+
+	/**
+	 * Tax class (standard).
+	 *
+	 * @param string $context Context.
+	 * @return string
+	 */
+	public function get_tax_class( $context = 'view' ) {
+		unset( $context );
+		return '';
+	}
+
 	/**
 	 * SKU accessor.
 	 *
@@ -317,10 +340,11 @@ $pricing = new Tack_Wholesale_Pricing( $net2 );
 $fixture = tack_test_cart( 'SG-100', 1, 150.0 );
 tack_test_set_prices_include_tax( true );
 $pricing->apply_cart_prices( $fixture['cart'] );
+$line = tack_stub_cart_line( $fixture['product'], 1 );
 check(
 	'a tax-INCLUSIVE store gets the net price grossed up, so the seller does not eat the VAT',
-	120.0 === $fixture['product']->get_price(),
-	'got ' . var_export( $fixture['product']->get_price(), true ) . ' (expected 120.00 from 100.00 net at 20%)'
+	abs( 120.0 - $fixture['product']->get_price() ) < 1e-9 && 100.0 === $line['subtotal'] && 20.0 === $line['tax'],
+	'set ' . var_export( $fixture['product']->get_price(), true ) . ', cart ' . wp_json_encode( $line ) . ' (expected 120 set, 100.00 + 20.00 tax)'
 );
 tack_test_set_prices_include_tax( false );
 

@@ -1551,6 +1551,7 @@ class Tack_Widget {
 				'variation_id' => $row['variation_id'],
 				'quantity'     => $row['quantity'],
 				'sku'          => $sku,
+				'product'      => $product,
 			);
 		}
 		if ( empty( $asks ) ) {
@@ -1571,7 +1572,7 @@ class Tack_Widget {
 				'unitPrice'    => $unit,
 				'formatted'    => null === $unit || ! function_exists( 'wc_price' )
 					? ''
-					: html_entity_decode( wp_strip_all_tags( wc_price( $unit ) ), ENT_QUOTES, 'UTF-8' ),
+					: html_entity_decode( wp_strip_all_tags( wc_price( Tack_Tax_Basis::display_price( $unit, $line['product'] ) ) ), ENT_QUOTES, 'UTF-8' ),
 			);
 		}
 
