@@ -106,6 +106,9 @@ $tack_quotes_options = array(
 	'tack_quotes_fab_show_count',
 	'tack_quotes_fab_size',
 	'tack_quotes_fab_hide_mobile',
+	// 1.10.0 Storefront > Styling.
+	'tack_quotes_theme_styles_only',
+	'tack_quotes_accent_color',
 );
 
 /**

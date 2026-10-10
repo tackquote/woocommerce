@@ -635,25 +635,51 @@ class Tack_Wholesale_Pricing {
 			return;
 		}
 
-		echo '<table class="tackquote-quantity-breaks"><caption>'
-			. esc_html__( 'Volume pricing', 'tackquote' )
-			. '</caption><thead><tr><th scope="col">'
-			. esc_html__( 'Quantity', 'tackquote' )
-			. '</th><th scope="col">'
-			. esc_html__( 'Unit price', 'tackquote' )
-			. '</th></tr></thead><tbody>';
+		$this->render_breaks_table( __( 'Volume pricing', 'tackquote' ), $rows, $product, false, array() );
+	}
 
+	/**
+	 * Print the volume-pricing table through its overridable template
+	 * (`templates/tackquote/single-product/quantity-breaks.php`).
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $caption          Caption.
+	 * @param array  $rows             `{qty, unit}` rows, ascending, at least two.
+	 * @param object $product          WC_Product, for its tax class.
+	 * @param bool   $account_specific The ladder is this account's own.
+	 * @param array  $price_args       `wc_price()` arguments (currency).
+	 * @return void
+	 */
+	private function render_breaks_table( $caption, array $rows, $product, $account_specific, array $price_args ) {
+		$out = array();
 		foreach ( $rows as $row ) {
-			echo '<tr><td>'
+			$out[] = array(
+				'qty'        => (int) $row['qty'],
 				/* translators: %d: minimum quantity for this price tier. */
-				. esc_html( sprintf( __( '%d+', 'tackquote' ), $row['qty'] ) )
-				. '</td><td>'
-				// wc_price() returns markup that is already escaped by WooCommerce.
-				. wp_kses_post( wc_price( Tack_Tax_Basis::display_price( $row['unit'], $product ) ) )
-				. '</td></tr>';
+				'qty_label'  => sprintf( __( '%d+', 'tackquote' ), $row['qty'] ),
+				// wc_price() returns markup already escaped by WooCommerce.
+				'price_html' => wc_price( Tack_Tax_Basis::display_price( $row['unit'], $product ), $price_args ),
+			);
 		}
+		$args = array(
+			'classes' => 'tackquote-quantity-breaks' . ( $account_specific ? ' tackquote-quantity-breaks-account' : '' ) . ' shop_table',
+			'caption' => (string) $caption,
+			'rows'    => $out,
+			'product' => $product,
+		);
 
-		echo '</tbody></table>';
+		/**
+		 * Filters what the volume-pricing table template receives.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param array  $args    See templates/tackquote/single-product/quantity-breaks.php.
+		 * @param object $product The product.
+		 */
+		$args = array_merge( $args, (array) apply_filters( 'tackquote_quantity_breaks_args', $args, $product ) );
+
+		Tack_Templates::render( 'single-product/quantity-breaks.php', $args );
 	}
 
 	/**
@@ -712,25 +738,7 @@ class Tack_Wholesale_Pricing {
 			: __( 'Volume pricing', 'tackquote' );
 		$args    = '' !== $currency ? array( 'currency' => $currency ) : array();
 
-		echo '<table class="tackquote-quantity-breaks' . ( $account_specific ? ' tackquote-quantity-breaks-account' : '' ) . '"><caption>'
-			. esc_html( $caption )
-			. '</caption><thead><tr><th scope="col">'
-			. esc_html__( 'Quantity', 'tackquote' )
-			. '</th><th scope="col">'
-			. esc_html__( 'Unit price', 'tackquote' )
-			. '</th></tr></thead><tbody>';
-
-		foreach ( $distinct as $row ) {
-			echo '<tr><td>'
-				/* translators: %d: minimum quantity for this price tier. */
-				. esc_html( sprintf( __( '%d+', 'tackquote' ), $row['qty'] ) )
-				. '</td><td>'
-				// wc_price() returns markup that is already escaped by WooCommerce.
-				. wp_kses_post( wc_price( Tack_Tax_Basis::display_price( $row['unit'], $product ), $args ) )
-				. '</td></tr>';
-		}
-
-		echo '</tbody></table>';
+		$this->render_breaks_table( $caption, $distinct, $product, $account_specific, $args );
 	}
 
 	/**

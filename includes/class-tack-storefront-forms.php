@@ -400,29 +400,23 @@ class Tack_Storefront_Forms {
 		$blocking  = $this->required_file_field( $fields );
 		$file_mode = $this->file_mode( $fields );
 
-		if ( ! empty( $form['name'] ) ) {
-			$html .= '<h2 class="tackquote-form-title">' . esc_html( (string) $form['name'] ) . '</h2>';
-		}
-		if ( ! empty( $form['description'] ) ) {
-			$html .= '<p class="tackquote-form-description">' . esc_html( (string) $form['description'] ) . '</p>';
-		}
-
-		$enctype = 'upload' === $file_mode ? ' enctype="multipart/form-data"' : '';
-		$html   .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"' . $enctype . ' class="woocommerce-form tackquote-form" data-tack-form="wholesale">';
+		$fields_html = '';
 		foreach ( $fields as $field ) {
 			if ( ! is_array( $field ) || empty( $field['key'] ) || empty( $field['type'] ) ) {
 				continue;
 			}
-			$key   = (string) $field['key'];
-			$value = array_key_exists( $key, $refill ) ? $refill[ $key ] : ( isset( $prefill[ $key ] ) ? $prefill[ $key ] : '' );
-			$html .= $this->render_field( $field, 'tack_sf', $value, $file_mode );
+			$key          = (string) $field['key'];
+			$value        = array_key_exists( $key, $refill ) ? $refill[ $key ] : ( isset( $prefill[ $key ] ) ? $prefill[ $key ] : '' );
+			$fields_html .= $this->render_field( $field, 'tack_sf', $value, $file_mode );
 		}
 
+		$blocked = '';
+		$hidden  = '';
 		if ( null !== $blocking && 'signin' === $file_mode ) {
-			$html .= $this->notice( 'info', __( 'This application asks for a document, so you need to be signed in to apply.', 'tackquote' ) );
-			$html .= '<p class="tackquote-signin"><a class="button wp-element-button" href="' . esc_url( $this->account_url( 'dashboard' ) ) . '">' . esc_html__( 'Sign in', 'tackquote' ) . '</a></p>';
+			$blocked = $this->notice( 'info', __( 'This application asks for a document, so you need to be signed in to apply.', 'tackquote' ) )
+				. '<p class="tackquote-signin"><a class="' . esc_attr( self::button_class( 'tackquote-signin-link' ) ) . '" href="' . esc_url( $this->account_url( 'dashboard' ) ) . '">' . esc_html__( 'Sign in', 'tackquote' ) . '</a></p>';
 		} elseif ( null !== $blocking && 'upload' !== $file_mode ) {
-			$html .= $this->notice(
+			$blocked = $this->notice(
 				'info',
 				sprintf(
 					/* translators: %s: the label of the attachment field the form requires. */
@@ -431,13 +425,28 @@ class Tack_Storefront_Forms {
 				)
 			);
 		} else {
-			$html .= '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_WHOLESALE ) . '" />';
-			$html .= '<input type="hidden" name="tack_slug" value="' . esc_attr( $slug ) . '" />';
-			$html .= '<input type="hidden" name="tack_redirect" value="' . esc_url( $return_url ) . '" />';
-			$html .= wp_nonce_field( self::ACTION_WHOLESALE, '_tack_nonce', true, false );
-			$html .= '<p class="form-row"><button type="submit" class="button wp-element-button tackquote-submit">' . esc_html__( 'Submit application', 'tackquote' ) . '</button></p>';
+			$hidden = '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_WHOLESALE ) . '" />'
+				. '<input type="hidden" name="tack_slug" value="' . esc_attr( $slug ) . '" />'
+				. '<input type="hidden" name="tack_redirect" value="' . esc_url( $return_url ) . '" />'
+				. wp_nonce_field( self::ACTION_WHOLESALE, '_tack_nonce', true, false );
 		}
-		$html .= '</form>';
+
+		$html .= $this->form_template(
+			'myaccount/form-wholesale-application.php',
+			array(
+				'notices'      => '',
+				'title'        => ! empty( $form['name'] ) ? (string) $form['name'] : '',
+				'description'  => ! empty( $form['description'] ) ? (string) $form['description'] : '',
+				'action_url'   => admin_url( 'admin-post.php' ),
+				'multipart'    => 'upload' === $file_mode,
+				'fields'       => $fields_html,
+				'blocked'      => $blocked,
+				'hidden'       => $hidden,
+				'submit_label' => __( 'Submit application', 'tackquote' ),
+				'submit_class' => self::button_class( 'tackquote-submit' ),
+			),
+			'wholesale'
+		);
 
 		$this->enqueue_assets();
 		return $this->kses( '<div class="tackquote-storefront-form tackquote-wholesale-application">' . $html . '</div>' );
@@ -953,7 +962,7 @@ class Tack_Storefront_Forms {
 	public function render_net_terms_form( $return_url ) {
 		if ( ! is_user_logged_in() ) {
 			$html = $this->notice( 'info', __( 'Please log in to your account to apply for net terms.', 'tackquote' ) )
-				. '<p class="tackquote-login-link"><a class="button wp-element-button" href="' . esc_url( wp_login_url( $return_url ) ) . '">' . esc_html__( 'Log in', 'tackquote' ) . '</a></p>';
+				. '<p class="tackquote-login-link"><a class="' . esc_attr( self::button_class( 'tackquote-login' ) ) . '" href="' . esc_url( wp_login_url( $return_url ) ) . '">' . esc_html__( 'Log in', 'tackquote' ) . '</a></p>';
 			return $this->kses( '<div class="tackquote-storefront-form tackquote-net-terms-application">' . $html . '</div>' );
 		}
 
@@ -974,10 +983,8 @@ class Tack_Storefront_Forms {
 			return isset( $refill[ $key ] ) && is_string( $refill[ $key ] ) ? $refill[ $key ] : $fallback;
 		};
 
-		$html .= '<p class="tackquote-form-description">' . esc_html__( 'Apply to pay on account. The store reviews every application and will email you with its decision.', 'tackquote' ) . '</p>';
-		$html .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" class="woocommerce-form tackquote-form" data-tack-form="credit">';
-
-		$html .= $this->input_row(
+		$notices = $html;
+		$html    = $this->input_row(
 			'tack_ct[legalBusinessName]',
 			__( 'Legal business name', 'tackquote' ),
 			$pick( 'legalBusinessName', $billing['company'] ),
@@ -1058,11 +1065,21 @@ class Tack_Storefront_Forms {
 		$html .= '<p class="form-row form-row-wide"><label for="tack_ct_notes">' . esc_html__( 'Notes', 'tackquote' ) . ' <span class="optional">' . esc_html__( '(optional)', 'tackquote' ) . '</span></label>'
 			. '<textarea name="tack_ct[notes]" id="tack_ct_notes" class="input-text" rows="4" maxlength="2000">' . esc_textarea( $pick( 'notes' ) ) . '</textarea></p>';
 
-		$html .= '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_CREDIT ) . '" />';
-		$html .= '<input type="hidden" name="tack_redirect" value="' . esc_url( $return_url ) . '" />';
-		$html .= wp_nonce_field( self::ACTION_CREDIT, '_tack_nonce', true, false );
-		$html .= '<p class="form-row"><button type="submit" class="button wp-element-button tackquote-submit">' . esc_html__( 'Apply for net terms', 'tackquote' ) . '</button></p>';
-		$html .= '</form>';
+		$html = $this->form_template(
+			'myaccount/form-net-terms-application.php',
+			array(
+				'notices'      => $notices,
+				'description'  => __( 'Apply to pay on account. The store reviews every application and will email you with its decision.', 'tackquote' ),
+				'action_url'   => admin_url( 'admin-post.php' ),
+				'fields'       => $html,
+				'hidden'       => '<input type="hidden" name="action" value="' . esc_attr( self::ACTION_CREDIT ) . '" />'
+					. '<input type="hidden" name="tack_redirect" value="' . esc_url( $return_url ) . '" />'
+					. wp_nonce_field( self::ACTION_CREDIT, '_tack_nonce', true, false ),
+				'submit_label' => __( 'Apply for net terms', 'tackquote' ),
+				'submit_class' => self::button_class( 'tackquote-submit' ),
+			),
+			'credit'
+		);
 
 		return $this->kses( '<div class="tackquote-storefront-form tackquote-net-terms-application">' . $html . '</div>' );
 	}
@@ -1792,6 +1809,41 @@ class Tack_Storefront_Forms {
 			return $permalink;
 		}
 		return home_url( '/' );
+	}
+
+	/**
+	 * Render a form template, after `tackquote_storefront_form_args`.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $template Template under `tackquote/`.
+	 * @param array  $args     Template variables.
+	 * @param string $form     `wholesale` or `credit`.
+	 * @return string Template output (the caller passes it through kses()).
+	 */
+	private function form_template( $template, array $args, $form ) {
+		/**
+		 * Filters what a storefront form template receives.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param array  $args Template variables; see the template's header.
+		 * @param string $form `wholesale` (wholesale application) or `credit` (net terms).
+		 */
+		$args = array_merge( $args, (array) apply_filters( 'tackquote_storefront_form_args', $args, $form ) );
+		return Tack_Templates::html( $template, $args );
+	}
+
+	/**
+	 * The theme's button classes (see Tack_Widget::button_class()).
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $extra Plugin classes to append.
+	 * @return string
+	 */
+	private static function button_class( $extra ) {
+		return class_exists( 'Tack_Widget' ) ? Tack_Widget::button_class( $extra ) : trim( 'button wp-element-button ' . $extra );
 	}
 
 	/**

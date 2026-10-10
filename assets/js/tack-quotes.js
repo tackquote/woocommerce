@@ -227,7 +227,15 @@
     if (onQuotePage()) {
       return;
     }
-    $('#tack-quote-list-drawer').prop('hidden', false);
+    setDrawerOpen(true);
+  }
+
+  // 1.10.0: the theme's own button classes (`button`, plus `wp-element-button` on a
+  // block theme), printed by Tack_Widget::button_class(), so the modal's buttons
+  // look like every other button on the store. `extra` is appended.
+  function buttonClass(extra) {
+    var base = typeof TackQuotes.buttonClass === 'string' ? TackQuotes.buttonClass : 'button';
+    return escapeHtml(base + (extra ? ' ' + extra : ''));
   }
 
   // Re-price the list at the line quantities for a signed-in buyer: one batched call,
@@ -297,7 +305,7 @@
       // Editable quantity (1.10.0). A change re-prices the line for a signed-in buyer.
       var $qty = $('<span class="tack-quote-list-item-qty"></span>');
       $qty.append(document.createTextNode('×'));
-      var $input = $('<input type="number" min="1" step="1" class="tack-quote-list-item-qty-input" />')
+      var $input = $('<input type="number" min="1" step="1" class="input-text qty tack-quote-list-item-qty-input" />')
         .attr('aria-label', TackQuotes.i18n.quantity)
         .val(row.quantity);
       $input.on('change', function () {
@@ -346,34 +354,62 @@
     $table.prop('hidden', list.length === 0);
     $('#tack-quote-page-submit').prop('disabled', list.length === 0);
 
+    // `shop_table_responsive` (1.10.0): on a narrow screen WooCommerce's stylesheet
+    // stacks each cell under its `data-title`, so every cell carries its column
+    // heading, read from the table's own (translated, overridable) header.
+    var titles = {};
+    $table.find('thead th').each(function () {
+      var col = (this.className.match(/tack-quote-page-col-[a-z]+/) || [''])[0];
+      // The remove column's heading is screen-reader text; WooCommerce's own cart
+      // gives that cell no title either.
+      if (col && col !== 'tack-quote-page-col-remove') {
+        titles[col] = $.trim($(this).text());
+      }
+    });
+    // WooCommerce's own cart-table cell classes beside ours, so the theme's cart
+    // styling applies (and the remove cell gets no stacked heading on phones).
+    var wcCell = {
+      'tack-quote-page-col-product': 'product-name',
+      'tack-quote-page-col-qty': 'product-quantity',
+      'tack-quote-page-col-price': 'product-price',
+      'tack-quote-page-col-remove': 'product-remove',
+    };
+    function cell(col) {
+      var $td = $('<td class="' + (wcCell[col] ? wcCell[col] + ' ' : '') + col + '"></td>');
+      if (titles[col]) {
+        $td.attr('data-title', titles[col]);
+      }
+      return $td;
+    }
+
     list.forEach(function (row) {
       var $tr = $('<tr class="tack-quote-page-item"></tr>');
-      var $name = $('<td class="tack-quote-page-col-product"></td>').text(row.name);
+      var $name = cell('tack-quote-page-col-product').text(row.name);
       if (row.sku) {
         $name.append($('<small class="tack-quote-page-item-sku"></small>').text(row.sku));
       }
       $tr.append($name);
 
-      var $qty = $('<input type="number" min="1" step="1" class="tack-quote-page-qty" />')
+      var $qty = $('<input type="number" min="1" step="1" class="input-text qty tack-quote-page-qty" />')
         .attr('aria-label', TackQuotes.i18n.quantity)
         .val(row.quantity);
       $qty.on('change', function () {
         setQuantity(row.productId, row.variationId, $qty.val());
       });
-      $tr.append($('<td class="tack-quote-page-col-qty"></td>').append($qty));
+      $tr.append(cell('tack-quote-page-col-qty').append($qty));
 
       var priceText = row.yourPrice && row.yourPriceQty === row.quantity ? row.yourPrice : row.price ? formatPrice(row.price) : '';
-      $tr.append($('<td class="tack-quote-page-col-price"></td>').text(priceText));
+      $tr.append(cell('tack-quote-page-col-price').text(priceText));
 
       if (withTarget) {
-        var $target = $('<input type="number" min="0" step="any" class="tack-quote-page-target" />')
+        var $target = $('<input type="number" min="0" step="any" class="input-text tack-quote-page-target" />')
           .attr('aria-label', TackQuotes.i18n.targetPrice)
           .attr('placeholder', TackQuotes.i18n.targetPricePlaceholder || '')
           .val(row.targetPrice == null ? '' : row.targetPrice);
         $target.on('change', function () {
           setTargetPrice(row.productId, row.variationId, $target.val());
         });
-        $tr.append($('<td class="tack-quote-page-col-target"></td>').append($target));
+        $tr.append(cell('tack-quote-page-col-target').append($target));
       }
 
       var $remove = $('<button type="button" class="tack-quote-page-remove">&times;</button>').attr(
@@ -383,7 +419,7 @@
       $remove.on('click', function () {
         removeFromList(row.productId, row.variationId);
       });
-      $tr.append($('<td class="tack-quote-page-col-remove"></td>').append($remove));
+      $tr.append(cell('tack-quote-page-col-remove').append($remove));
       $body.append($tr);
     });
   }
@@ -434,12 +470,12 @@
   function field(id, name, label, opts) {
     var o = opts || {};
     return (
-      '<div class="tack-quote-field' + (o.half ? ' tack-quote-field-half' : '') + '">' +
+      '<div class="form-row tack-quote-field' + (o.half ? ' tack-quote-field-half' : '') + '">' +
       '<label for="' + escapeHtml(id) + '">' +
       escapeHtml(label) +
       (o.required ? '' : ' <span class="tack-quote-optional">' + escapeHtml(TackQuotes.i18n.optional) + '</span>') +
       '</label>' +
-      '<input type="' + escapeHtml(o.type || 'text') + '" id="' + escapeHtml(id) + '" name="' + escapeHtml(name) + '"' +
+      '<input type="' + escapeHtml(o.type || 'text') + '" class="input-text" id="' + escapeHtml(id) + '" name="' + escapeHtml(name) + '"' +
       (o.placeholder ? ' placeholder="' + escapeHtml(o.placeholder) + '"' : '') +
       (o.required ? ' required' : '') +
       ' />' +
@@ -552,7 +588,7 @@
     }
     var i18n = TackQuotes.i18n;
     return (
-      '<div class="tack-quote-field tack-quote-files">' +
+      '<div class="form-row tack-quote-field tack-quote-files">' +
       '<label for="tack-quote-files">' + escapeHtml(i18n.filesLabel) + '</label>' +
       '<input type="file" id="tack-quote-files" name="files[]" multiple accept="' +
       escapeHtml(cfg.accept || '') + '" aria-describedby="tack-quote-files-help" />' +
@@ -641,7 +677,7 @@
     overlay.setAttribute('hidden', 'hidden');
 
     overlay.innerHTML =
-      '<div class="tack-quote-modal" role="dialog" aria-modal="true" aria-labelledby="tack-quote-modal-title">' +
+      '<div class="tack-quote-modal woocommerce" role="dialog" aria-modal="true" aria-labelledby="tack-quote-modal-title">' +
       '<button type="button" class="tack-quote-modal-close" aria-label="' +
       escapeHtml(i18n.close) +
       '">&times;</button>' +
@@ -651,13 +687,13 @@
       '<form class="tack-quote-modal-form" novalidate>' +
       buildIdentityFields() +
       buildCompanyFields() +
-      '<div class="tack-quote-field">' +
+      '<div class="form-row tack-quote-field">' +
       '<label for="tack-quote-note">' +
       escapeHtml(i18n.noteLabel) +
       ' <span class="tack-quote-optional">' +
       escapeHtml(i18n.optional) +
       '</span></label>' +
-      '<textarea id="tack-quote-note" name="note" rows="3" placeholder="' +
+      '<textarea id="tack-quote-note" class="input-text" name="note" rows="3" placeholder="' +
       escapeHtml(i18n.notePlaceholder) +
       '"></textarea>' +
       '</div>' +
@@ -665,10 +701,10 @@
       '<p class="tack-quote-modal-error" hidden></p>' +
       '<p class="tack-quote-modal-success" hidden></p>' +
       '<div class="tack-quote-modal-actions">' +
-      '<button type="button" class="tack-quote-modal-cancel">' +
+      '<button type="button" class="' + buttonClass('tack-quote-modal-cancel') + '">' +
       escapeHtml(i18n.cancel) +
       '</button>' +
-      '<button type="submit" class="tack-quote-modal-submit">' +
+      '<button type="submit" class="' + buttonClass('alt tack-quote-modal-submit') + '">' +
       escapeHtml(i18n.submit) +
       '</button>' +
       '</div>' +
@@ -1231,7 +1267,22 @@
       window.location.href = href;
       return;
     }
-    $('#tack-quote-list-drawer').prop('hidden', false);
+    // 1.10.0: the launcher toggles the drawer and says so (aria-expanded).
+    setDrawerOpen($('#tack-quote-list-drawer').prop('hidden'));
+  });
+
+  function setDrawerOpen(open) {
+    $('#tack-quote-list-drawer').prop('hidden', !open);
+    $('#tack-quote-list-toggle').attr('aria-expanded', open ? 'true' : 'false');
+  }
+
+  // Escape closes an open drawer and gives focus back to the launcher.
+  $(document).on('keydown', function (e) {
+    if ('Escape' !== e.key || $('#tack-quote-list-drawer').prop('hidden') || $('body').hasClass('tack-quote-modal-open')) {
+      return;
+    }
+    setDrawerOpen(false);
+    $('#tack-quote-list-toggle').trigger('focus');
   });
 
   // "Add to Quote" on a product card (1.10.0): simple products only, quantity 1. The
@@ -1363,7 +1414,8 @@
   });
 
   $(document).on('click', '#tack-quote-list-close', function () {
-    $('#tack-quote-list-drawer').prop('hidden', true);
+    setDrawerOpen(false);
+    $('#tack-quote-list-toggle').trigger('focus');
   });
 
   // "Checkout as Quote" — submits the whole quote list.

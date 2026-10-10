@@ -1,0 +1,320 @@
+/*
+ * TackQuote storefront: LAYOUT (always loaded, 1.10.0).
+ *
+ * Only what the controls need to work: where the launcher, drawer, modal and
+ * fixed cart bar sit, that `hidden` hides, and that a floating panel has an
+ * opaque surface and readable text. Colour, type, borders and spacing are in
+ * tack-quotes.css, which "Use the theme's styles only" switches off.
+ *
+ * Every colour here is a fallback inside var(): the panels take the theme's
+ * own palette (theme.json presets `base` / `contrast`, emitted by WordPress as
+ * --wp--preset--color--*), and a merchant overrides any --tackquote-* property
+ * from Customizer > Additional CSS, the Site Editor's custom CSS, or a theme.
+ * Physical sides are written as logical properties, so right-to-left stores are
+ * mirrored without a second stylesheet. See docs/CUSTOMISATION.md.
+ */
+
+/* `hidden` must win over every display rule below. (Not inside the modal: its
+ * error and success lines are shown with jQuery .show(), an inline style.) */
+.tack-quote-modal-overlay[hidden],
+.tack-quote-list-widget[hidden],
+.tack-quote-list-drawer[hidden],
+.tack-quote-company-section[hidden],
+.tack-quote-page [hidden] {
+  display: none !important;
+}
+
+/* ── Product page buttons ──────────────────────────────────────────────────── */
+.tack-quote-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tackquote-gap, var(--wp--preset--spacing--20, 0.625rem));
+  margin-block-start: var(--tackquote-gap, var(--wp--preset--spacing--20, 0.625rem));
+}
+
+.tack-quote-buttons > .button {
+  margin: 0;
+}
+
+/* ── Floating launcher + drawer ────────────────────────────────────────────── */
+.tack-quote-list-widget {
+  position: fixed;
+  /* The merchant's offsets (settings) arrive as --tack-fab-x/-y on the element. */
+  inset-inline-end: var(--tackquote-launcher-offset-x, var(--tack-fab-x, 20px));
+  inset-block-end: var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px));
+  z-index: var(--tackquote-z-index, 99999);
+}
+
+.tack-quote-list-widget.tack-fab-left {
+  inset-inline-end: auto;
+  inset-inline-start: var(--tackquote-launcher-offset-x, var(--tack-fab-x, 20px));
+}
+
+.tack-quote-list-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-height: var(--tackquote-launcher-size, auto);
+  margin: 0;
+}
+
+.tack-fab-icon {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.tack-fab-icon-only .tack-fab-icon {
+  display: inline-block;
+}
+
+/* The text stays in the DOM for assistive technology; only the pixels go. */
+.tack-fab-icon-only .tack-fab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.tack-fab-no-count .tack-fab-count {
+  display: none;
+}
+
+.tack-quote-list-drawer {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-end: calc(100% + 12px);
+  box-sizing: border-box;
+  width: var(--tackquote-drawer-width, 22rem);
+  max-width: calc(100vw - 40px);
+  background-color: var(--tackquote-surface, var(--wp--preset--color--base, #fff));
+  color: var(--tackquote-text, var(--wp--preset--color--contrast, #1e1e1e));
+}
+
+.tack-fab-left .tack-quote-list-drawer {
+  inset-inline-end: auto;
+  inset-inline-start: 0;
+}
+
+.tack-quote-list-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.tack-quote-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.tack-quote-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.tack-quote-list-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tack-quote-list-checkout {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .tack-quote-list-widget.tack-fab-hide-mobile {
+    display: none;
+  }
+}
+
+/* Narrow phones: always compact, at least 48px tall, lifted above the home
+ * indicator; the label stays for assistive technology (aria-label carries it too). */
+@media (max-width: 480px) {
+  .tack-quote-list-widget {
+    inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tack-quote-list-toggle {
+    min-width: var(--tackquote-launcher-size, 48px);
+    min-height: var(--tackquote-launcher-size, 48px);
+  }
+
+  .tack-quote-list-widget .tack-fab-icon {
+    display: inline-block;
+  }
+
+  .tack-quote-list-widget .tack-fab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* ── Request modal ─────────────────────────────────────────────────────────── */
+.tack-quote-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: calc(var(--tackquote-z-index, 99999) + 1);
+  background-color: var(--tackquote-overlay, rgb(0 0 0 / 0.5));
+}
+
+body.tack-quote-modal-open {
+  overflow: hidden;
+}
+
+.tack-quote-modal {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--tackquote-modal-width, 30rem);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background-color: var(--tackquote-surface, var(--wp--preset--color--base, #fff));
+  color: var(--tackquote-text, var(--wp--preset--color--contrast, #1e1e1e));
+}
+
+.tack-quote-modal-close {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+}
+
+.tack-quote-field input:not([type="checkbox"]):not([type="radio"]),
+.tack-quote-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+.tack-quote-field-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.tack-quote-field-half {
+  flex: 1 1 0;
+  /* Without min-width:0 a long placeholder makes a flex item refuse to shrink and
+     the row overflows the modal on narrow screens. */
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .tack-quote-field-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+.tack-quote-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--tackquote-gap, var(--wp--preset--spacing--20, 0.625rem));
+}
+
+.tack-quote-modal-actions .button {
+  margin: 0;
+}
+
+/* ── Cart page ─────────────────────────────────────────────────────────────── */
+.wc-proceed-to-checkout .tack-quote-cart-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+/* The Cart block has no server-side slot beside its Proceed button, so the
+ * control is fixed to the bottom of the cart page. */
+.tack-quote-cart-fixed {
+  position: fixed;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: calc(var(--tackquote-z-index, 99999) - 1);
+  padding: 12px 16px;
+  padding-block-end: calc(12px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+  background-color: var(--tackquote-surface, var(--wp--preset--color--base, #fff));
+  color: var(--tackquote-text, var(--wp--preset--color--contrast, #1e1e1e));
+}
+
+.tack-quote-cart-fixed .tack-quote-cart-btn {
+  margin: 0;
+}
+
+/* The launcher sits above the fixed cart control. */
+body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
+  inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + 72px);
+}
+
+/* ── Quote page ([tackquote_quote_page]) ───────────────────────────────────── */
+.tack-quote-page-table input[type="number"] {
+  width: 5.5em;
+}
+
+.tack-quote-page-table input.tack-quote-page-target {
+  width: 7.5em;
+}
+
+/* WooCommerce hides the stacked heading of its own remove cell; a theme that
+ * styles only `.product-remove` in the cart table is covered by this too. */
+.woocommerce table.shop_table_responsive tr td.tack-quote-page-col-remove::before {
+  display: none;
+}
+
+.tack-quote-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--tackquote-gap, var(--wp--preset--spacing--20, 0.625rem));
+}
+
+.tack-quote-page-actions .button {
+  margin: 0;
+}
+
+/* ── Product cards ─────────────────────────────────────────────────────────── */
+.tack-card-quote-btn,
+.tack-card-quote-link {
+  display: inline-block;
+}
+
+/* Product Collection block (block themes): follow the card's own button, which
+ * is centred or right-aligned by its block alignment, in its (small) type size. */
+.wc-block-product > .tack-card-quote-btn,
+.wc-block-product > .tack-card-quote-link {
+  display: block;
+  width: fit-content;
+  /* core/button's .wp-block-button__link is height:100% of its wrapper; here the
+   * "wrapper" is the whole card. */
+  height: auto;
+  font-size: var(--wp--preset--font-size--small, 0.875em);
+}
+
+.wc-block-product:has(.wp-block-woocommerce-product-button.align-center) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  margin-inline: auto;
+}
+
+.wc-block-product:has(.wp-block-woocommerce-product-button.align-right) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  margin-inline-start: auto;
+}

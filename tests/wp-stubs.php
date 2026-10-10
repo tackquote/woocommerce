@@ -1347,3 +1347,102 @@ function tack_test_without_rate_limits( $off = true ) {
 		}
 	}
 }
+
+// ── 1.10.0: template loader and styling stubs ───────────────────────────────
+
+/*
+ * The theme directory locate_template() searches, so a test can stand in a theme
+ * override. WordPress's locate_template() checks the child then the parent theme
+ * for each name in order and returns the first file that exists.
+ */
+$GLOBALS['TACK_THEME_DIR'] = '';
+
+if ( ! function_exists( 'locate_template' ) ) {
+	/**
+	 * @param string[] $names Candidate paths relative to the theme.
+	 * @return string
+	 */
+	function locate_template( $names ) {
+		foreach ( (array) $names as $name ) {
+			$dir = (string) $GLOBALS['TACK_THEME_DIR'];
+			if ( '' !== $dir && file_exists( $dir . '/' . ltrim( $name, '/' ) ) ) {
+				return $dir . '/' . ltrim( $name, '/' );
+			}
+		}
+		return '';
+	}
+}
+
+if ( ! function_exists( 'wc_locate_template' ) ) {
+	/**
+	 * Transcribed from WooCommerce 11.2.1 includes/wc-core-functions.php (the
+	 * product_cat / product_tag and WC_TEMPLATE_DEBUG_MODE branches omitted):
+	 * theme/{template_path}/{name}, then theme/{name}, then {default_path}/{name},
+	 * then the `woocommerce_locate_template` filter.
+	 */
+	function wc_locate_template( $template_name, $template_path = '', $default_path = '' ) {
+		if ( ! $template_path ) {
+			$template_path = 'woocommerce/'; // WC()->template_path() default.
+		}
+		$template = locate_template( array( rtrim( $template_path, '/' ) . '/' . $template_name, $template_name ) );
+		if ( ! $template ) {
+			$template = $default_path . $template_name;
+		}
+		return apply_filters( 'woocommerce_locate_template', $template, $template_name, $template_path, $default_path );
+	}
+}
+
+if ( ! function_exists( 'wc_get_template' ) ) {
+	/** Same shape as WooCommerce 11.2.1: locate, `wc_get_template` filter, extract, include. */
+	function wc_get_template( $template_name, $args = array(), $template_path = '', $default_path = '' ) {
+		$template = wc_locate_template( $template_name, $template_path, $default_path );
+		$template = apply_filters( 'wc_get_template', $template, $template_name, $args, $template_path, $default_path );
+		$GLOBALS['TACK_TEMPLATES_LOADED'][] = $template;
+		if ( ! empty( $args ) && is_array( $args ) ) {
+			extract( $args ); // phpcs:ignore WordPress.PHP.DontExtract.extract_extract
+		}
+		include $template;
+	}
+}
+
+if ( ! function_exists( 'wc_get_template_html' ) ) {
+	function wc_get_template_html( $template_name, $args = array(), $template_path = '', $default_path = '' ) {
+		ob_start();
+		wc_get_template( $template_name, $args, $template_path, $default_path );
+		return ob_get_clean();
+	}
+}
+
+if ( ! function_exists( 'sanitize_hex_color' ) ) {
+	/** WordPress core (wp-includes/formatting.php): 3 or 6 hex digits with '#', else null. */
+	function sanitize_hex_color( $color ) {
+		if ( '' === $color ) {
+			return '';
+		}
+		if ( preg_match( '|^#([A-Fa-f0-9]{3}){1,2}$|', $color ) ) {
+			return $color;
+		}
+		return null;
+	}
+}
+
+$GLOBALS['TACK_INLINE_STYLES'] = array();
+if ( ! function_exists( 'wp_add_inline_style' ) ) {
+	function wp_add_inline_style( $handle, $data ) {
+		$GLOBALS['TACK_INLINE_STYLES'][ $handle ][] = $data;
+		return true;
+	}
+}
+
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+if ( ! function_exists( 'add_settings_error' ) ) {
+	function add_settings_error( $setting, $code, $message, $type = 'error' ) {
+		$GLOBALS['TACK_SETTINGS_ERRORS'][] = array( $setting, $code, $message );
+	}
+}
+if ( ! function_exists( 'wp_add_inline_script' ) ) {
+	function wp_add_inline_script( $handle, $data, $position = 'after' ) {
+		$GLOBALS['TACK_INLINE_SCRIPTS'][ $handle ][] = $data;
+		return true;
+	}
+}

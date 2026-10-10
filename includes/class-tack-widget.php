@@ -96,6 +96,18 @@ class Tack_Widget {
 	const OPT_FAB_SIZE        = 'tack_quotes_fab_size';
 	const OPT_FAB_HIDE_MOBILE = 'tack_quotes_fab_hide_mobile';
 
+	// ── 1.10.0 styling options (Storefront tab > Styling). ──
+
+	/** `yes`: load only the layout stylesheet; the theme paints everything else. */
+	const OPT_THEME_STYLES_ONLY = 'tack_quotes_theme_styles_only';
+
+	/** A hex colour for the plugin's buttons and accents; '' (default) means the theme's. */
+	const OPT_ACCENT_COLOR = 'tack_quotes_accent_color';
+
+	/** Style handles: layout (always) and appearance (unless theme styles only). */
+	const STYLE_LAYOUT = 'tackquote-layout';
+	const STYLE_MAIN   = 'tackquote';
+
 	/** Largest launcher offset accepted, in px (the shared widget's bound). */
 	const FAB_OFFSET_MAX = 200;
 
@@ -275,10 +287,22 @@ class Tack_Widget {
 	public static function button_label( $option ) {
 		$defaults = self::label_defaults();
 		$stored   = trim( (string) get_option( $option, '' ) );
-		if ( '' === $stored || ( isset( $defaults[ $option ] ) && $defaults[ $option ] === $stored ) ) {
-			return self::default_label( $option );
-		}
-		return $stored;
+		$label    = ( '' === $stored || ( isset( $defaults[ $option ] ) && $defaults[ $option ] === $stored ) )
+			? self::default_label( $option )
+			: $stored;
+
+		/**
+		 * Filters a storefront button label after the merchant's setting is applied.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param string $label  The label: the merchant's wording, or the translated default.
+		 * @param string $option Which button: `tack_quotes_button_label` (Add to Quote),
+		 *                       `tack_quotes_request_button_label` (Request a Quote) or
+		 *                       `tack_quotes_checkout_button_label` (Checkout as Quote).
+		 */
+		$filtered = apply_filters( 'tackquote_button_label', $label, $option );
+		return is_string( $filtered ) && '' !== trim( $filtered ) ? $filtered : $label;
 	}
 
 	/**
@@ -333,16 +357,12 @@ class Tack_Widget {
 		// applied to the JS looked like a fix that did not work, which cost real debugging
 		// time. Production behaviour is unchanged: released versions still bust the cache
 		// through the version bump.
-		$css     = TACK_QUOTES_DIR . 'assets/css/tack-quotes.css';
-		$js      = TACK_QUOTES_DIR . 'assets/js/tack-quotes.js';
-		$css_ver = ( defined( 'WP_DEBUG' ) && WP_DEBUG && file_exists( $css ) )
-			? (string) filemtime( $css )
-			: TACK_QUOTES_VERSION;
-		$js_ver  = ( defined( 'WP_DEBUG' ) && WP_DEBUG && file_exists( $js ) )
+		$js     = TACK_QUOTES_DIR . 'assets/js/tack-quotes.js';
+		$js_ver = ( defined( 'WP_DEBUG' ) && WP_DEBUG && file_exists( $js ) )
 			? (string) filemtime( $js )
 			: TACK_QUOTES_VERSION;
 
-		wp_enqueue_style( 'tackquote', TACK_QUOTES_URL . 'assets/css/tack-quotes.css', array(), $css_ver );
+		self::enqueue_styles();
 		// The Add to Cart with Options block's variation state (1.10.0); a plain
 		// script with no dependencies, kept apart so it can be tested in Node.
 		$wo     = TACK_QUOTES_DIR . 'assets/js/tack-with-options.js';
@@ -374,6 +394,8 @@ class Tack_Widget {
 				'nonceUrl'            => $this->nonce_endpoint(),
 				'customerEmail'       => $this->current_customer_email(),
 				'checkoutButtonLabel' => self::button_label( 'tack_quotes_checkout_button_label' ),
+				// 1.10.0: the theme's button classes, for the buttons the script builds (the modal).
+				'buttonClass'         => self::button_class(),
 				// The seller's registration policy drives which fields the form renders. Null
 				// when Tack is unreachable, in which case the JS falls back to a minimal
 				// name+email form rather than rendering nothing — a shopper must still be able
@@ -401,26 +423,165 @@ class Tack_Widget {
 	}
 
 	/**
-	 * Best-effort email for pre-filling the modal: WooCommerce customer billing
-	 * email first (covers logged-in and session-persisted guest checkouts),
-	 * then the current WP user's account email.
+	 * The storefront stylesheets, and the accent colour when the merchant set one.
+	 *
+	 * `tackquote-layout` is always loaded: positioning, `hidden`, and an opaque
+	 * surface for the floating panels, without which the controls do not work.
+	 * `tackquote` (appearance) is skipped when the merchant chose "Use the theme's
+	 * styles only". The accent is inlined on whichever handle is last, and only
+	 * when set, so a store that never touched it gets no inline CSS at all.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return void
+	 */
+	public static function enqueue_styles() {
+		$layout = 'assets/css/tack-quotes-layout.css';
+		wp_enqueue_style( self::STYLE_LAYOUT, TACK_QUOTES_URL . $layout, array(), self::asset_version( $layout ) );
+		$handle = self::STYLE_LAYOUT;
+		if ( ! self::theme_styles_only() ) {
+			$main = 'assets/css/tack-quotes.css';
+			wp_enqueue_style( self::STYLE_MAIN, TACK_QUOTES_URL . $main, array( self::STYLE_LAYOUT ), self::asset_version( $main ) );
+			$handle = self::STYLE_MAIN;
+		}
+		$css = self::accent_css( self::accent_color() );
+		if ( '' !== $css ) {
+			wp_add_inline_style( $handle, $css );
+		}
+	}
+
+	/**
+	 * Asset version: the plugin version in production, the file's mtime with WP_DEBUG
+	 * on (TACK_QUOTES_VERSION is a constant, so during development every edit kept
+	 * the same ?ver= and browsers served the cached copy).
+	 *
+	 * @param string $relative Path under the plugin folder.
+	 * @return string
+	 */
+	private static function asset_version( $relative ) {
+		$file = TACK_QUOTES_DIR . $relative;
+		return ( defined( 'WP_DEBUG' ) && WP_DEBUG && file_exists( $file ) ) ? (string) filemtime( $file ) : TACK_QUOTES_VERSION;
+	}
+
+	/**
+	 * Does the merchant want the theme to style everything ("Use the theme's styles only")?
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return bool
+	 */
+	public static function theme_styles_only() {
+		$only = 'yes' === get_option( self::OPT_THEME_STYLES_ONLY, 'no' );
+
+		/**
+		 * Filters whether only the layout stylesheet is loaded, leaving all colour,
+		 * type, borders and spacing to the theme. A theme can force it on.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param bool $only The merchant's setting.
+		 */
+		return (bool) apply_filters( 'tackquote_theme_styles_only', $only );
+	}
+
+	/**
+	 * The merchant's accent colour as `#rrggbb` (or `#rgb`), or '' for the theme's.
+	 *
+	 * Read through `sanitize_hex_color()`, so a value that is not a hex colour —
+	 * whatever put it in the database — is never printed into a stylesheet.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return string
+	 */
+	public static function accent_color() {
+		$raw = trim( (string) get_option( self::OPT_ACCENT_COLOR, '' ) );
+		if ( '' === $raw || ! function_exists( 'sanitize_hex_color' ) ) {
+			return '';
+		}
+		return (string) sanitize_hex_color( $raw );
+	}
+
+	/**
+	 * Inline CSS for an accent colour: the custom property, a readable text colour on
+	 * it, and the rules that repaint the plugin's own buttons with it. '' for none.
+	 *
+	 * The selectors carry `html:root body` and a doubled class so they outrank the
+	 * theme's and WooCommerce's button rules (`.woocommerce button.button.alt:hover`
+	 * is 0,4,1) without `!important`, which would also beat a merchant's own CSS.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $hex A value already through sanitize_hex_color().
+	 * @return string
+	 */
+	public static function accent_css( $hex ) {
+		if ( ! is_string( $hex ) || ! preg_match( '/^#(?:[0-9a-fA-F]{3}){1,2}$/', $hex ) ) {
+			return '';
+		}
+		$text    = self::readable_text_on( $hex );
+		$primary = array( 'tack-quote-btn', 'tack-quote-list-checkout', 'tack-quote-page-submit', 'tack-quote-modal-submit', 'tack-quote-list-toggle', 'tack-quote-cart-btn', 'tack-card-quote-btn' );
+		$second  = array( 'tack-add-to-quote-btn', 'tack-quote-modal-cancel', 'tack-quote-page-continue', 'tack-card-quote-link' );
+		$sel     = function ( array $classes, $state ) {
+			$out = array();
+			foreach ( $classes as $c ) {
+				$out[] = 'html:root body .button.' . $c . '.' . $c . $state;
+			}
+			return implode( ',', $out );
+		};
+		return ':root{--tackquote-accent:' . $hex . ';--tackquote-accent-text:' . $text . '}'
+			. $sel( $primary, '' ) . '{background-color:var(--tackquote-accent);border-color:var(--tackquote-accent);color:var(--tackquote-accent-text)}'
+			. $sel( $primary, ':hover' ) . '{background-color:color-mix(in srgb,var(--tackquote-accent) 85%,var(--tackquote-accent-text));color:var(--tackquote-accent-text)}'
+			. $sel( $second, '' ) . '{background-color:transparent;border:1px solid var(--tackquote-accent);color:var(--tackquote-accent)}'
+			. $sel( $second, ':hover' ) . '{background-color:color-mix(in srgb,var(--tackquote-accent) 10%,transparent);color:var(--tackquote-accent)}';
+	}
+
+	/**
+	 * Black or white, whichever has the higher WCAG 2 contrast ratio on `$hex`.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $hex `#rgb` or `#rrggbb`.
+	 * @return string `#000` or `#fff`.
+	 */
+	public static function readable_text_on( $hex ) {
+		$h = ltrim( (string) $hex, '#' );
+		if ( 3 === strlen( $h ) ) {
+			$h = $h[0] . $h[0] . $h[1] . $h[1] . $h[2] . $h[2];
+		}
+		$lin = function ( $c ) {
+			$c = $c / 255;
+			return $c <= 0.03928 ? $c / 12.92 : pow( ( $c + 0.055 ) / 1.055, 2.4 );
+		};
+		$l   = 0.2126 * $lin( hexdec( substr( $h, 0, 2 ) ) ) + 0.7152 * $lin( hexdec( substr( $h, 2, 2 ) ) ) + 0.0722 * $lin( hexdec( substr( $h, 4, 2 ) ) );
+		// Contrast with white is 1.05 / (L + 0.05); with black (L + 0.05) / 0.05.
+		return ( 1.05 / ( $l + 0.05 ) ) >= ( ( $l + 0.05 ) / 0.05 ) ? '#fff' : '#000';
+	}
+
+	/**
+	 * Email for pre-filling the modal, for a signed-in visitor only: their
+	 * WooCommerce billing email first, then their account email. '' for guests.
 	 *
 	 * @return string
 	 */
 	private function current_customer_email() {
+		/*
+		 * Signed-in visitors only (audit L-4, 1.10.0). This value is printed into every
+		 * page's inline script; a guest's WooCommerce-session billing email would end up
+		 * in pages that a full-page cache not varying on the session cookie serves to
+		 * other visitors. Signed-in visitors bypass page caches.
+		 */
+		if ( ! is_user_logged_in() ) {
+			return '';
+		}
 		if ( function_exists( 'WC' ) && WC()->customer ) {
 			$billing_email = WC()->customer->get_billing_email();
 			if ( $billing_email ) {
 				return $billing_email;
 			}
 		}
-		if ( is_user_logged_in() ) {
-			$user = wp_get_current_user();
-			if ( $user && $user->user_email ) {
-				return $user->user_email;
-			}
-		}
-		return '';
+		$user = wp_get_current_user();
+		return ( $user && $user->user_email ) ? (string) $user->user_email : '';
 	}
 
 	/**
@@ -526,7 +687,10 @@ class Tack_Widget {
 
 		if ( $show_request_quote ) {
 			$label = self::button_label( 'tack_quotes_request_button_label' );
-			$this->button( array( 'product-id' => $product->get_id() ), 'tack-quote-btn', $label );
+			// The final action is `alt` (the theme's primary button) when it is the
+			// product's only action: not purchasable means quote-only or unpriced.
+			$primary = method_exists( $product, 'is_purchasable' ) && ! $product->is_purchasable();
+			$this->button( array( 'product-id' => $product->get_id() ), $primary ? 'alt tack-quote-btn' : 'tack-quote-btn', $label );
 		}
 
 		echo '</div>';
@@ -615,25 +779,28 @@ class Tack_Widget {
 		}
 		$style = sprintf( '--tack-fab-x:%dpx;--tack-fab-y:%dpx', $fab['offsetX'], $fab['offsetY'] );
 		$opens = self::opens();
-		?>
-		<div id="tack-quote-list-widget" class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-position="<?php echo esc_attr( $fab['position'] ); ?>" data-size="<?php echo esc_attr( $fab['size'] ); ?>" data-pages="<?php echo esc_attr( $fab['pages'] ); ?>" data-opens="<?php echo esc_attr( $opens ); ?>" style="<?php echo esc_attr( $style ); ?>" hidden>
-			<button type="button" id="tack-quote-list-toggle" class="tack-quote-list-toggle" aria-label="<?php echo esc_attr( $fab['label'] ); ?>"<?php echo 'page' === $opens ? ' data-href="' . esc_url( self::quote_page_url() ) . '"' : ''; ?>>
-				<svg class="tack-fab-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 2a2 2 0 0 0-2 2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1a2 2 0 0 0-2-2H9zm0 2h6v2H9V4zM8 11h8v2H8v-2zm0 4h5v2H8v-2z"/></svg>
-				<span class="tack-fab-label"><?php echo esc_html( $fab['label'] ); ?></span>
-				<span class="tack-fab-count">(<span id="tack-quote-list-count">0</span>)</span>
-			</button>
-			<div id="tack-quote-list-drawer" class="tack-quote-list-drawer" hidden>
-				<div class="tack-quote-list-drawer-header">
-					<strong><?php esc_html_e( 'Your quote list', 'tackquote' ); ?></strong>
-					<button type="button" id="tack-quote-list-close" aria-label="<?php esc_attr_e( 'Close', 'tackquote' ); ?>">&times;</button>
-				</div>
-				<ul id="tack-quote-list-items" class="tack-quote-list-items"></ul>
-				<button type="button" id="tack-quote-list-checkout" class="<?php echo esc_attr( self::button_class( 'tack-quote-btn tack-quote-list-checkout' ) ); ?>">
-					<?php echo esc_html( self::button_label( 'tack_quotes_checkout_button_label' ) ); ?>
-				</button>
-			</div>
-		</div>
-		<?php
+
+		$args = array(
+			'classes'        => $classes,
+			'fab'            => $fab,
+			'opens'          => $opens,
+			'page_url'       => 'page' === $opens ? self::quote_page_url() : '',
+			'style'          => $style,
+			'toggle_class'   => self::button_class( 'tack-quote-list-toggle' ),
+			'checkout_class' => self::button_class( 'alt tack-quote-btn tack-quote-list-checkout' ),
+			'checkout_label' => self::button_label( 'tack_quotes_checkout_button_label' ),
+		);
+
+		/**
+		 * Filters what the quote-list launcher and drawer template receives.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param array $args See templates/tackquote/quote-list-drawer.php.
+		 */
+		$args = array_merge( $args, (array) apply_filters( 'tackquote_quote_list_drawer_args', $args ) );
+
+		Tack_Templates::render( 'quote-list-drawer.php', $args );
 	}
 
 	/**
@@ -814,7 +981,22 @@ class Tack_Widget {
 		if ( '' !== (string) $extra ) {
 			$classes[] = (string) $extra;
 		}
-		return implode( ' ', $classes );
+		$list = implode( ' ', $classes );
+
+		/**
+		 * Filters the class list of a storefront button or button-styled link.
+		 *
+		 * The default is WooCommerce's own button classes, so the theme paints the
+		 * control like its other buttons. Keep the `tack-*` classes in `$extra`: the
+		 * storefront script binds to them.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param string $list  Space-separated classes.
+		 * @param string $extra The plugin classes that were appended.
+		 */
+		$filtered = apply_filters( 'tackquote_button_classes', $list, (string) $extra );
+		return is_string( $filtered ) && '' !== trim( $filtered ) ? $filtered : $list;
 	}
 
 	/**
@@ -840,10 +1022,17 @@ class Tack_Widget {
 		}
 		$name = (string) $product->get_name();
 
+		/*
+		 * Block themes list products with the Product Collection block, whose own
+		 * button is a Button block link (`wp-block-button__link`): the card control
+		 * wears that class too, so it takes the same shape as the theme's card button.
+		 */
+		$card = ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) ? 'wp-block-button__link ' : '';
+
 		if ( $product->is_type( 'simple' ) ) {
 			printf(
 				'<button type="button" class="%1$s" data-product-id="%2$d" data-product-name="%3$s" data-product-sku="%4$s" data-product-price="%5$s" aria-label="%6$s">%7$s</button>',
-				esc_attr( self::button_class( 'tack-card-quote-btn' ) ),
+				esc_attr( self::button_class( $card . 'tack-card-quote-btn' ) ),
 				(int) $product->get_id(),
 				esc_attr( $name ),
 				esc_attr( (string) $product->get_sku() ),
@@ -876,7 +1065,7 @@ class Tack_Widget {
 		printf(
 			'<a href="%1$s" class="%2$s" data-product-id="%3$d" aria-label="%4$s">%5$s</a>',
 			esc_url( $url ),
-			esc_attr( self::button_class( 'tack-card-quote-link' ) ),
+			esc_attr( self::button_class( $card . 'tack-card-quote-link' ) ),
 			(int) $product->get_id(),
 			esc_attr(
 				sprintf(
@@ -998,7 +1187,7 @@ class Tack_Widget {
 	 * @return string
 	 */
 	public function render_quote_page( $atts = array() ) {
-		$atts    = shortcode_atts(
+		$atts = shortcode_atts(
 			array(
 				'target_price' => 'yes',
 				'message'      => 'yes',
@@ -1006,45 +1195,29 @@ class Tack_Widget {
 			is_array( $atts ) ? $atts : array(),
 			'tackquote_quote_page'
 		);
-		$target  = 'no' !== strtolower( (string) $atts['target_price'] );
-		$message = 'no' !== strtolower( (string) $atts['message'] );
-		$shop    = function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : '';
+		$shop = function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : '';
 
-		ob_start();
-		?>
-		<div id="tack-quote-page" class="tack-quote-page" data-target-price="<?php echo $target ? 'yes' : 'no'; ?>" data-message="<?php echo $message ? 'yes' : 'no'; ?>">
-			<p class="tack-quote-page-empty"><?php esc_html_e( 'No products added yet.', 'tackquote' ); ?></p>
-			<table class="shop_table tack-quote-page-table" hidden>
-				<thead>
-					<tr>
-						<th class="tack-quote-page-col-product"><?php esc_html_e( 'Product', 'tackquote' ); ?></th>
-						<th class="tack-quote-page-col-qty"><?php esc_html_e( 'Quantity', 'tackquote' ); ?></th>
-						<th class="tack-quote-page-col-price"><?php esc_html_e( 'Unit price (excl. tax)', 'tackquote' ); ?></th>
-						<?php if ( $target ) : ?>
-						<th class="tack-quote-page-col-target"><?php esc_html_e( 'Target price', 'tackquote' ); ?></th>
-						<?php endif; ?>
-						<th class="tack-quote-page-col-remove"><span class="screen-reader-text"><?php esc_html_e( 'Remove', 'tackquote' ); ?></span></th>
-					</tr>
-				</thead>
-				<tbody id="tack-quote-page-items"></tbody>
-			</table>
-			<?php if ( $message ) : ?>
-			<div class="tack-quote-field tack-quote-page-message">
-				<label for="tack-quote-page-message"><?php esc_html_e( 'Message', 'tackquote' ); ?> <span class="tack-quote-optional"><?php esc_html_e( '(optional)', 'tackquote' ); ?></span></label>
-				<textarea id="tack-quote-page-message" rows="3" maxlength="<?php echo (int) self::NOTE_MAX_LENGTH; ?>"></textarea>
-			</div>
-			<?php endif; ?>
-			<p class="tack-quote-page-actions">
-				<?php if ( '' !== $shop ) : ?>
-				<a class="<?php echo esc_attr( self::button_class( 'tack-quote-page-continue' ) ); ?>" href="<?php echo esc_url( $shop ); ?>"><?php esc_html_e( 'Continue shopping', 'tackquote' ); ?></a>
-				<?php endif; ?>
-				<button type="button" id="tack-quote-page-submit" class="<?php echo esc_attr( self::button_class( 'alt tack-quote-page-submit' ) ); ?>" disabled>
-					<?php echo esc_html( self::button_label( 'tack_quotes_checkout_button_label' ) ); ?>
-				</button>
-			</p>
-		</div>
-		<?php
-		return (string) ob_get_clean();
+		$args = array(
+			'target_price'   => 'no' !== strtolower( (string) $atts['target_price'] ),
+			'message'        => 'no' !== strtolower( (string) $atts['message'] ),
+			'message_max'    => (int) self::NOTE_MAX_LENGTH,
+			'shop_url'       => $shop,
+			'continue_class' => self::button_class( 'tack-quote-page-continue' ),
+			'submit_class'   => self::button_class( 'alt tack-quote-page-submit' ),
+			'submit_label'   => self::button_label( 'tack_quotes_checkout_button_label' ),
+		);
+
+		/**
+		 * Filters what the quote page template receives.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param array $args See templates/tackquote/quote-page.php.
+		 * @param array $atts The shortcode attributes, after defaults.
+		 */
+		$args = array_merge( $args, (array) apply_filters( 'tackquote_quote_page_args', $args, $atts ) );
+
+		return Tack_Templates::html( 'quote-page.php', $args );
 	}
 
 	/**
