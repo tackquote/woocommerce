@@ -464,6 +464,19 @@ if ( ! class_exists( 'Tack_Stub_Cart' ) ) {
 		public function get_cart() {
 			return $this->lines;
 		}
+
+		/**
+		 * Records the removal the way `Tack_Catalog_Mode::check_cart()` relies on it:
+		 * the line is gone from THIS cart and from the shared fixture.
+		 *
+		 * @param string $key Cart item key.
+		 * @return bool
+		 */
+		public function remove_cart_item( $key ) {
+			unset( $this->lines[ $key ], $GLOBALS['TACK_CART_LINES'][ $key ] );
+			$GLOBALS['TACK_CART_REMOVED'][] = $key;
+			return true;
+		}
 	}
 }
 
@@ -1096,5 +1109,22 @@ class Tack_Stub_Session {
 	 */
 	public function set( $key, $value ) {
 		$this->data[ $key ] = $value;
+	}
+}
+
+// ── Stubs added for the 1.9.0 storefront parity features ────────────────────
+$GLOBALS['TACK_CART_REMOVED'] = array();
+
+if ( ! function_exists( 'selected' ) ) {
+	/**
+	 * Core's `selected( $selected, $current, $echo )`.
+	 *
+	 * @param mixed $selected Selected value.
+	 * @param mixed $current  Current value.
+	 * @param bool  $echo     Echo.
+	 * @return string
+	 */
+	function selected( $selected, $current = true, $echo = true ) {
+		return (string) $selected === (string) $current ? "selected='selected'" : '';
 	}
 }

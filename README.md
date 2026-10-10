@@ -5,6 +5,9 @@
 Add a **Request a Quote** button to your WooCommerce store and sync orders with your [TackQuote](https://tackquote.com) B2B quoting account.
 
 - 🧾 "Add to Quote" and "Request a Quote" buttons on product pages, plus a floating quote list with "Checkout as Quote"
+- 🛒 **More places to start a quote** (each off by default): "Add to Quote" on product cards, "Request a quote for your cart" on the classic cart and the Cart block, and a quote page via `[tackquote_quote_page]` with quantities, target prices and a message
+- 🎯 **Floating launcher settings** — position, offsets, label, icon only, count, size, pages, hide on mobile; defaults match the 1.8 launcher
+- 🔒 **Quote only per product** (variations inherit, enforced in `woocommerce_is_purchasable` and the Store API) and a store-wide scope that keeps the cart for **approved wholesale accounts** only
 - 💷 **B2B pricing** — signed-in trade customers priced from their TackQuote price book, buyer group and quantity breaks, with an optional volume-pricing table
 - 📦 **Order limits** — minimum/maximum order quantities shown on the product page and enforced at the cart and checkout
 - 🏷️ **Buyer group badge** — tells a customer which pricing group they are on, so a discounted price does not read as an error
@@ -47,6 +50,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Buyer group, tax exemption | `GET /storefront/v1/buyer-group` (falls back to `GET /storefront-b2b/buyer-group`) |
 | Wholesale application form | `GET /integrations/woocommerce/wholesale-form?slug=`, `POST /integrations/woocommerce/wholesale-form/submit?slug=` (scope `buyers:write`) |
 | Net-terms application | `POST /storefront/v1/credit-application` (falls back to `POST /integrations/woocommerce/credit-application`; scope `buyers:write`) |
+| Wholesale price gate (opt-in quote-only scope) | `GET /storefront/v1/price-access` (no fallback; fails closed) |
 
 Every request carries `X-TackQuote-Plugin-Version`. `/storefront/v1/*` calls send the key in
 `X-Api-Key` only (that route refuses a second credential), with the signed-in customer as
@@ -55,14 +59,17 @@ lookups need no scope beyond a valid key; the two application forms need `buyers
 
 ### What happens when TackQuote cannot be reached
 
-Every one of the B2B lookups **fails open**, and that is a deliberate design
-decision rather than an oversight:
+Every one of the B2B lookups except the opt-in wholesale price gate **fails
+open**, and that is a deliberate design decision rather than an oversight. The
+price gate fails closed because its whole purpose is to keep the cart from
+buyers the seller has not approved:
 
 | Lookup | On failure |
 |---|---|
 | B2B pricing | the store's own price is used — no product is ever unpriced or zeroed |
 | Order limits | **nothing is blocked** — the cart and checkout behave as they always did |
 | Buyer group | no badge |
+| Wholesale price gate | **fails closed** — the customer sees the quote-only catalogue, and can still request a quote |
 
 The reasoning for order limits is the one worth stating: a checkout that stops
 working because a supplier's API is slow costs the day's revenue, while an

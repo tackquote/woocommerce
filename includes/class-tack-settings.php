@@ -220,6 +220,9 @@ class Tack_Settings {
 		add_settings_field( self::OPTION_GROUP_CODES, __( 'Your buyer group codes', 'tackquote' ), array( $this, 'field_group_codes' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
 		add_settings_field( Tack_Group_Restrictions::OPTION_PAYMENT_MAP, __( 'Payment methods', 'tackquote' ), array( $this, 'field_payment_group_map' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
 		add_settings_field( Tack_Group_Restrictions::OPTION_SHIPPING_MAP, __( 'Shipping methods', 'tackquote' ), array( $this, 'field_shipping_group_map' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
+
+		// 8. Quote buttons and launcher (1.9.0) — registered last, so it renders last.
+		$this->register_storefront_layout_settings();
 	}
 
 	// ── Sanitizers ────────────────────────────────────────────────────────────
@@ -719,9 +722,12 @@ class Tack_Settings {
 		$scope = get_option( Tack_Catalog_Mode::OPT_SCOPE, Tack_Catalog_Mode::SCOPE_EVERYONE );
 
 		$choices = array(
-			Tack_Catalog_Mode::SCOPE_EVERYONE => __( 'Every customer', 'tackquote' ),
-			Tack_Catalog_Mode::SCOPE_GUESTS   => __( 'Signed-out visitors only — approved customers keep a normal cart', 'tackquote' ),
-			Tack_Catalog_Mode::SCOPE_ROLES    => __( 'Only the roles I choose below', 'tackquote' ),
+			Tack_Catalog_Mode::SCOPE_EVERYONE   => __( 'Every customer', 'tackquote' ),
+			Tack_Catalog_Mode::SCOPE_GUESTS     => __( 'Signed-out visitors only — approved customers keep a normal cart', 'tackquote' ),
+			Tack_Catalog_Mode::SCOPE_ROLES      => __( 'Only the roles I choose below', 'tackquote' ),
+			// 1.9.0: the price gate. Needs the API key; TackQuote answers whether the signed-in
+			// buyer's wholesale application is approved (GET /storefront/v1/price-access).
+			Tack_Catalog_Mode::SCOPE_UNAPPROVED => __( 'Everyone except approved wholesale accounts — a signed-in customer whose wholesale application TackQuote has approved keeps a normal cart (needs the API key; if TackQuote cannot be reached, the catalogue is shown)', 'tackquote' ),
 		);
 
 		echo '<fieldset>';
@@ -792,7 +798,7 @@ class Tack_Settings {
 	}
 
 	/**
-	 * Only the three known scopes are storable; anything else falls back to the
+	 * Only the four known scopes are storable; anything else falls back to the
 	 * widest one, which is the value the mode switch itself defaults to.
 	 *
 	 * @param mixed $value Raw value.
@@ -803,6 +809,7 @@ class Tack_Settings {
 			Tack_Catalog_Mode::SCOPE_EVERYONE,
 			Tack_Catalog_Mode::SCOPE_GUESTS,
 			Tack_Catalog_Mode::SCOPE_ROLES,
+			Tack_Catalog_Mode::SCOPE_UNAPPROVED,
 		);
 		return in_array( $value, $allowed, true ) ? (string) $value : Tack_Catalog_Mode::SCOPE_EVERYONE;
 	}
@@ -1641,5 +1648,287 @@ class Tack_Settings {
 		} else {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Connected to TackQuote successfully.', 'tackquote' ) . '</p></div>';
 		}
+	}
+	// ── 8. Quote buttons and launcher (1.9.0) ─────────────────────────────────
+	//
+	// Appended as one block: every option below is additive, OFF by default or
+	// defaulting to the 1.8.x layout, so an update changes nothing a shopper sees
+	// until the merchant chooses to.
+
+	/**
+	 * Register the storefront-layout settings and their section. Called last from
+	 * `register_settings()`, so the section is the last one a merchant reads.
+	 *
+	 * @since 1.9.0
+	 */
+	public function register_storefront_layout_settings() {
+		$checkbox = array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) );
+		$text     = array( 'sanitize_callback' => 'sanitize_text_field' );
+
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_CARD_BUTTONS, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_CART_BUTTON, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_CART_BUTTON_LABEL, $text );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_OPENS, array( 'sanitize_callback' => array( $this, 'sanitize_quote_opens' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_PAGE_URL, array( 'sanitize_callback' => array( $this, 'sanitize_quote_page_url' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_POSITION, array( 'sanitize_callback' => array( $this, 'sanitize_fab_position' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_OFFSET_X, array( 'sanitize_callback' => array( $this, 'sanitize_fab_offset' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_OFFSET_Y, array( 'sanitize_callback' => array( $this, 'sanitize_fab_offset' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_PAGES, array( 'sanitize_callback' => array( $this, 'sanitize_fab_pages' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_LABEL, $text );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_ICON_ONLY, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_SHOW_COUNT, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_SIZE, array( 'sanitize_callback' => array( $this, 'sanitize_fab_size' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_HIDE_MOBILE, $checkbox );
+
+		add_settings_section(
+			'tack_quotes_storefront_layout',
+			__( '8. Quote buttons and launcher', 'tackquote' ),
+			array( $this, 'section_storefront_layout' ),
+			self::PAGE_SLUG
+		);
+		add_settings_field( Tack_Widget::OPT_CARD_BUTTONS, __( 'Product cards', 'tackquote' ), array( $this, 'field_card_buttons' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
+		add_settings_field( Tack_Widget::OPT_CART_BUTTON, __( 'Cart page', 'tackquote' ), array( $this, 'field_cart_button' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
+		add_settings_field( Tack_Widget::OPT_OPENS, __( 'Quote button opens', 'tackquote' ), array( $this, 'field_quote_opens' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
+		add_settings_field( Tack_Widget::OPT_FAB_POSITION, __( 'Floating launcher', 'tackquote' ), array( $this, 'field_fab' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
+	}
+
+	/**
+	 * Intro copy for the storefront-layout section.
+	 *
+	 * @since 1.9.0
+	 */
+	public function section_storefront_layout() {
+		echo '<p>' . esc_html__( 'Where else shoppers can start a quote, and how the floating quote-list launcher looks. Everything here is off, or set to the layout the plugin always had, until you change it. Every control uses your theme\'s own button styling.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * "Add to Quote" on product cards.
+	 *
+	 * @since 1.9.0
+	 */
+	public function field_card_buttons() {
+		$this->checkbox_default_off(
+			Tack_Widget::OPT_CARD_BUTTONS,
+			__( 'Show "Add to Quote" on product cards in the shop, category and search lists.', 'tackquote' )
+		);
+		echo '<p class="description">' . esc_html__( 'Simple products are added to the quote list straight from the card. Variable, grouped and external products link to their page, where the shopper chooses options first. Uses the "Add to Quote" label from step 3.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * "Request a quote for your cart" on the cart page, with its label.
+	 *
+	 * @since 1.9.0
+	 */
+	public function field_cart_button() {
+		$this->checkbox_default_off(
+			Tack_Widget::OPT_CART_BUTTON,
+			__( 'Show "Request a quote for your cart" on the cart page.', 'tackquote' )
+		);
+		printf(
+			'<p style="margin-top:.5em;"><input type="text" class="regular-text" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
+			esc_attr( Tack_Widget::OPT_CART_BUTTON_LABEL ),
+			esc_attr( (string) get_option( Tack_Widget::OPT_CART_BUTTON_LABEL, '' ) ),
+			esc_attr__( 'Request a quote for your cart', 'tackquote' )
+		);
+		echo '<p class="description">' . esc_html__( 'Shown under "Proceed to checkout" on the classic cart page and as a fixed button on the Cart block. It copies every line of the cart into the quote list; the WooCommerce cart itself is untouched. Leave the label blank for the default.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * Drawer or page, and the page URL.
+	 *
+	 * @since 1.9.0
+	 */
+	public function field_quote_opens() {
+		$opens   = (string) get_option( Tack_Widget::OPT_OPENS, 'drawer' );
+		$choices = array(
+			'drawer' => __( 'The quote-list drawer (default)', 'tackquote' ),
+			'page'   => __( 'A quote page of my own, at this address:', 'tackquote' ),
+		);
+		echo '<fieldset>';
+		foreach ( $choices as $value => $label ) {
+			printf(
+				'<label style="display:block;margin-bottom:.4em;"><input type="radio" name="%1$s" value="%2$s" %3$s /> %4$s</label>',
+				esc_attr( Tack_Widget::OPT_OPENS ),
+				esc_attr( $value ),
+				checked( $opens, $value, false ),
+				esc_html( $label )
+			);
+		}
+		printf(
+			'<p style="margin:0 0 0 1.9em;"><input type="url" class="regular-text" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
+			esc_attr( Tack_Widget::OPT_PAGE_URL ),
+			esc_attr( (string) get_option( Tack_Widget::OPT_PAGE_URL, '' ) ),
+			esc_attr( home_url( '/quote/' ) )
+		);
+		echo '</fieldset>';
+		echo '<p class="description">' . esc_html__( 'Create a page containing the shortcode [tackquote_quote_page] and paste its address here. The launcher and the card and cart buttons then open that page, where shoppers can change quantities, add a target price per line and a message before sending. Without an address the drawer is used.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * The floating launcher: side, offsets, pages, label, icon, count, size, mobile.
+	 *
+	 * @since 1.9.0
+	 */
+	public function field_fab() {
+		$fab = Tack_Widget::fab_settings();
+
+		$this->select(
+			Tack_Widget::OPT_FAB_POSITION,
+			__( 'Position', 'tackquote' ),
+			array(
+				'bottom-right' => __( 'Bottom right', 'tackquote' ),
+				'bottom-left'  => __( 'Bottom left', 'tackquote' ),
+			),
+			$fab['position']
+		);
+		printf(
+			'<p style="margin:.4em 0;"><label>%1$s <input type="number" min="0" max="%4$d" step="1" name="%2$s" value="%3$d" style="width:6em;" /> px</label> &nbsp; <label>%5$s <input type="number" min="0" max="%4$d" step="1" name="%6$s" value="%7$d" style="width:6em;" /> px</label></p>',
+			esc_html__( 'Side offset', 'tackquote' ),
+			esc_attr( Tack_Widget::OPT_FAB_OFFSET_X ),
+			(int) $fab['offsetX'],
+			(int) Tack_Widget::FAB_OFFSET_MAX,
+			esc_html__( 'Bottom offset', 'tackquote' ),
+			esc_attr( Tack_Widget::OPT_FAB_OFFSET_Y ),
+			(int) $fab['offsetY']
+		);
+		$this->select(
+			Tack_Widget::OPT_FAB_PAGES,
+			__( 'Show on', 'tackquote' ),
+			array(
+				'all'     => __( 'All pages', 'tackquote' ),
+				'product' => __( 'Product pages only', 'tackquote' ),
+				'cart'    => __( 'Cart page only', 'tackquote' ),
+				'none'    => __( 'Nowhere (use the quote page instead)', 'tackquote' ),
+			),
+			$fab['pages']
+		);
+		printf(
+			'<p style="margin:.4em 0;"><label>%1$s <input type="text" class="regular-text" name="%2$s" value="%3$s" placeholder="%4$s" /></label></p>',
+			esc_html__( 'Button text', 'tackquote' ),
+			esc_attr( Tack_Widget::OPT_FAB_LABEL ),
+			esc_attr( (string) get_option( Tack_Widget::OPT_FAB_LABEL, '' ) ),
+			esc_attr__( 'Quote list', 'tackquote' )
+		);
+		echo '<p style="margin:.4em 0;">';
+		$this->checkbox_default_off( Tack_Widget::OPT_FAB_ICON_ONLY, __( 'Icon only (the text stays for screen readers)', 'tackquote' ) );
+		echo '</p><p style="margin:.4em 0;">';
+		$this->checkbox( Tack_Widget::OPT_FAB_SHOW_COUNT, __( 'Show item count', 'tackquote' ) );
+		echo '</p>';
+		$this->select(
+			Tack_Widget::OPT_FAB_SIZE,
+			__( 'Size', 'tackquote' ),
+			array(
+				'regular' => __( 'Regular', 'tackquote' ),
+				'compact' => __( 'Compact', 'tackquote' ),
+			),
+			$fab['size']
+		);
+		echo '<p style="margin:.4em 0;">';
+		$this->checkbox_default_off( Tack_Widget::OPT_FAB_HIDE_MOBILE, __( 'Hide on mobile', 'tackquote' ) );
+		echo '</p>';
+		echo '<p class="description">' . esc_html__( 'Defaults match the launcher the plugin always had: bottom right, 20 px from each edge, "Quote list (n)", regular size, every page. On phones narrower than 480 px the launcher is always compact and sits above the device\'s home indicator.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * A labelled select.
+	 *
+	 * @param string $option  Option name.
+	 * @param string $label   Visible label.
+	 * @param array  $choices value => label.
+	 * @param string $current Current value.
+	 */
+	private function select( $option, $label, $choices, $current ) {
+		printf( '<p style="margin:.4em 0;"><label>%1$s <select name="%2$s">', esc_html( $label ), esc_attr( $option ) );
+		foreach ( $choices as $value => $text ) {
+			printf(
+				'<option value="%1$s" %2$s>%3$s</option>',
+				esc_attr( $value ),
+				selected( (string) $current, (string) $value, false ),
+				esc_html( $text )
+			);
+		}
+		echo '</select></label></p>';
+	}
+
+	/**
+	 * `drawer` or `page`; anything else is `drawer`.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	public function sanitize_quote_opens( $value ) {
+		return 'page' === $value ? 'page' : 'drawer';
+	}
+
+	/**
+	 * The quote page address: an http(s) URL, or ''. Anything else (another
+	 * scheme, a bare word) is dropped rather than stored, so the launcher can
+	 * never be sent to a `javascript:` address.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	public function sanitize_quote_page_url( $value ) {
+		$url = is_string( $value ) ? esc_url_raw( trim( $value ), array( 'http', 'https' ) ) : '';
+		if ( '' === $url || ! preg_match( '#^https?://#i', $url ) ) {
+			return '';
+		}
+		return $url;
+	}
+
+	/**
+	 * `bottom-right` or `bottom-left`.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	public function sanitize_fab_position( $value ) {
+		return in_array( $value, array( 'bottom-right', 'bottom-left' ), true ) ? (string) $value : 'bottom-right';
+	}
+
+	/**
+	 * A whole number of pixels within [0, FAB_OFFSET_MAX]; anything else is the 20 px default.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Raw value.
+	 * @return int
+	 */
+	public function sanitize_fab_offset( $value ) {
+		if ( ! is_numeric( $value ) ) {
+			return 20;
+		}
+		$n = (int) $value;
+		return ( $n >= 0 && $n <= Tack_Widget::FAB_OFFSET_MAX ) ? $n : 20;
+	}
+
+	/**
+	 * `all`, `product`, `cart` or `none`.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	public function sanitize_fab_pages( $value ) {
+		return in_array( $value, array( 'all', 'product', 'cart', 'none' ), true ) ? (string) $value : 'all';
+	}
+
+	/**
+	 * `regular` or `compact`.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	public function sanitize_fab_size( $value ) {
+		return in_array( $value, array( 'regular', 'compact' ), true ) ? (string) $value : 'regular';
 	}
 }

@@ -205,8 +205,9 @@ body.tack-quote-modal-open {
    from the WooCommerce cart. Hidden by JS until at least one item is added. */
 .tack-quote-list-widget {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  /* 1.9.0: the merchant's offsets. The defaults are the 20px this always was. */
+  right: var(--tack-fab-x, 20px);
+  bottom: var(--tack-fab-y, 20px);
   z-index: 99999;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -451,4 +452,195 @@ body.tack-quote-modal-open {
 .woocommerce div.product p.price del.tackquote-was,
 del + ins {
   text-decoration: none;
+}
+
+/* ── 1.9.0: launcher settings ─────────────────────────────────────────────────
+ * Position, size, icon, count and mobile behaviour are classes and two custom
+ * properties printed by Tack_Widget::render_quote_list_drawer(). With no
+ * setting changed, none of these rules change anything. */
+
+.tack-quote-list-widget.tack-fab-left {
+  right: auto;
+  left: var(--tack-fab-x, 20px);
+}
+
+.tack-fab-left .tack-quote-list-drawer {
+  right: auto;
+  left: 0;
+}
+
+.tack-quote-list-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tack-fab-icon {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.tack-fab-icon-only .tack-fab-icon {
+  display: inline-block;
+}
+
+/* The text stays in the DOM for assistive technology; only the pixels go. */
+.tack-fab-icon-only .tack-fab-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.tack-fab-no-count .tack-fab-count {
+  display: none;
+}
+
+.tack-fab-compact .tack-quote-list-toggle {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .tack-quote-list-widget.tack-fab-hide-mobile {
+    display: none;
+  }
+}
+
+/* Narrow phones: always compact, 48px tall, lifted above the home indicator —
+ * the same rule the shared TackQuote widget applies at this width. */
+@media (max-width: 480px) {
+  .tack-quote-list-widget {
+    bottom: calc(var(--tack-fab-y, 20px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tack-quote-list-toggle {
+    justify-content: center;
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  /* Compact: icon and count only; the label stays for assistive technology
+   * (the button's aria-label carries it too). */
+  .tack-quote-list-widget .tack-fab-icon {
+    display: inline-block;
+  }
+
+  .tack-quote-list-widget .tack-fab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* Drawer lines: editable quantity, and the buyer's resolved price when there is one. */
+.tack-quote-list-item-qty-input {
+  width: 3.5em;
+  margin-left: 2px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.tack-quote-list-item-price {
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── 1.9.0: product-card and cart-page controls ──────────────────────────────
+ * Layout only. They wear WooCommerce's own button classes (`button`, and
+ * `wp-element-button` on a block theme), so the theme paints them. */
+
+.tack-card-quote-btn,
+.tack-card-quote-link {
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.wc-proceed-to-checkout .tack-quote-cart-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* The Cart block has no server-side slot beside its Proceed button, so the
+ * control is fixed to the bottom of the cart page. */
+.tack-quote-cart-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99998;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: #fff;
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  text-align: center;
+}
+
+.tack-quote-cart-fixed .tack-quote-cart-btn {
+  margin: 0;
+}
+
+/* The launcher sits above the fixed cart control. */
+body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
+  bottom: calc(var(--tack-fab-y, 20px) + 72px);
+}
+
+/* ── 1.9.0: the quote page ([tackquote_quote_page]) ───────────────────────────
+ * Inherits the theme's `shop_table` styling; only the inputs and actions are sized. */
+
+.tack-quote-page-table input[type="number"] {
+  width: 5.5em;
+  font: inherit;
+}
+
+.tack-quote-page-item-sku {
+  display: block;
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
+.tack-quote-page-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.tack-quote-page-remove:hover {
+  opacity: 1;
+}
+
+.tack-quote-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* "Available on quote", beside the price of a quote-only product. */
+.tack-quote-only-cta {
+  display: inline-block;
+  margin-inline-start: 0.5em;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.8;
 }
