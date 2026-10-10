@@ -17,7 +17,6 @@ a leak fails the build rather than quietly producing a fat zip.
 | `banner-1544x500.png`, `banner-772x250.png` | Header of the directory page (retina and standard) |
 | `icon-128x128.png`, `icon-256x256.png` | Search results and the plugin card |
 | `screenshot-1.png` … `screenshot-16.png` | The Screenshots tab, captioned **in numeric order** by the `== Screenshots ==` list in `readme.txt`; 1280x800 PNG, one per feature (also shown in the repository README) |
-| `mark-bw.png`, `preview-on-white.png` | Source marks kept for regenerating the above |
 
 ## The one rule that is easy to break
 
@@ -39,3 +38,5 @@ that answered with demo fixtures (prices, buyer group, order limits, net-terms
 standing, wholesale form, quote checkout) and refused every other call, so no
 request reached a TackQuote server. Icons and banners are regenerated from
 `tack/apps/web/public/brand/tackquote-app-icon.png` (the current mark).
+
+Superseded files were removed on 2026-10-10 (owner request): the pre-redesign `demo/` captures and the old source marks. Icons and banners are regenerated from the brand kit in the tack repo (`apps/web/public/brand/tackquote-app-icon.png`); screenshots come from the Studio site on the current design.
