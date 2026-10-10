@@ -52,6 +52,12 @@ class Tack_Quote_Checkout {
 	/** Upper bound on lines read from one payload. */
 	const MAX_LINES = 250;
 
+	/** Checkout-link exchanges one visitor may make per RATE_LIMIT_WINDOW. */
+	const RATE_LIMIT_MAX = 10;
+
+	/** The exchange rate-limit window, in seconds. */
+	const RATE_LIMIT_WINDOW = 600;
+
 	/** WooCommerce session key holding the active quote checkout. */
 	const SESSION_KEY = 'tackquote_quote_checkout';
 
@@ -201,6 +207,19 @@ class Tack_Quote_Checkout {
 			return true;
 		}
 
+		/*
+		 * Anyone can open `?tackquote_checkout=<43 characters>`, and each opening costs one
+		 * TackQuote request holding this PHP worker. Until 1.10.0 nothing limited that, so a
+		 * script could probe tokens at full speed. Checked after the shapes and the
+		 * already-active shortcut above, which make no request.
+		 */
+		$max = self::rate_limit_max();
+		if ( Tack_Rate_Limit::exceeded( 'tack_qc_', 'quote-checkout', $max ) ) {
+			$this->notice( __( 'Too many checkout links were opened from this connection. Please wait a few minutes and try again.', 'tackquote' ) );
+			return false;
+		}
+		Tack_Rate_Limit::hit( 'tack_qc_', 'quote-checkout', $max, self::RATE_LIMIT_WINDOW );
+
 		// Exactly one exchange per token: TackQuote spends it on the first that
 		// passes its checks, so a retry could only ever answer "already used".
 		$result = $this->client()->exchange_quote_checkout( $token );
@@ -231,6 +250,24 @@ class Tack_Quote_Checkout {
 		}
 
 		return $this->build_cart( $payload, hash( 'sha256', $token ) );
+	}
+
+	/**
+	 * Checkout-link exchanges allowed per visitor per window.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return int Zero or less disables the limit.
+	 */
+	private static function rate_limit_max() {
+		/**
+		 * Filters how many TackQuote checkout links one visitor may open per ten minutes.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param int $max Maximum exchanges. Zero or less disables the limit.
+		 */
+		return (int) apply_filters( 'tack_quotes_checkout_rate_limit_max', self::RATE_LIMIT_MAX );
 	}
 
 	/**

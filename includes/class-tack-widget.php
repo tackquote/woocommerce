@@ -1073,21 +1073,15 @@ class Tack_Widget {
 	 * Deliberately coarse. It exists to make flooding expensive, not to be an authorization
 	 * boundary: the client address is only ever a hint (behind a CDN or load balancer it is
 	 * whatever the proxy chain reports, and that chain is forgeable unless the host is
-	 * configured to trust it), so a determined attacker rotates addresses. What it does buy
-	 * is that a single script cannot hold every PHP worker on the site with a loop.
-	 *
-	 * The counter is keyed on a SALTED HASH of the address rather than the address itself: an
-	 * IP is personal data, transients live in the options table or a shared object cache, and
-	 * a counter does not need to be able to name anybody.
+	 * configured to trust it), so a determined attacker rotates addresses. Until 1.10.0 the
+	 * only counter was keyed on that forgeable address, so one script sending a new
+	 * `X-Real-IP` per request was never limited. Tack_Rate_Limit now also charges the socket
+	 * peer, which the client cannot choose; see that class.
 	 *
 	 * @return bool True when the caller is over the limit.
 	 */
 	private function rate_limit_exceeded() {
-		$max = $this->rate_limit_max();
-		if ( $max <= 0 ) {
-			return false;
-		}
-		return (int) get_transient( $this->rate_limit_key() ) >= $max;
+		return Tack_Rate_Limit::exceeded( 'tack_qr_', 'quote-request', $this->rate_limit_max() );
 	}
 
 	/**
@@ -1101,11 +1095,7 @@ class Tack_Widget {
 	 * themselves out of a form they are actively trying to use.
 	 */
 	private function record_rate_limit_hit() {
-		if ( $this->rate_limit_max() <= 0 ) {
-			return;
-		}
-		$key = $this->rate_limit_key();
-		set_transient( $key, (int) get_transient( $key ) + 1, self::RATE_LIMIT_WINDOW );
+		Tack_Rate_Limit::hit( 'tack_qr_', 'quote-request', $this->rate_limit_max(), self::RATE_LIMIT_WINDOW );
 	}
 
 	/**
@@ -1122,26 +1112,6 @@ class Tack_Widget {
 		 * @param int $max Maximum requests. Zero or less disables the limit.
 		 */
 		return (int) apply_filters( 'tack_quotes_rate_limit_max', self::RATE_LIMIT_MAX );
-	}
-
-	/**
-	 * Transient key identifying this caller's counter.
-	 *
-	 * @return string
-	 */
-	private function rate_limit_key() {
-		// WC_Geolocation::get_ip_address() is WooCommerce's own client-address resolution, so
-		// this agrees with how the rest of the store identifies a visitor instead of inventing
-		// a second answer.
-		$ip = '';
-		if ( class_exists( 'WC_Geolocation' ) ) {
-			$ip = (string) WC_Geolocation::get_ip_address();
-		}
-		if ( '' === $ip && isset( $_SERVER['REMOTE_ADDR'] ) ) {
-			$ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
-		}
-
-		return 'tack_qr_' . substr( wp_hash( 'quote-request|' . $ip ), 0, 20 );
 	}
 
 	/**
@@ -1469,7 +1439,7 @@ class Tack_Widget {
 				// get_name() on a variation already carries the attribute summary
 				// ("Cut-Resistant Gloves - X-Large"), which is what a salesperson needs on
 				// the quote line.
-				return $variation;
+				return self::is_quotable( $variation, $product ) ? $variation : null;
 			}
 		}
 
@@ -1477,7 +1447,63 @@ class Tack_Widget {
 			return null;
 		}
 
-		return $product;
+		return self::is_quotable( $product ) ? $product : null;
+	}
+
+	/**
+	 * May the current visitor quote this product?
+	 *
+	 * The ids come from the browser, and `wc_get_product()` loads a product whatever its
+	 * status. Before 1.10.0 a guest could therefore quote a draft, pending, private,
+	 * password-protected or trashed product, or one in a category hidden from their
+	 * buyer group. Its name, SKU and price went to TackQuote and came back on the
+	 * quote, and the re-pricing call answered its price.
+	 *
+	 * Quotable means the product (and, for a variation, its parent too) is published and
+	 * not password-protected, unless the visitor can edit it. It must also stay visible
+	 * through `woocommerce_product_is_visible`, the filter WooCommerce's own
+	 * `WC_Product::is_visible()` ends with. Tack_Catalog_Visibility hides group-restricted
+	 * categories there, so one rule serves both. The filter starts from true, so
+	 * WooCommerce's own catalogue visibility and stock settings do not apply: a product
+	 * hidden from the shop grid, or out of stock, can still be asked about.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param WC_Product      $product The product to quote (a variation, or a simple product).
+	 * @param WC_Product|null $parent_product The variation's parent, when $product is a variation.
+	 * @return bool
+	 */
+	public static function is_quotable( $product, $parent_product = null ) {
+		$chain = array( $product );
+		if ( is_object( $parent_product ) ) {
+			$chain[] = $parent_product;
+		}
+		foreach ( $chain as $item ) {
+			if ( ! is_object( $item ) || ! method_exists( $item, 'get_id' ) ) {
+				return false;
+			}
+			$id = (int) $item->get_id();
+			if ( current_user_can( 'edit_post', $id ) ) {
+				continue;
+			}
+			$status   = method_exists( $item, 'get_status' ) ? (string) $item->get_status() : '';
+			$password = method_exists( $item, 'get_post_password' ) ? (string) $item->get_post_password() : '';
+			if ( 'publish' !== $status || '' !== $password ) {
+				return false;
+			}
+		}
+		$visible_id = is_object( $parent_product ) ? (int) $parent_product->get_id() : (int) $product->get_id();
+		/**
+		 * Filters whether a product is visible: WooCommerce's own filter, which
+		 * WC_Product::is_visible() ends with. Applied here so a product hidden there
+		 * (for example by Tack_Catalog_Visibility) cannot be quoted.
+		 *
+		 * @since 1.10.0
+		 *
+		 * @param bool $visible    Visible so far (true: WooCommerce's own catalogue rules do not apply).
+		 * @param int  $product_id Product id (the parent, for a variation).
+		 */
+		return (bool) apply_filters( 'woocommerce_product_is_visible', true, $visible_id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WooCommerce's own filter, applied on purpose so the plugin honours every visibility rule hooked there.
 	}
 
 	/**

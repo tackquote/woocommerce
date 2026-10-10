@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once TACK_QUOTES_DIR . 'includes/class-tack-settings.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-rate-limit.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-block-product.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-widget.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-sync-gate.php';
@@ -161,6 +162,10 @@ final class Tack_Quotes {
 		// hook rather than an inline call here on plugins_loaded.
 		add_action( 'admin_init', array( $this, 'add_privacy_policy_content' ) );
 
+		// Tools > Export / Erase Personal Data: the user meta this plugin keeps.
+		add_filter( 'wp_privacy_personal_data_exporters', array( __CLASS__, 'register_privacy_exporter' ) );
+		add_filter( 'wp_privacy_personal_data_erasers', array( __CLASS__, 'register_privacy_eraser' ) );
+
 		// The textdomain is registered on `init` by tack_quotes_load_textdomain() in
 		// tackquote.php, not here: this runs on plugins_loaded, which WordPress 6.7+
 		// reports as too early for translation loading.
@@ -250,6 +255,134 @@ final class Tack_Quotes {
 	}
 
 	/**
+	 * User meta this plugin writes about a customer, key => label for an export.
+	 *
+	 * `_tack_known_email` is a copy of the account's email address (the email-trust
+	 * guard compares against it); the rest are flags and the roles the role mirror added.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return array<string,string>
+	 */
+	public static function privacy_user_meta() {
+		return array(
+			'_tack_known_email'         => __( 'Email address last confirmed for TackQuote', 'tackquote' ),
+			'_tack_email_unverified'    => __( 'Email change awaiting confirmation', 'tackquote' ),
+			'_tack_mirrored_roles'      => __( 'Roles added from your TackQuote buyer group', 'tackquote' ),
+			'_tack_role_mirror_checked' => __( 'Buyer group last checked', 'tackquote' ),
+		);
+	}
+
+	/**
+	 * `wp_privacy_personal_data_exporters`.
+	 *
+	 * @param array $exporters Registered exporters.
+	 * @return array
+	 */
+	public static function register_privacy_exporter( $exporters ) {
+		$exporters              = is_array( $exporters ) ? $exporters : array();
+		$exporters['tackquote'] = array(
+			'exporter_friendly_name' => __( 'TackQuote for WooCommerce', 'tackquote' ),
+			'callback'               => array( __CLASS__, 'export_personal_data' ),
+		);
+		return $exporters;
+	}
+
+	/**
+	 * `wp_privacy_personal_data_erasers`.
+	 *
+	 * @param array $erasers Registered erasers.
+	 * @return array
+	 */
+	public static function register_privacy_eraser( $erasers ) {
+		$erasers              = is_array( $erasers ) ? $erasers : array();
+		$erasers['tackquote'] = array(
+			'eraser_friendly_name' => __( 'TackQuote for WooCommerce', 'tackquote' ),
+			'callback'             => array( __CLASS__, 'erase_personal_data' ),
+		);
+		return $erasers;
+	}
+
+	/**
+	 * Export the user meta of the account that owns this email address.
+	 *
+	 * @param string $email Email address.
+	 * @param int    $page  Page (one page is always enough).
+	 * @return array{data:array,done:bool}
+	 */
+	public static function export_personal_data( $email, $page = 1 ) {
+		unset( $page );
+		$user = get_user_by( 'email', (string) $email );
+		$data = array();
+		foreach ( $user ? self::privacy_user_meta() : array() as $key => $label ) {
+			$value = get_user_meta( $user->ID, $key, true );
+			if ( '' === $value || array() === $value || null === $value ) {
+				continue;
+			}
+			if ( '_tack_role_mirror_checked' === $key && is_numeric( $value ) ) {
+				$value = gmdate( 'c', (int) $value );
+			}
+			$data[] = array(
+				'name'  => $label,
+				'value' => is_array( $value ) ? implode( ', ', array_map( 'strval', $value ) ) : (string) $value,
+			);
+		}
+		$items = array();
+		if ( ! empty( $data ) ) {
+			$items[] = array(
+				'group_id'    => 'tackquote',
+				'group_label' => __( 'TackQuote', 'tackquote' ),
+				'item_id'     => 'tackquote-user-' . (int) $user->ID,
+				'data'        => $data,
+			);
+		}
+		return array(
+			'data' => $items,
+			'done' => true,
+		);
+	}
+
+	/**
+	 * Erase the user meta of the account that owns this email address.
+	 *
+	 * Roles the mirror added stay on the account (removing a role is an access change the
+	 * store makes, not data erasure); only this plugin's record of them is deleted.
+	 *
+	 * The "email change awaiting confirmation" flag is RETAINED. It holds no personal data,
+	 * and deleting it would make TackQuote trust a self-changed address again: an erasure
+	 * must never grant another buyer's prices or payment terms.
+	 *
+	 * @param string $email Email address.
+	 * @param int    $page  Page (one page is always enough).
+	 * @return array{items_removed:bool,items_retained:bool,messages:array,done:bool}
+	 */
+	public static function erase_personal_data( $email, $page = 1 ) {
+		unset( $page );
+		$user     = get_user_by( 'email', (string) $email );
+		$removed  = false;
+		$retained = false;
+		$messages = array();
+		foreach ( $user ? array_keys( self::privacy_user_meta() ) : array() as $key ) {
+			if ( '' === get_user_meta( $user->ID, $key, true ) ) {
+				continue;
+			}
+			if ( Tack_B2B_Notices::META_EMAIL_UNVERIFIED === $key ) {
+				$retained   = true;
+				$messages[] = __( 'TackQuote kept a flag saying this account\'s email change is unconfirmed. It holds no personal data and stops the account from receiving another buyer\'s prices or payment terms.', 'tackquote' );
+				continue;
+			}
+			delete_user_meta( $user->ID, $key );
+			$removed = true;
+		}
+		return array(
+			'items_removed'  => $removed,
+			'items_retained' => $retained,
+			'messages'       => $messages,
+			'done'           => true,
+		);
+	}
+
+	/**
 	 * Add a "Settings" link on the plugins screen.
 	 *
 	 * @param array $links Existing links.
@@ -305,7 +438,15 @@ final class Tack_Quotes {
 	 * Deactivation: clear scheduled events and the account endpoints' rewrite rules.
 	 */
 	public static function deactivate() {
-		wp_clear_scheduled_hook( 'tack_quotes_retry_sync' );
+		// The order-sync jobs, in Action Scheduler (group `tackquote`) and the WP-Cron
+		// fallback. This used to clear `tack_quotes_retry_sync`, a hook nothing schedules,
+		// and left the real jobs queued.
+		foreach ( array( Tack_Order_Sync::SYNC_HOOK, Tack_Order_Sync::REQUEUE_HOOK ) as $hook ) {
+			if ( function_exists( 'as_unschedule_all_actions' ) ) {
+				as_unschedule_all_actions( $hook, array(), Tack_Order_Sync::SYNC_GROUP );
+			}
+			wp_unschedule_hook( $hook );
+		}
 		// The account endpoints leave the rewrite rules with the plugin.
 		flush_rewrite_rules();
 		delete_option( Tack_Storefront_Forms::OPTION_REWRITE_VERSION );

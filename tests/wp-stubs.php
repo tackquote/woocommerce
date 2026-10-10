@@ -48,7 +48,10 @@ function add_filter( $hook, $callback = null, $priority = 10, $args = 1 ) {
  */
 function apply_filters( $hook, $value ) {
 	$args = array_slice( func_get_args(), 2 );
-	foreach ( (array) ( $GLOBALS['TACK_FILTERS'][ $hook ] ?? array() ) as $callback ) {
+	// TACK_PERSISTENT_FILTERS survive tack_test_clear_filter_returns(): a suite that is not
+	// about rate limits switches them off once (see tack_test_without_rate_limits()).
+	$callbacks = array_merge( (array) ( $GLOBALS['TACK_PERSISTENT_FILTERS'][ $hook ] ?? array() ), (array) ( $GLOBALS['TACK_FILTERS'][ $hook ] ?? array() ) );
+	foreach ( $callbacks as $callback ) {
 		$value = call_user_func_array( $callback, array_merge( array( $value ), $args ) );
 	}
 	return $value;
@@ -1316,3 +1319,31 @@ if ( ! function_exists( 'woocommerce_form_field' ) ) {
 // ═══ END W2-net-terms stubs ═══
 
 require_once __DIR__ . '/wc-tax-stubs.php';
+
+// ── Stubs added by the 1.10.0 standards audit (Tack_Rate_Limit, privacy, quotable) ──
+if ( ! function_exists( 'wp_hash' ) ) {
+	/** @param string $d Data. @return string */
+	function wp_hash( $d ) {
+		return md5( 'salt' . $d );
+	}
+}
+
+/**
+ * Switch the public-handler rate limits off (or back on) for suites that submit more
+ * often than a visitor may. Survives tack_test_clear_filter_returns().
+ *
+ * @param bool $off True to switch them off.
+ */
+function tack_test_without_rate_limits( $off = true ) {
+	foreach ( array( 'tack_quotes_form_rate_limit_max', 'tack_quotes_checkout_rate_limit_max' ) as $hook ) {
+		if ( $off ) {
+			$GLOBALS['TACK_PERSISTENT_FILTERS'][ $hook ] = array(
+				function () {
+					return 0;
+				},
+			);
+		} else {
+			unset( $GLOBALS['TACK_PERSISTENT_FILTERS'][ $hook ] );
+		}
+	}
+}

@@ -6,6 +6,9 @@
  */
 
 require __DIR__ . '/wp-stubs.php';
+// The application-form and checkout-link limits (1.10.0 standards audit) are switched off
+// for every suite that is not about them; standards-audit-test.php switches them back on.
+tack_test_without_rate_limits();
 
 define( 'ABSPATH', '/' );
 define( 'TACK_QUOTES_FILE', dirname( __DIR__ ) . '/tackquote.php' );
@@ -155,6 +158,11 @@ require __DIR__ . '/with-options-block-test.php';
 // 1.10.0 connection test: only an authenticated ping is "Connected" (defect D1).
 echo "\n-- connection test (401/403 rejected, 404 unverified, ping only) --\n";
 require __DIR__ . '/connection-test-test.php';
+
+// 1.10.0 standards audit: email trust on every path, rate limits, quotable products,
+// no redirects with the key, uninstall completeness, privacy exporter/eraser.
+echo "\n-- standards audit (W7) --\n";
+require __DIR__ . '/standards-audit-test.php';
 
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

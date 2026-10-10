@@ -65,10 +65,24 @@ class Tack_Api_Client {
 			return new WP_Error( 'tack_no_key', __( 'No TackQuote API key configured.', 'tackquote' ) );
 		}
 
+		/*
+		 * Never follow a redirect. WordPress' HTTP API (Requests::parse_response(), WP
+		 * 7.1.3) re-sends the request headers, the key in `Authorization` and
+		 * `X-Api-Key` included, to whatever `Location` a 3xx names: an `http://` URL in
+		 * cleartext, another host, or an internal address. That would undo the
+		 * https-only check on the API URL setting. The API answers JSON directly and
+		 * never needs a redirect, so a 3xx is reported as an error with its status.
+		 *
+		 * The URL is set only by an administrator and may be a local development host,
+		 * which is why this is `wp_remote_request()` and not `wp_safe_remote_request()`
+		 * (the safe variant refuses loopback and private addresses, and every port
+		 * except 80, 443 and 8080).
+		 */
 		$args = array(
-			'method'  => $method,
-			'timeout' => null === $timeout ? self::DEFAULT_TIMEOUT : max( 1, (int) $timeout ),
-			'headers' => array_merge(
+			'method'      => $method,
+			'timeout'     => null === $timeout ? self::DEFAULT_TIMEOUT : max( 1, (int) $timeout ),
+			'redirection' => 0,
+			'headers'     => array_merge(
 				array(
 					'Authorization'              => 'Bearer ' . $key,
 					'X-Api-Key'                  => $key,

@@ -541,6 +541,45 @@ class Tack_B2B_Notices {
 	 */
 	public static function register_email_trust_guard() {
 		add_action( 'woocommerce_save_account_details', array( __CLASS__, 'flag_email_change' ), 10, 1 );
+		// Every other way a customer can change their own address. My Account is not the
+		// only one: `POST /wp-json/wp/v2/users/me` sets `user_email` with no confirmation
+		// (WP 7.1.3 WP_REST_Users_Controller::update_item(), and map_meta_cap() lets any
+		// user `edit_user` themselves). Both paths end in wp_update_user(), which fires
+		// `profile_update` with the user as stored BEFORE the change.
+		add_action( 'profile_update', array( __CLASS__, 'flag_profile_email_change' ), 10, 2 );
+	}
+
+	/**
+	 * `profile_update`: mark an account untrusted when its owner changed its email.
+	 *
+	 * Self-service only. A change made by someone who may manage users (an
+	 * administrator or shop manager holding `edit_users`) is the store vouching for the
+	 * address, and so is a change made for someone else (WP-CLI, an import, an admin
+	 * editing a customer); those only move the recorded address on.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param int          $user_id       The user whose details were saved.
+	 * @param WP_User|null $old_user_data The user as stored before the update.
+	 */
+	public static function flag_profile_email_change( $user_id, $old_user_data = null ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 || ! is_object( $old_user_data ) || ! isset( $old_user_data->user_email ) ) {
+			return;
+		}
+		$user = get_userdata( $user_id );
+		if ( ! $user || ! isset( $user->user_email ) ) {
+			return;
+		}
+		$before = strtolower( trim( (string) $old_user_data->user_email ) );
+		$now    = (string) $user->user_email;
+		if ( strtolower( trim( $now ) ) === $before ) {
+			return;
+		}
+		if ( get_current_user_id() === $user_id && ! current_user_can( 'edit_users' ) ) {
+			update_user_meta( $user_id, self::META_EMAIL_UNVERIFIED, '1' );
+		}
+		update_user_meta( $user_id, '_tack_known_email', $now );
 	}
 
 	/**

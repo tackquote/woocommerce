@@ -64,12 +64,11 @@ TackQuote can tell which build your store runs. The API key needs the `buyers:wr
 the two application forms below; the read-only storefront lookups need no extra scope.
 
 1. **Connection test** — `GET /integrations/woocommerce/ping`; on 404, `GET /health` (key unverified).
-Sent when an administrator clicks "Test TackQuote connection" in plugin settings.
-Sends your API key only: no store, order or customer data.
+Sent when an administrator clicks "Test TackQuote connection", and at most daily from the
+storefront for item 11. Sends your API key only: no store, order or customer data.
 
 2. **Quote form field policy** — `GET /integrations/woocommerce/registration-config`.
-Sent when a storefront page showing a quote button is viewed and the cached policy has
-expired (cached for 15 minutes). Sends your API key only: no store, order or customer data.
+Sent on storefront page views while quote buttons are on, at most every 15 minutes. Sends your API key only: no store, order or customer data.
 
 3. **Quote request** — `POST /integrations/woocommerce/quote-requests`.
 Sent when a shopper submits the quote form on your storefront. Sends what that shopper typed
@@ -95,10 +94,9 @@ prices), `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-brea
 `GET /storefront/v1/order-limits` and `GET /storefront/v1/buyer-group`, falling back to the
 older `GET /storefront-b2b/order-limits` and `GET /storefront-b2b/buyer-group` on a TackQuote
 server without the `/storefront/v1` routes. Only when the merchant has switched on B2B pricing,
-order limits, the buyer-group badge, any buyer-group rule or tax-exempt buyers. Sent while a
-signed-in customer browses the store. Sends the product SKU and quantity,
-the signed-in customer's email address and, since 1.10.0, their WordPress user ID (digits only;
-never for a guest).
+order limits, the buyer-group badge, any buyer-group rule or tax-exempt buyers. Sent while
+customers browse (order limits also for guests). Sends the product SKU and quantity and, for
+a signed-in customer, their email address and WordPress user ID (digits only).
 
 6. **Wholesale application** — `GET /integrations/woocommerce/wholesale-form` (the form's
 fields, by form slug; sends no customer data) and `POST /integrations/woocommerce/wholesale-form/submit`.
@@ -186,11 +184,11 @@ This plugin sends data to TackQuote, a third-party service, over HTTPS. It sends
 
 To the TackQuote API base URL configured under **TackQuote → TackQuote API URL** — `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. Endpoints used:
 
-* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test. Sends no store or customer data.
+* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test and server features. Sends no store or customer data.
 * `GET /integrations/woocommerce/registration-config` — fetches which fields the quote form should ask for. Sends no store or customer data.
 * `POST /integrations/woocommerce/quote-requests` — a shopper's quote request.
 * `POST /integrations/woocommerce/order-sync` — order sync. **Only when the merchant has switched order sync on. It is off by default.**
-* `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits, the buyer group and its tax exemption for a signed-in customer. Only when the matching feature is switched on.
+* `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits (also for guests, by SKU), the buyer group and its tax exemption. Only when the matching feature is switched on.
 * `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
 * `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
 * `GET /storefront/v1/net-terms` — net terms at checkout (off by default).
@@ -198,7 +196,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `POST /storefront/v1/quote-upload`, `POST /storefront/v1/wholesale-upload`, `POST /storefront/v1/wholesale-signup/<slug>` — files a shopper attaches to a quote request (only when "Allow attachments on quote requests" is on; off by default) or to a wholesale application (signed-in customers only), and an application that carries files. Sends the file's bytes and name, and the signed-in customer's account email address and WordPress user ID; a guest's quote files carry only a single-use upload token. Unattached files are deleted by TackQuote after 24 hours (quote) or 7 days (application).
 * `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
 
-Every request carries an `X-TackQuote-Plugin-Version` header with the plugin's version number. It identifies the software, not a person.
+Every request carries an `X-TackQuote-Plugin-Version` header naming the plugin's version: the software, not a person.
 
 = The full lists =
 
@@ -343,7 +341,7 @@ transaction ID is a reference the gateway issued, not an instrument.
 * `tack_quotes_wholesale_form_cache` — a transient caching wholesale form definitions for 5 minutes (60 seconds after a failure).
 * `tack_quotes_storefront_v1_missing` — a transient remembering for one hour that the TackQuote server has no `/storefront/v1` routes.
 * `tack_quotes_server_capabilities` — a transient caching, for one day (ten minutes after a failed check), which optional features the TackQuote server advertises (for example `attachments`) and a 16-character SHA-256 prefix of the key it was read with (never the key).
-* `tack_qu_*` — ten-minute transients counting attachment uploads per visitor for rate limiting, keyed on a salted hash of the IP address, never the address. Attached files themselves are never written to your site: PHP's temporary copy is deleted as soon as the file has been sent.
+* `tack_qu_*`, `tack_qf_*`, `tack_qc_*` — ten-minute transients counting attachment uploads, applications and checkout links per visitor for rate limiting, keyed on a salted hash of the IP address, never the address. Each counter also has a `…s` twin for the connecting address, which a client cannot forge. Attached files themselves are never written to your site: PHP's temporary copy is deleted as soon as the file has been sent.
 * `tack_quotes_connection_check` — a transient remembering for one day whether the settings page's last "Test connection" passed, when, the message shown, and a 16-character SHA-256 prefix of the key that was tested (never the key itself). It lets the Overview say "Connected" only for the key saved now.
 * `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
 * `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
@@ -351,7 +349,9 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
-Deleting the plugin removes every option above and the `tack_quotes_registration_config` transient, on every site of a multisite network. The `tack_qr_*` and `tack_qu_*` rate-limit counters are left to expire on their own (they last five minutes and are keyed on a hash, so there is no name to delete). The `_tack_quotes_sync_key` order meta is deliberately left in place: orders are financial records and an uninstall routine should not rewrite every one of them.
+* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`; product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta.
+
+Deleting the plugin removes every option above, the fixed-name transients, the user meta, the product meta and queued order-sync jobs, on every site of a multisite network. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
 
 == Screenshots ==
 
@@ -363,6 +363,7 @@ Deleting the plugin removes every option above and the `tack_quotes_registration
 == Changelog ==
 
 = 1.10.0 =
+* **Security and standards audit.** A customer who changes their own email by any route (including the REST API, not only My Account) is no longer trusted with another buyer's prices, net terms or tax exemption until confirmed. Rate limits can no longer be dodged with a forged `X-Real-IP`, and now also cover the application forms and quote checkout links. Draft, private, password-protected and group-hidden products can no longer be quoted. The API key is never re-sent after an HTTP redirect. Uninstall removes every setting, the plugin's user and product meta and queued jobs. Personal-data export and erasure cover the plugin's user meta.
 * **Attachments.** Quote requests can carry up to 3 files (PDF, JPEG or PNG, 5 MB each) through an optional "Attach files (optional)" control in the quote form, when you switch on "Allow attachments on quote requests" (Storefront tab, off by default) and your TackQuote server advertises attachments. Wholesale application file fields now accept a file from signed-in customers (guests see "Sign in to your account to attach files"). Files are checked on your store (count, size, extension and content), streamed server to server to TackQuote and never stored in WordPress; the seller sees them on the quote or application.
 * **Fixed: "Test connection" no longer calls a rejected key connected.** A 401 or 403 from the ping now reads "Key rejected" (Overview and notice) and clears the cached server features, instead of falling back to the public `GET /health` and saying "Connected". `/health` is asked only when the ping route is missing (404), and then reads "Reachable, key not verified". Timeouts, 429 and 5xx read "Connection failed" with a try-again hint; a failed check is never cached as a capability list.
 * **Settings page redesigned into tabs**: Overview, Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync. The Overview shows the connection (API host and the key's last four characters; "Connected" only after a passing test of the key saved now), the storefront mode, order sync (including a refusal TackQuote answered and the queue length), every B2B switch and a first-run checklist. Each tab is its own form with its own option group, so saving one tab never changes another. Short help under every field, with the full explanation kept under "Learn more"; switches, conditional fields, buyer-group grids with one column per group code, a sticky save bar, and a confirmation before removing the API key. Option names, defaults and storefront behaviour are unchanged. "Tax-exempt buyers" moved to the B2B pricing tab. The TackQuote mark replaces the generic dollar icon in the admin menu (a single-colour SVG that follows your admin colour scheme) and heads the settings page; nothing is added to your storefront.
