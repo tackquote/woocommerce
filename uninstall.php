@@ -77,6 +77,15 @@ $tack_quotes_options = array(
 	// "Net terms (TackQuote)" gateway settings, incl. the PO-number switch (Tack_Gateway_Net_Terms) — 1.9.0.
 	// WooCommerce stores a gateway's settings as `woocommerce_{gateway id}_settings`.
 	'woocommerce_tackquote_net_terms_settings',
+
+	// Catalogue visibility, shipping discounts per group and the role mirror — 1.10.0.
+	'tack_quotes_enable_catalog_visibility',
+	'tack_quotes_catalog_visibility_map',
+	'tack_quotes_hide_catalog_when_group_unknown',
+	'tack_quotes_enable_shipping_discounts',
+	'tack_quotes_shipping_discount_map',
+	'tack_quotes_enable_role_mirror',
+	'tack_quotes_mirror_roles_created',
 );
 
 /**
@@ -106,6 +115,13 @@ $tack_quotes_transients = array(
  * @return void
  */
 function tack_quotes_delete_site_data( $options, $transients ) {
+	// Roles the 1.10.0 role mirror created (Tack_Role_Mirror::OPTION_CREATED_ROLES),
+	// removed before the option that lists them. Only names with our prefix.
+	foreach ( (array) get_option( 'tack_quotes_mirror_roles_created', array() ) as $role ) {
+		if ( is_string( $role ) && 0 === strpos( $role, 'tackquote_' ) ) {
+			remove_role( $role );
+		}
+	}
 	foreach ( $options as $option ) {
 		delete_option( $option );
 	}

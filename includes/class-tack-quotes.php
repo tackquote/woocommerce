@@ -18,6 +18,8 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-mode.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-visibility.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-role-mirror.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
@@ -88,8 +90,19 @@ final class Tack_Quotes {
 		// Payment/shipping methods gated by buyer group. Shares the notices
 		// instance so the buyer group is looked up ONCE per request rather than
 		// once for the badge and again for the gateway filter.
-		if ( Tack_Group_Restrictions::is_enabled() ) {
+		// 1.10.0: shipping discounts per group run inside the SAME package-rates
+		// callback, after the restrictions, so the class attaches when either is on.
+		if ( Tack_Group_Restrictions::needs_hooks() ) {
 			( new Tack_Group_Restrictions( $b2b_notices ) )->init();
+		}
+
+		// 1.10.0: product categories hidden per buyer group, and the optional
+		// WordPress role mirror. Both off by default; both share the one lookup.
+		if ( Tack_Catalog_Visibility::is_enabled() ) {
+			( new Tack_Catalog_Visibility( $b2b_notices ) )->init();
+		}
+		if ( Tack_Role_Mirror::is_enabled() ) {
+			( new Tack_Role_Mirror( $b2b_notices ) )->init();
 		}
 
 		// Wholesale and net-terms application forms: shortcodes, My Account tabs
@@ -259,6 +272,9 @@ final class Tack_Quotes {
 		add_option( Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, 'no' );
 		add_option( Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, 'no' );
 		add_option( Tack_Tax_Exempt::OPTION_ENABLED, 'no' );
+		add_option( Tack_Catalog_Visibility::OPTION_ENABLED, 'no' );
+		add_option( Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, 'no' );
+		add_option( Tack_Role_Mirror::OPTION_ENABLED, 'no' );
 
 		// The My Account endpoints must be in the rewrite rules before they are
 		// flushed (WooCommerce's own guide for custom account tabs), and

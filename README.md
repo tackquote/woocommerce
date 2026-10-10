@@ -11,6 +11,7 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 💷 **B2B pricing** — signed-in trade customers priced from their TackQuote price book, buyer group and quantity breaks, with an optional volume-pricing table
 - 📦 **Order limits** — minimum/maximum order quantities shown on the product page and enforced at the cart and checkout
 - 🏷️ **Buyer group badge** — tells a customer which pricing group they are on, so a discounted price does not read as an error
+- 👥 **Per buyer group** (1.10.0, each off by default) — hide product categories (loops, search, blocks, Store API, related/up-sells; direct URL 404; not purchasable; removed from carts), free or percentage-off shipping applied after the group restrictions, and an optional `tackquote_<code>` WordPress role (read only, never drives pricing)
 - 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: paste your TackQuote API key
@@ -71,7 +72,7 @@ something (the cart, an unpaid order) from buyers the seller has not approved:
 |---|---|
 | B2B pricing | the store's own price is used — no product is ever unpriced or zeroed |
 | Order limits | **nothing is blocked** — the cart and checkout behave as they always did |
-| Buyer group | no badge |
+| Buyer group | no badge; restricted methods stay available; hidden categories are shown unless "hide when the group is unknown" is ticked (guest rules still apply, guests need no lookup); no shipping discount; the role mirror changes nothing |
 | Wholesale price gate | **fails closed** — the customer sees the quote-only catalogue, and can still request a quote |
 | Net terms at checkout | **fails closed** — the "Net terms (TackQuote)" payment method is hidden; every other payment method still works |
 
