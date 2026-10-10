@@ -559,26 +559,29 @@ class Tack_Widget {
 	}
 
 	/**
-	 * Best-effort email for pre-filling the modal: WooCommerce customer billing
-	 * email first (covers logged-in and session-persisted guest checkouts),
-	 * then the current WP user's account email.
+	 * Email for pre-filling the modal, for a signed-in visitor only: their
+	 * WooCommerce billing email first, then their account email. '' for guests.
 	 *
 	 * @return string
 	 */
 	private function current_customer_email() {
+		/*
+		 * Signed-in visitors only (audit L-4, 1.10.0). This value is printed into every
+		 * page's inline script; a guest's WooCommerce-session billing email would end up
+		 * in pages that a full-page cache not varying on the session cookie serves to
+		 * other visitors. Signed-in visitors bypass page caches.
+		 */
+		if ( ! is_user_logged_in() ) {
+			return '';
+		}
 		if ( function_exists( 'WC' ) && WC()->customer ) {
 			$billing_email = WC()->customer->get_billing_email();
 			if ( $billing_email ) {
 				return $billing_email;
 			}
 		}
-		if ( is_user_logged_in() ) {
-			$user = wp_get_current_user();
-			if ( $user && $user->user_email ) {
-				return $user->user_email;
-			}
-		}
-		return '';
+		$user = wp_get_current_user();
+		return ( $user && $user->user_email ) ? (string) $user->user_email : '';
 	}
 
 	/**

@@ -272,3 +272,20 @@ tack_test_clear_filter_returns();
 
 @unlink( $tack_theme . '/woocommerce/tackquote/quote-page.php' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 @unlink( $tack_theme . '/woocommerce/tackquote/single-product/quantity-breaks.php' ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+
+// ── Audit L-4 (assigned to W6): no guest email in the page's inline script ──
+$tack_email_of = new ReflectionMethod( 'Tack_Widget', 'current_customer_email' );
+$tack_email_of->setAccessible( true );
+$GLOBALS['TACK_WC_CUSTOMER'] = new class() {
+	/** @return string */
+	public function get_billing_email() {
+		return 'guest-session@buyer.test';
+	}
+};
+tack_test_set_logged_in( false, '' );
+check( 'L-4: a guest\'s WooCommerce-session billing email is NOT printed into the page', '' === $tack_email_of->invoke( new Tack_Widget() ) );
+tack_test_set_logged_in( true, 'account@buyer.test' );
+check( 'L-4: a signed-in buyer still gets their billing email prefilled', 'guest-session@buyer.test' === $tack_email_of->invoke( new Tack_Widget() ) );
+$GLOBALS['TACK_WC_CUSTOMER'] = null;
+check( 'L-4: a signed-in buyer without a billing email gets their account email', 'account@buyer.test' === $tack_email_of->invoke( new Tack_Widget() ) );
+tack_test_set_logged_in( false, '' );
