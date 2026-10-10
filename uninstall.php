@@ -67,14 +67,14 @@ $tack_quotes_options = array(
 	// Order-sync circuit breaker (Tack_Sync_Gate::OPTION) — added after 1.8.1.
 	'tack_quotes_order_sync_block',
 
-	// Storefront application forms (Tack_Storefront_Forms) — 1.9.0.
+	// Storefront application forms (Tack_Storefront_Forms) — 1.10.0.
 	'tack_quotes_wholesale_form_slug',
 	'tack_quotes_enable_wholesale_account_tab',
 	'tack_quotes_enable_net_terms_tab',
 	'tack_quotes_rewrite_version',
 	'tack_quotes_apply_tax_exempt',
 
-	// "Net terms (TackQuote)" gateway settings, incl. the PO-number switch (Tack_Gateway_Net_Terms) — 1.9.0.
+	// "Net terms (TackQuote)" gateway settings, incl. the PO-number switch (Tack_Gateway_Net_Terms) — 1.10.0.
 	// WooCommerce stores a gateway's settings as `woocommerce_{gateway id}_settings`.
 	'woocommerce_tackquote_net_terms_settings',
 
@@ -104,9 +104,9 @@ $tack_quotes_options = array(
  */
 $tack_quotes_transients = array(
 	'tack_quotes_registration_config',
-	// Wholesale form definitions, every slug in one transient (Tack_Api_Client::FORM_CACHE_TRANSIENT) — 1.9.0.
+	// Wholesale form definitions, every slug in one transient (Tack_Api_Client::FORM_CACHE_TRANSIENT) — 1.10.0.
 	'tack_quotes_wholesale_form_cache',
-	// "The server has no /storefront/v1 routes" memory (Tack_Api_Client::V1_MISSING_TRANSIENT) — 1.9.0.
+	// "The server has no /storefront/v1 routes" memory (Tack_Api_Client::V1_MISSING_TRANSIENT) — 1.10.0.
 	'tack_quotes_storefront_v1_missing',
 	// Outcome of the settings page's last "Test connection" (Tack_Settings::CONNECTION_CHECK) — 1.10.0.
 	'tack_quotes_connection_check',

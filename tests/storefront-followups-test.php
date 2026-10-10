@@ -1,6 +1,6 @@
 <?php
 /**
- * Storefront follow-ups (1.9.0):
+ * Storefront follow-ups (1.10.0):
  *
  * 1. A variable product on quote (store-wide quote-only, or per product) keeps
  *    its variation form, with the TackQuote controls (quantity + buttons +

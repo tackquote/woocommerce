@@ -9,7 +9,7 @@
  *    product immediately.
  *  - "Checkout as Quote" (floating quote-list drawer, shown site-wide) —
  *    submits every item currently in the quote list as one TackQuote request.
- *  - Since 1.9.0, all OFF by default: "Add to Quote" on product cards in the
+ *  - Since 1.10.0, all OFF by default: "Add to Quote" on product cards in the
  *    shop/category/search loops, "Request a quote for your cart" on the cart
  *    page (classic template and Cart block), the launcher's position, size,
  *    label, pages and mobile behaviour, and a quote PAGE rendered by the
@@ -63,7 +63,7 @@ class Tack_Widget {
 	 */
 	const ITEMS_MAX_BYTES = 65536;
 
-	// ── 1.9.0 storefront layout options. Every default reproduces the 1.8.x storefront. ──
+	// ── 1.10.0 storefront layout options. Every default reproduces the 1.8.x storefront. ──
 
 	/** "Add to Quote" on product cards in the shop, category and search loops. */
 	const OPT_CARD_BUTTONS = 'tack_quotes_card_buttons';
@@ -132,7 +132,7 @@ class Tack_Widget {
 		add_action( 'woocommerce_single_product_summary', array( $this, 'render_product_button_fallback' ), 30 );
 
 		/*
-		 * Block themes (1.9.0). The single-product template is blocks, and neither
+		 * Block themes (1.10.0). The single-product template is blocks, and neither
 		 * hook above is a reliable mount there: see `Tack_Block_Product`. The Add to
 		 * Cart blocks' own render filter puts the buttons after the form; when the
 		 * form was rendered (a purchasable product) the buttons are already inside it
@@ -144,7 +144,7 @@ class Tack_Widget {
 		}
 
 		/*
-		 * Variable product on quote (1.9.0): `Tack_Catalog_Mode` replaces the
+		 * Variable product on quote (1.10.0): `Tack_Catalog_Mode` replaces the
 		 * variation form's cart controls and fires this where the buttons go, inside
 		 * the form, beside the quantity, so the JS reads the chosen variation.
 		 */
@@ -153,7 +153,7 @@ class Tack_Widget {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		/*
-		 * Product cards (1.9.0, off by default). `woocommerce_after_shop_loop_item`
+		 * Product cards (1.10.0, off by default). `woocommerce_after_shop_loop_item`
 		 * is the hook WooCommerce's own loop button uses, at priority 10
 		 * (templates/content-product.php: "@hooked woocommerce_template_loop_add_to_cart
 		 * - 10"); 11 puts the quote control directly after it. The callback checks the
@@ -162,7 +162,7 @@ class Tack_Widget {
 		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_card_button' ), 11 );
 
 		/*
-		 * Cart page (1.9.0, off by default). The classic cart fires
+		 * Cart page (1.10.0, off by default). The classic cart fires
 		 * `woocommerce_proceed_to_checkout` inside `.wc-proceed-to-checkout`
 		 * (templates/cart/cart-totals.php) with the Proceed button at priority 20
 		 * (includes/wc-template-hooks.php); 25 places the quote control under it. The
@@ -174,7 +174,7 @@ class Tack_Widget {
 		add_action( 'woocommerce_proceed_to_checkout', array( $this, 'render_cart_quote_button' ), 25 );
 		add_action( 'wp_footer', array( $this, 'render_cart_quote_button_footer' ), 5 );
 
-		// The quote page (1.9.0): a shortcode the merchant places on a page of their own.
+		// The quote page (1.10.0): a shortcode the merchant places on a page of their own.
 		add_shortcode( 'tackquote_quote_page', array( $this, 'render_quote_page' ) );
 
 		// AJAX (logged-in and guest).
@@ -209,7 +209,7 @@ class Tack_Widget {
 	/**
 	 * The three merchant-renamable button labels: option => English default.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return array<string, string>
 	 */
@@ -226,7 +226,7 @@ class Tack_Widget {
 	 *
 	 * Literal __() calls per option so the strings are extractable.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $option One of label_defaults()'s keys.
 	 * @return string
@@ -245,13 +245,13 @@ class Tack_Widget {
 	/**
 	 * A button label: the merchant's own wording, or the translated default.
 	 *
-	 * Before 1.9.0 activation STORED the default (`add_option( …, __( 'Add to Quote' ) )`),
+	 * Before 1.10.0 activation STORED the default (`add_option( …, __( 'Add to Quote' ) )`),
 	 * so every store held the English text in the database and no translation could
 	 * ever reach the button. A blank value, or one equal to the English default, now
 	 * means "the default" and follows the visitor's language; only a label the merchant
 	 * actually changed is shown verbatim.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $option One of label_defaults()'s keys.
 	 * @return string
@@ -356,7 +356,7 @@ class Tack_Widget {
 				// name+email form rather than rendering nothing — a shopper must still be able
 				// to ask for a quote when our own API is having a bad day.
 				'registration'        => $this->registration_config(),
-				// 1.9.0 storefront layout. Defaults reproduce the 1.8.x launcher exactly.
+				// 1.10.0 storefront layout. Defaults reproduce the 1.8.x launcher exactly.
 				'fab'                 => self::fab_settings(),
 				'opens'               => self::opens(),
 				'pageUrl'             => self::quote_page_url(),
@@ -483,7 +483,7 @@ class Tack_Widget {
 	 * quantity and variation from, and the Add to Cart block filter renders the
 	 * buttons in the right place instead.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_product_button_fallback() {
 		if ( Tack_Block_Product::is_compat_hook() ) {
@@ -500,7 +500,7 @@ class Tack_Widget {
 	 * The block returns an empty string for a product that is not purchasable
 	 * (quote-only, or no price), which is the case this exists for.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string               $block_content Rendered block.
 	 * @param array                $parsed_block  Parsed block (unused).
@@ -523,7 +523,7 @@ class Tack_Widget {
 	 * one product has been added. This — not the WooCommerce cart page — is where
 	 * shoppers review what they've added and submit "Checkout as Quote".
 	 *
-	 * Since 1.9.0 the launcher's side, offsets, label, size, pages and mobile
+	 * Since 1.10.0 the launcher's side, offsets, label, size, pages and mobile
 	 * behaviour are settings (see `fab_settings()`); every default reproduces the
 	 * 1.8.x launcher. The markup carries the choices as classes, data attributes
 	 * and two CSS custom properties; nothing is positioned inline.
@@ -599,7 +599,7 @@ class Tack_Widget {
 	 * The launcher defaults — the 1.8.x launcher, exactly: bottom right, 20 px in
 	 * from each edge, "Quote list (n)", regular size, every page, shown on mobile.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return array
 	 */
@@ -624,7 +624,7 @@ class Tack_Widget {
 	 * label, icon_only, show_count, size, hide_on_mobile) so a merchant moving
 	 * between platforms meets the same choices.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return array{position:string,offsetX:int,offsetY:int,pages:string,label:string,iconOnly:bool,showCount:bool,size:string,hideMobile:bool}
 	 */
@@ -668,7 +668,7 @@ class Tack_Widget {
 	 * `page`. `page` needs a URL; without one the drawer is used so a saved
 	 * setting with a blank URL cannot make the launcher do nothing.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return string
 	 */
@@ -679,7 +679,7 @@ class Tack_Widget {
 	/**
 	 * URL of the merchant page carrying `[tackquote_quote_page]`, or ''.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return string
 	 */
@@ -694,7 +694,7 @@ class Tack_Widget {
 	 * call needs a buyer email and the merchant's switch, and a guest's list keeps
 	 * the store price it was added at (there is nothing to resolve for them).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return bool
 	 */
@@ -710,7 +710,7 @@ class Tack_Widget {
 	 * the way the store does (symbol, decimals, separators, position). Read from
 	 * WooCommerce's own settings helpers; nothing here is invented.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return array{symbol:string,decimals:int,decimalSep:string,thousandSep:string,position:string}
 	 */
@@ -733,9 +733,9 @@ class Tack_Widget {
 	 * Block themes style `.wp-element-button` (the class WooCommerce adds to its
 	 * own loop and cart buttons through `wc_wp_theme_get_element_class_name( 'button' )`,
 	 * includes/wc-conditional-functions.php); classic themes style `.button`.
-	 * No colour is set by the plugin for the 1.9.0 controls.
+	 * No colour is set by the plugin for the 1.10.0 controls.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $extra Plugin classes to append (space-separated).
 	 * @return string
@@ -768,7 +768,7 @@ class Tack_Widget {
 	 * BigCommerce widget does on its cards too, and the alternative — quoting a
 	 * variable parent — records the wrong SKU at the cheapest variation's price.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_card_button() {
 		if ( 'yes' !== get_option( self::OPT_CARD_BUTTONS, 'no' ) ) {
@@ -807,7 +807,7 @@ class Tack_Widget {
 		/**
 		 * Filters the card label for a product that must be configured before quoting.
 		 *
-		 * @since 1.9.0
+		 * @since 1.10.0
 		 *
 		 * @param string     $label   Default "Choose options to quote".
 		 * @param WC_Product $product The product.
@@ -835,7 +835,7 @@ class Tack_Widget {
 	 * (`get_cart()` rows carry `product_id`, `variation_id`, `quantity` and the
 	 * product under `data`; includes/class-wc-cart.php).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return array<int, array{product_id:int,variation_id:int,quantity:int,sku:string,name:string,price:float}>
 	 */
@@ -865,7 +865,7 @@ class Tack_Widget {
 	 * "Request a quote for your cart" under the classic cart's Proceed button
 	 * (off by default; `OPT_CART_BUTTON`).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_cart_quote_button() {
 		if ( 'yes' !== get_option( self::OPT_CART_BUTTON, 'no' ) ) {
@@ -884,7 +884,7 @@ class Tack_Widget {
 	 * Proceed button: a fixed control printed in the footer of the cart page when
 	 * the classic hook did not fire and the cart has lines.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_cart_quote_button_footer() {
 		if ( is_admin() || $this->cart_button_rendered || 'yes' !== get_option( self::OPT_CART_BUTTON, 'no' ) ) {
@@ -932,7 +932,7 @@ class Tack_Widget {
 	 * is optional, and the message becomes the request note. Submit goes through
 	 * the same `tack_request_quote` handler as the drawer.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param array $atts Shortcode attributes.
 	 * @return string
@@ -1264,11 +1264,11 @@ class Tack_Widget {
 		}
 
 		/*
-		 * Target prices (1.9.0, quote page). The plugin's request DTO
+		 * Target prices (1.10.0, quote page). The plugin's request DTO
 		 * (`StorefrontPluginLineItemDto` in tack) has no per-line field for them and no
 		 * per-line note either, so they travel INSIDE THE REQUEST NOTE, one line per
 		 * product, after the shopper's own message. Two-repo follow-up recorded in the
-		 * 1.9.0 PR: add an optional `targetPrice` to that DTO and move these there.
+		 * 1.10.0 PR: add an optional `targetPrice` to that DTO and move these there.
 		 */
 		if ( ! empty( $this->target_prices ) ) {
 			$payload['note'] = $this->note_with_target_prices( $note, isset( $payload['currency'] ) ? $payload['currency'] : '' );
@@ -1462,7 +1462,7 @@ class Tack_Widget {
 
 	/**
 	 * Build line items from the browser-submitted quote list. Only
-	 * `product_id` + `quantity` (and, since 1.9.0, an optional `target_price`)
+	 * `product_id` + `quantity` (and, since 1.10.0, an optional `target_price`)
 	 * are trusted from the client — name/SKU/price are always re-derived from the
 	 * live product record here, the same way `product_line_items()` already does,
 	 * so a tampered client payload can't misstate what's actually being quoted.
@@ -1513,7 +1513,7 @@ class Tack_Widget {
 	 * unauthenticated endpoint is the cheap half of the attack; the expensive half is
 	 * the wc_get_product() call the callers do per row.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $items_json Raw JSON.
 	 * @return array<int, array{product_id:int,quantity:int,variation_id:int,target_price:float|null}>
@@ -1553,7 +1553,7 @@ class Tack_Widget {
 	 * The request note with the shopper's target prices appended, one line per
 	 * product, bounded so the whole note stays under the API's 10,000-character limit.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $note     The shopper's note (already capped at NOTE_MAX_LENGTH).
 	 * @param string $currency ISO 4217 code, or ''.
@@ -1592,7 +1592,7 @@ class Tack_Widget {
 	 * has not switched TackQuote prices on. A line TackQuote does not price answers
 	 * `null`, which the script shows as the store price it already had.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function handle_reprice() {
 		if ( ! check_ajax_referer( 'tack_request_quote', 'nonce', false ) ) {

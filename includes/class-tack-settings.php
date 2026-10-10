@@ -955,7 +955,7 @@ class Tack_Settings {
 			Tack_Catalog_Mode::SCOPE_EVERYONE   => __( 'Every customer', 'tackquote' ),
 			Tack_Catalog_Mode::SCOPE_GUESTS     => __( 'Signed-out visitors only — approved customers keep a normal cart', 'tackquote' ),
 			Tack_Catalog_Mode::SCOPE_ROLES      => __( 'Only the roles I choose below', 'tackquote' ),
-			// 1.9.0: the price gate. Needs the API key; TackQuote answers whether the signed-in
+			// 1.10.0: the price gate. Needs the API key; TackQuote answers whether the signed-in
 			// buyer's wholesale application is approved (GET /storefront/v1/price-access).
 			Tack_Catalog_Mode::SCOPE_UNAPPROVED => __( 'Everyone except approved wholesale accounts', 'tackquote' ),
 		);
@@ -1138,7 +1138,7 @@ class Tack_Settings {
 	/**
 	 * The label the merchant typed, or '' while the translated default applies.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $option Label option.
 	 * @return string
@@ -1153,7 +1153,7 @@ class Tack_Settings {
 	 * Save a button label; the default text (English, or as translated for the admin
 	 * saving the form) is stored as '' so it keeps following the visitor's language.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Submitted value.
 	 * @return string
@@ -2430,7 +2430,7 @@ class Tack_Settings {
 		$this->card_close();
 	}
 
-	// ── Storefront: card/cart buttons, quote list and launcher, quote page (1.9.0) ─
+	// ── Storefront: card/cart buttons, quote list and launcher, quote page (1.10.0) ─
 	//
 	// Every option below is additive, OFF by default or defaulting to the 1.8.x
 	// layout, so an update changes nothing a shopper sees until the merchant chooses to.
@@ -2438,7 +2438,7 @@ class Tack_Settings {
 	/**
 	 * Register the storefront-layout settings and their sections on the Storefront tab.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function register_storefront_layout_settings() {
 		$checkbox = array( $this, 'sanitize_checkbox' );
@@ -2524,7 +2524,7 @@ class Tack_Settings {
 	/**
 	 * Intro copy for the quote list and launcher section.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function section_storefront_layout() {
 		echo '<p>' . esc_html__( 'The floating button that opens the shopper\'s quote list. Defaults match the launcher the plugin always had.', 'tackquote' ) . '</p>';
@@ -2546,7 +2546,7 @@ class Tack_Settings {
 	/**
 	 * "Add to Quote" on product cards.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function field_card_buttons() {
 		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
@@ -2563,7 +2563,7 @@ class Tack_Settings {
 	/**
 	 * "Request a quote for your cart" on the cart page, with its label.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function field_cart_button() {
 		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
@@ -2589,7 +2589,7 @@ class Tack_Settings {
 	/**
 	 * Drawer or page, and the page URL.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function field_quote_opens() {
 		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
@@ -2746,7 +2746,7 @@ class Tack_Settings {
 	/**
 	 * `drawer` or `page`; anything else is `drawer`.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Raw value.
 	 * @return string
@@ -2760,7 +2760,7 @@ class Tack_Settings {
 	 * scheme, a bare word) is dropped rather than stored, so the launcher can
 	 * never be sent to a `javascript:` address.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Raw value.
 	 * @return string
@@ -2776,7 +2776,7 @@ class Tack_Settings {
 	/**
 	 * `bottom-right` or `bottom-left`.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Raw value.
 	 * @return string
@@ -2788,7 +2788,7 @@ class Tack_Settings {
 	/**
 	 * A whole number of pixels within [0, FAB_OFFSET_MAX]; anything else is the 20 px default.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Raw value.
 	 * @return int
@@ -2804,7 +2804,7 @@ class Tack_Settings {
 	/**
 	 * `all`, `product`, `cart` or `none`.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Raw value.
 	 * @return string
@@ -2816,7 +2816,7 @@ class Tack_Settings {
 	/**
 	 * `regular` or `compact`.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $value Raw value.
 	 * @return string

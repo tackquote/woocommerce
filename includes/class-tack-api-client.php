@@ -486,7 +486,7 @@ class Tack_Api_Client {
 	 * Called once per token and NEVER retried: TackQuote spends the token on the
 	 * first exchange that passes its checks, so a second attempt can only fail.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $token Token from the checkout link (shape already checked).
 	 * @return array|WP_Error
@@ -790,7 +790,7 @@ class Tack_Api_Client {
 	 * no legacy route to fall back to, so a server without v1 routes is an error here:
 	 * the price gate that calls this fails CLOSED on any error.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $buyer_email Signed-in buyer's (trusted) email.
 	 * @return array|WP_Error
@@ -814,7 +814,7 @@ class Tack_Api_Client {
 	 * routes is an error: the net-terms gateway that calls this fails CLOSED on any
 	 * error and is hidden.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string $buyer_email Signed-in buyer's (trusted) email.
 	 * @return array|WP_Error

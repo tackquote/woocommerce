@@ -278,7 +278,7 @@ final class Tack_Quotes {
 		// Order sync ships OFF. It sends personal data to a third party, so it is the
 		// merchant's decision to make, not a default to be discovered later.
 		add_option( 'tack_quotes_enable_order_sync', 'no' );
-		// The button labels are NOT stored here (they were until 1.9.0): a stored default
+		// The button labels are NOT stored here (they were until 1.10.0): a stored default
 		// freezes the activation-time language. Blank means the translated default; see
 		// Tack_Widget::button_label().
 		add_option( 'tack_quotes_show_add_to_quote', 'yes' );

@@ -5,7 +5,7 @@ Requires at least: 6.0
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,7 +59,7 @@ until you enter an API key.
 All requests go to the API base URL set under **TackQuote → TackQuote API URL**, which is
 `https://api.tackquote.com/v1` unless your TackQuote support contact gave you a different
 one. Every request carries your TackQuote API key so the service can identify your account,
-and (since 1.9.0) an `X-TackQuote-Plugin-Version` header naming this plugin's version, so
+and (since 1.10.0) an `X-TackQuote-Plugin-Version` header naming this plugin's version, so
 TackQuote can tell which build your store runs. The API key needs the `buyers:write` scope for
 the two application forms below; the read-only storefront lookups need no extra scope.
 
@@ -97,7 +97,7 @@ older `GET /storefront-b2b/order-limits` and `GET /storefront-b2b/buyer-group` o
 server without the `/storefront/v1` routes. Only when the merchant has switched on B2B pricing,
 order limits, the buyer-group badge, any buyer-group rule or tax-exempt buyers. Sent while a
 signed-in customer browses the store. Sends the product SKU and quantity,
-the signed-in customer's email address and, since 1.9.0, their WordPress user ID (digits only;
+the signed-in customer's email address and, since 1.10.0, their WordPress user ID (digits only;
 never for a guest).
 
 6. **Wholesale application** — `GET /integrations/woocommerce/wholesale-form` (the form's
@@ -106,7 +106,7 @@ Sent when a page with the `[tackquote_wholesale_application]` shortcode or the "
 My Account tab is viewed, and when a shopper submits that form. Sends the answers the shopper
 typed into the seller's form (for example company name, email, phone, address, tax ID) and,
 for a signed-in customer, their WordPress user ID as `wooCustomerId`. An application that carries
-files (1.10.0) is sent instead to `POST /storefront/v1/wholesale-signup/<slug>` with the same
+files is sent instead to `POST /storefront/v1/wholesale-signup/<slug>` with the same
 answers, the signed-in customer's account email address and WordPress user ID
 (`buyerEmail`, `buyerExternalId`), and the upload IDs of item 11.
 
@@ -132,7 +132,7 @@ the account email and WordPress user ID. Fails closed.
 buyer opens a TackQuote checkout link (`?tackquote_checkout=`) on your store. Sends only the
 link's single-use token and your API key.
 
-11. **Attachments** (1.10.0) — `POST /storefront/v1/quote-upload` and
+11. **Attachments** — `POST /storefront/v1/quote-upload` and
 `POST /storefront/v1/wholesale-upload`. Quote-request files only when the merchant switched on
 "Allow attachments on quote requests" (off by default); wholesale-application files only for a
 signed-in customer; both only when the TackQuote server's connection check (`ping`) lists
@@ -259,7 +259,7 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 
 = Can shoppers start a quote from the shop page or the cart? =
 
-Yes, since 1.9.0, and both are off until you switch them on under **TackQuote → 8. Quote buttons and launcher**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart; on the Cart block it appears as a fixed button at the bottom of the cart page. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart; on the Cart block it appears as a fixed button at the bottom of the cart page. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
 
 = How do I make a single product quote-only? =
 
@@ -288,12 +288,12 @@ Sent when a shopper submits the quote form, using only what they typed into it:
 * The free-text note, if written (capped at 2,000 characters). From the quote page, any target prices the shopper typed are added to the note, one line per product
 * The requested products: name, SKU, quantity, unit price excluding tax, and the WooCommerce product ID
 * The store's currency code
-* Attachments (1.10.0, only when "Allow attachments on quote requests" is on): each attached file's bytes and file name, sent before the request to `/storefront/v1/quote-upload`, with the signed-in customer's account email address and WordPress user ID, or for a guest a single-use upload token; the request then carries the upload IDs and the guest token. Files are never stored on your site
+* Attachments (only when "Allow attachments on quote requests" is on): each attached file's bytes and file name, sent before the request to `/storefront/v1/quote-upload`, with the signed-in customer's account email address and WordPress user ID, or for a guest a single-use upload token; the request then carries the upload IDs and the guest token. Files are never stored on your site
 
 = What do the B2B lookups and application forms send? =
 
 * **B2B lookups**: the product SKU and quantity, the signed-in customer's email address, and their WordPress user ID (a number, sent only beside the email and only while they are signed in).
-* **Wholesale application**: exactly the answers the shopper typed into the seller's form, plus the WordPress user ID (`wooCustomerId`) when they are signed in. Files (1.10.0, signed-in customers only, when the TackQuote server supports attachments): each file's bytes and name, the form slug and field key, the account email address and WordPress user ID; the application then goes to `/storefront/v1/wholesale-signup/<slug>` with the same answers and the upload IDs.
+* **Wholesale application**: exactly the answers the shopper typed into the seller's form, plus the WordPress user ID (`wooCustomerId`) when they are signed in. Files (signed-in customers only, when the TackQuote server supports attachments): each file's bytes and name, the form slug and field key, the account email address and WordPress user ID; the application then goes to `/storefront/v1/wholesale-signup/<slug>` with the same answers and the upload IDs.
 * **Net-terms application**: the account's own email address (never a typed one), the WordPress user ID, and the legal business name, phone, tax/VAT ID, billing address, requested limit and terms, up to three trade references and notes the customer typed.
 
 = What does order sync send? =
@@ -365,12 +365,11 @@ Deleting the plugin removes every option above and the `tack_quotes_registration
 = 1.10.0 =
 * **Attachments.** Quote requests can carry up to 3 files (PDF, JPEG or PNG, 5 MB each) through an optional "Attach files (optional)" control in the quote form, when you switch on "Allow attachments on quote requests" (Storefront tab, off by default) and your TackQuote server advertises attachments. Wholesale application file fields now accept a file from signed-in customers (guests see "Sign in to your account to attach files"). Files are checked on your store (count, size, extension and content), streamed server to server to TackQuote and never stored in WordPress; the seller sees them on the quote or application.
 * **Settings page redesigned into tabs**: Overview, Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync. The Overview shows the connection (API host and the key's last four characters; "Connected" only after a passing test of the key saved now), the storefront mode, order sync (including a refusal TackQuote answered and the queue length), every B2B switch and a first-run checklist. Each tab is its own form with its own option group, so saving one tab never changes another. Short help under every field, with the full explanation kept under "Learn more"; switches, conditional fields, buyer-group grids with one column per group code, a sticky save bar, and a confirmation before removing the API key. Option names, defaults and storefront behaviour are unchanged. "Tax-exempt buyers" moved to the B2B pricing tab. The TackQuote mark replaces the generic dollar icon in the admin menu (a single-colour SVG that follows your admin colour scheme) and heads the settings page; nothing is added to your storefront.
-* **Hide product categories per buyer group** (off by default; TackQuote → 9. Catalogue and shipping per buyer group). A grid of your product categories against your group codes plus "Guests and customers in no group"; sub-categories follow their parent. Hidden products leave the shop, category, tag and search loops and product blocks (`pre_get_posts`, `tax_query` NOT IN, front end and Store API only), related products, up-sells and cross-sells (`woocommerce_product_is_visible`, `woocommerce_related_products`); their own URL answers 404 (`template_redirect`); they cannot be bought (`woocommerce_is_purchasable`, `woocommerce_variation_is_purchasable`); a line already in a cart is removed with a notice. Store managers, wp-admin and the `/wc/v3` REST API are not affected. If TackQuote cannot be reached the catalogue is shown, unless you tick "Also hide them when the buyer group is unknown".
+* **Hide product categories per buyer group** (off by default; TackQuote → Buyer groups). A grid of your product categories against your group codes plus "Guests and customers in no group"; sub-categories follow their parent. Hidden products leave the shop, category, tag and search loops and product blocks (`pre_get_posts`, `tax_query` NOT IN, front end and Store API only), related products, up-sells and cross-sells (`woocommerce_product_is_visible`, `woocommerce_related_products`); their own URL answers 404 (`template_redirect`); they cannot be bought (`woocommerce_is_purchasable`, `woocommerce_variation_is_purchasable`); a line already in a cart is removed with a notice. Store managers, wp-admin and the `/wc/v3` REST API are not affected. If TackQuote cannot be reached the catalogue is shown, unless you tick "Also hide them when the buyer group is unknown".
 * **Free or discounted shipping per buyer group** (off by default): free on chosen methods, a percentage off chosen methods, or only the methods that already cost nothing. Applied in the same `woocommerce_package_rates` callback as the group restrictions, after them; shipping tax is scaled with the cost. Only buyers TackQuote places in the group get it. These are plugin settings; shipping rules sent by TackQuote come later.
 * The buyer group is now part of each shipping package, so WooCommerce recalculates cached rates when a buyer's group changes (this also applies to the 1.8 shipping restrictions).
 * **Optional WordPress role per buyer group** (off by default): a signed-in buyer in group `TIER2` gets the extra role `tackquote_tier2` (capability `read` only), removed when the group changes. Roles the plugin did not add are never removed, an outage changes nothing, and roles never affect prices. Uninstall removes the roles the plugin created.
 
-= 1.9.0 =
 * **Wholesale application form on your store.** New shortcode `[tackquote_wholesale_application slug="…"]` (slug defaults to the one under TackQuote → Storefront forms) renders the form you design in TackQuote under Settings → Wholesale forms, with every field kind (text, email, phone, number, select, multi-select, checkbox, textarea, date, address, tax ID; conditional fields shown and hidden as the server decides). File fields show a notice: attachments arrive in a later release. Submissions are nonce-protected and sent server to server; a signed-in customer's details are prefilled and their WordPress user ID travels as `wooCustomerId` so approval links the account. Shoppers see a friendly success, pending or error message, never a raw server answer.
 * **My Account tabs "Wholesale account" and "Net terms"** (both off by default; TackQuote → Storefront forms). Registered with `add_rewrite_endpoint` through WooCommerce's `woocommerce_get_query_vars` filter and `woocommerce_account_menu_items`; rewrite rules are flushed on activation, deactivation and once after an update. The net-terms form (also `[tackquote_net_terms_application]`) is for signed-in customers only, uses the account's own email, and accepts up to three trade references.
 * **Tax-exempt buyers** (off by default). When TackQuote marks a signed-in customer's buyer group tax exempt, `WC()->customer->set_is_vat_exempt( true )` is applied on `woocommerce_before_calculate_totals`, once per request and never saved to the customer record. Missing, false or unreachable means tax is charged.
