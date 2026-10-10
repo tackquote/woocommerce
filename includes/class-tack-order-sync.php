@@ -456,6 +456,16 @@ class Tack_Order_Sync {
 			'source'          => 'woocommerce',
 		);
 
+		/*
+		 * An order built from a TackQuote checkout link names its quote, so TackQuote
+		 * links and settles it. ONLY when set: the order body is validated with
+		 * `forbidNonWhitelisted`, and only a server that minted the link knows the field.
+		 */
+		$quote_ref = class_exists( 'Tack_Quote_Checkout' ) ? Tack_Quote_Checkout::order_ref( $order ) : '';
+		if ( '' !== $quote_ref ) {
+			$payload['tackQuoteRef'] = $quote_ref;
+		}
+
 		return $payload;
 	}
 

@@ -124,5 +124,9 @@ require __DIR__ . '/net-terms-gateway-test.php';
 echo "\n-- translations (languages/) --\n";
 require __DIR__ . '/i18n-test.php';
 
+// 1.9.0 accepted quote -> store checkout link (parity row 10).
+echo "\n-- quote checkout link --\n";
+require __DIR__ . '/quote-checkout-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

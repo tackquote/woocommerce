@@ -118,9 +118,9 @@ wholesale application is approved. Nothing is sent for a signed-out visitor.
 "Net terms (TackQuote)" payment method is enabled, for a signed-in customer at checkout. Sends
 the account email and WordPress user ID. Fails closed.
 
-The quote-list re-pricing for signed-in buyers uses the B2B pricing call the plugin already
-makes for the cart (`POST /storefront-pricing/resolve`, SKU and quantity per line plus the
-buyer's email), and only when the merchant has switched TackQuote pricing on.
+10. **Accepted quote checkout** — `GET /integrations/woocommerce/quote-checkout/<token>`, when a
+buyer opens a TackQuote checkout link (`?tackquote_checkout=`) on your store. Sends only the
+link's single-use token and your API key.
 
 This plugin sends data to no other external service.
 
@@ -170,6 +170,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
 * `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
 * `GET /storefront/v1/net-terms` — net terms at checkout (off by default).
+* `GET /integrations/woocommerce/quote-checkout/<token>` — opens an accepted quote's checkout link. Sends only the token.
 * `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
 
 Every request carries an `X-TackQuote-Plugin-Version` header with the plugin's version number. It identifies the software, not a person.
@@ -195,9 +196,8 @@ Sent when a shopper submits the quote form, using only what they typed into it:
 = What order sync sends (off by default) =
 
 Sent for each order when it is created and when its status changes, if the merchant
-has enabled **Sync orders to TackQuote**. This is the whole order, because a quote
-that becomes an order is only useful to the seller if it carries who is buying and
-where it is going. Read this list before switching order sync on.
+has enabled **Sync orders to TackQuote**. This is the whole order. Read this list
+before switching order sync on.
 
 **The customer's identity and addresses**
 
@@ -212,6 +212,7 @@ where it is going. Read this list before switching order sync on.
 * Currency, item subtotal, discount total, shipping total, tax total and order total
 * Coupon codes applied
 * A purchase-order number, from the optional checkout field (off by default) or the `tack_quotes_order_po_number` filter
+* The quote reference, for an order placed through a quote checkout link
 * Created, last-modified, paid and completed timestamps
 * An idempotency key, so a repeated delivery of the same order state can be discarded
 
@@ -235,7 +236,7 @@ transaction ID is a reference the gateway issued, not an instrument.
 
 Order sync sends personal data about your customers to TackQuote, which makes
 TackQuote a processor acting on your instructions. That is why it ships switched
-**off** and why enabling it is a deliberate act rather than a default. Before you
+**off**. Before you
 enable it, satisfy yourself that you have a lawful basis and, where required, a data
 processing agreement in place with TackQuote. Your own privacy policy should name
 TackQuote as a recipient; the plugin adds suggested wording to
@@ -251,6 +252,7 @@ TackQuote as a recipient; the plugin adds suggested wording to
 * `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
 * `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
 * Net terms: `tack_nt_<user id>` (TackQuote's answer, one minute), order meta `_tackquote_net_terms` and `_tackquote_po_number`, option `woocommerce_tackquote_net_terms_settings`.
+* Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
 Deleting the plugin removes every option above and the `tack_quotes_registration_config` transient, on every site of a multisite network. The `tack_qr_*` rate-limit counters are left to expire on their own (they last five minutes and are keyed on a hash, so there is no name to delete). The `_tack_quotes_sync_key` order meta is deliberately left in place: orders are financial records and an uninstall routine should not rewrite every one of them.
@@ -347,6 +349,7 @@ English, plus German, Spanish, French, Italian, Japanese, Dutch and Brazilian Po
 * **Net terms at checkout** (off by default). A new offline payment method "Net terms (TackQuote)", gateway id `tackquote_net_terms`, registered on `woocommerce_payment_gateways` and, for the Checkout block, as an `AbstractPaymentMethodType` on `woocommerce_blocks_payment_method_type_registration`. Settings live in WooCommerce → Settings → Payments. It is offered only to a signed-in customer with a confirmed email whose TackQuote credit line (`GET /storefront/v1/net-terms`) is active, in the checkout currency, whose remaining available credit covers the order (the limit when TackQuote omits it). It FAILS CLOSED: any error, timeout, 404 or unknown answer hides it. Placing the order reads the standing again and refuses if it no longer qualifies; otherwise the order goes on hold with the note "Awaiting payment on net terms (N days)" and order meta `_tackquote_net_terms`. It is never marked paid. The Checkout block receives only a yes/no, never the limit. Order sync sends `payment.method = tackquote_net_terms` so TackQuote can invoice it.
 * **Optional purchase-order number at checkout** (off by default; a setting of the net-terms payment method). Checkout block: `woocommerce_register_additional_checkout_field` (`tackquote/po-number`, order section, at most 64 characters). Classic checkout: a field under the order notes. Saved as order meta `_tackquote_po_number` and sent as `poNumber` through the existing `tack_quotes_order_po_number` filter (a value your own filter supplies still wins).
 * **Translations bundled** for de_DE, es_ES, fr_FR, it_IT, ja, nl_NL and pt_BR (`languages/`, generated from TackQuote's shared storefront catalogue by `bin/build-translations.php`; Italian pending native review). Header `Domain Path: /languages`; the textdomain is registered on `init`. The quote form and quote list script now reads its text through `wp.i18n` (`wp-i18n` dependency, `wp_set_script_translations`) instead of a localised array. A translate.wordpress.org language pack still takes precedence. The "Add to Quote", "Request a Quote" and "Checkout as Quote" labels left at their default now follow the visitor's language: activation no longer stores them in English, and a stored English default or a blank field means the translated default.
+* **Accepted quote to store checkout.** A buyer who accepts a quote in TackQuote's portal and chooses to check out in your store arrives at `?tackquote_checkout=<token>`. The plugin exchanges the single-use token server to server (`GET /integrations/woocommerce/quote-checkout/<token>`, once, never retried), refuses a quote in another currency, empties the cart and adds every quoted line at its quantity and quoted unit price (all or nothing: one unavailable product refuses the whole quote, by name), then redirects to checkout without the token. Quote lines keep the quoted price over B2B pricing, their quantities are locked (classic cart and Store API), other products cannot be added beside them, and products sold on quote only can be bought through their accepted quote. The order stores `_tackquote_quote_ref` and the quote's PO (unless the buyer typed one); with order sync on, the order is sent with `tackQuoteRef` so TackQuote links it to the quote. Active only while an API key is saved.
 * The plugin's buttons use WooCommerce's own button classes (`button`, plus `wp-element-button` on a block theme), so they match the theme.
 
 = 1.8.2 =

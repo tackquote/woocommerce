@@ -23,6 +23,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-role-mirror.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
 
 /**
  * Main plugin class (singleton).
@@ -123,6 +124,12 @@ final class Tack_Quotes {
 		add_filter( 'woocommerce_payment_gateways', array( __CLASS__, 'register_gateway' ) );
 		add_action( 'woocommerce_blocks_payment_method_type_registration', array( __CLASS__, 'register_block_payment_method' ) );
 		( new Tack_Po_Number() )->init();
+
+		// Accepted quote -> store checkout (`?tackquote_checkout=<token>`). Only for a
+		// connected store: without an API key no such link can exist.
+		if ( Tack_Quote_Checkout::is_enabled() ) {
+			( new Tack_Quote_Checkout() )->init();
+		}
 
 		// Frontend "Request a Quote" widget/button.
 		if ( 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ) ) {

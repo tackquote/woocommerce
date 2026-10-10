@@ -211,7 +211,7 @@ class Tack_Wholesale_Pricing {
 		// Batch first: one request for the whole cart rather than one per line.
 		$wanted = array();
 		foreach ( $contents as $item ) {
-			if ( empty( $item['data'] ) || ! method_exists( $item['data'], 'get_sku' ) ) {
+			if ( empty( $item['data'] ) || ! method_exists( $item['data'], 'get_sku' ) || self::is_quote_line( $item ) ) {
 				continue;
 			}
 			$sku = (string) $item['data']->get_sku();
@@ -230,7 +230,8 @@ class Tack_Wholesale_Pricing {
 		$this->resolve( array_values( $wanted ) );
 
 		foreach ( $contents as $key => $item ) {
-			if ( empty( $item['data'] ) || ! method_exists( $item['data'], 'get_sku' ) ) {
+			// A line of an accepted quote keeps its quoted price (Tack_Quote_Checkout).
+			if ( empty( $item['data'] ) || ! method_exists( $item['data'], 'get_sku' ) || self::is_quote_line( $item ) ) {
 				continue;
 			}
 			$sku = (string) $item['data']->get_sku();
@@ -264,6 +265,17 @@ class Tack_Wholesale_Pricing {
 			}
 			unset( $key );
 		}
+	}
+
+	/**
+	 * Is this cart line part of an accepted TackQuote quote? Such a line is priced
+	 * by `Tack_Quote_Checkout` at the quoted price and is never re-priced here.
+	 *
+	 * @param array $item Cart item.
+	 * @return bool
+	 */
+	private static function is_quote_line( $item ) {
+		return class_exists( 'Tack_Quote_Checkout' ) && Tack_Quote_Checkout::is_quote_item( $item );
 	}
 
 	/**
