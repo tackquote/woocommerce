@@ -80,6 +80,8 @@ require __DIR__ . '/order-payload-test.php';
 // takes by injection so no HTTP is ever attempted here.
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-wholesale-pricing.php';
+// Pricing reads the shared email-trust rule from the notices class.
+require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require __DIR__ . '/wholesale-pricing-test.php';
 
 // Order limits and the buyer-group badge.

@@ -382,6 +382,50 @@ check(
 	'sent ' . ( isset( $batch->last_body['items'] ) ? count( $batch->last_body['items'] ) : 'nothing' )
 );
 
+// ── Email trust: a self-changed, unconfirmed email is priced as a guest ─────
+//
+// The badge, restrictions, forms, tax exemption and the net-terms gateway all
+// refuse an address the customer changed on My Account and the merchant has not
+// re-confirmed. Pricing used to read `user_email` directly, so a new account that
+// retyped an approved buyer's address got that buyer's price book.
+$GLOBALS['TACK_USER_META'][1][ Tack_B2B_Notices::META_EMAIL_UNVERIFIED ] = '1';
+$untrusted = new Tack_Test_Pricing_Client(
+	array(
+		'buyerMatched' => true,
+		'items'        => array( array( 'sku' => 'SG-100', 'quantity' => 1, 'unitPrice' => 61.5 ) ),
+	)
+);
+$pricing   = new Tack_Wholesale_Pricing( $untrusted );
+$fixture   = tack_test_cart( 'SG-100', 1, 89.0 );
+$pricing->apply_cart_prices( $fixture['cart'] );
+check(
+	'a customer with an unconfirmed self-changed email is charged the store price in the cart',
+	89.0 === $fixture['product']->get_price() && 0 === $untrusted->calls,
+	'price=' . var_export( $fixture['product']->get_price(), true ) . ' calls=' . $untrusted->calls
+);
+$listing = new Tack_Wholesale_Pricing( $untrusted );
+$html    = $listing->filter_price_html( '<span>store</span>', $fixture['product'] );
+check(
+	'and sees the store price in listings, with no TackQuote lookup made',
+	'<span>store</span>' === $html && 0 === $untrusted->calls,
+	'html=' . var_export( $html, true ) . ' calls=' . $untrusted->calls
+);
+unset( $GLOBALS['TACK_USER_META'][1][ Tack_B2B_Notices::META_EMAIL_UNVERIFIED ] );
+$retrusted = new Tack_Test_Pricing_Client(
+	array(
+		'buyerMatched' => true,
+		'items'        => array( array( 'sku' => 'SG-100', 'quantity' => 1, 'unitPrice' => 61.5 ) ),
+	)
+);
+$pricing   = new Tack_Wholesale_Pricing( $retrusted );
+$fixture   = tack_test_cart( 'SG-100', 1, 89.0 );
+$pricing->apply_cart_prices( $fixture['cart'] );
+check(
+	'once the merchant re-confirms the email, the account price applies again',
+	61.5 === $fixture['product']->get_price() && 1 === $retrusted->calls,
+	'price=' . var_export( $fixture['product']->get_price(), true ) . ' calls=' . $retrusted->calls
+);
+
 // Clean up so later test files start from a known state.
 tack_test_set_option( Tack_Wholesale_Pricing::OPTION_ENABLED, 'no' );
 tack_test_set_logged_in( false, '' );
