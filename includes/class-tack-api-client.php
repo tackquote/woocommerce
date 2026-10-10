@@ -239,6 +239,27 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * Exchange a single-use store checkout token for the accepted quote's cart.
+	 *
+	 * `GET /integrations/woocommerce/quote-checkout/<token>` (scope `quotes:write`):
+	 * 200 `{quoteRef, quoteNumber, currency, buyerEmail, poNumber?, goodsTotal,
+	 * lines: [{wooProductId, wooVariationId?, sku, name, quantity, unitPrice,
+	 * lineTotal}]}`, 404 unknown token, 410 used, expired or no longer valid.
+	 * Only the token (in the path) and the store's key are sent.
+	 *
+	 * Called once per token and NEVER retried: TackQuote spends the token on the
+	 * first exchange that passes its checks, so a second attempt can only fail.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $token Token from the checkout link (shape already checked).
+	 * @return array|WP_Error
+	 */
+	public function exchange_quote_checkout( $token ) {
+		return $this->request( 'GET', '/integrations/woocommerce/quote-checkout/' . rawurlencode( (string) $token ), null, self::INTERACTIVE_TIMEOUT );
+	}
+
+	/**
 	 * Transient holding the cached wholesale-form definitions, keyed by form slug.
 	 *
 	 * One transient for every slug (rather than one per slug) so uninstall.php can

@@ -315,6 +315,11 @@ class Tack_Catalog_Mode {
 	 * @return bool
 	 */
 	public function filter_is_purchasable( $purchasable, $product = null ) {
+		// A product of the buyer's accepted quote stays buyable through that quote
+		// (Tack_Quote_Checkout); every other line is decided below as before.
+		if ( null !== $product && class_exists( 'Tack_Quote_Checkout' ) && Tack_Quote_Checkout::holds_product( $product ) ) {
+			return $purchasable;
+		}
 		if ( $this->is_active() ) {
 			return false;
 		}
@@ -378,6 +383,10 @@ class Tack_Catalog_Mode {
 		foreach ( WC()->cart->get_cart() as $key => $item ) {
 			$product = isset( $item['data'] ) ? $item['data'] : null;
 			if ( ! is_object( $product ) ) {
+				continue;
+			}
+			if ( class_exists( 'Tack_Quote_Checkout' ) && Tack_Quote_Checkout::is_enabled() && Tack_Quote_Checkout::is_quote_item( $item ) ) {
+				// Checked by Tack_Quote_Checkout::check_cart() against the session's quote.
 				continue;
 			}
 			if ( $store_wide && method_exists( $product, 'is_purchasable' ) && ! $product->is_purchasable() ) {
