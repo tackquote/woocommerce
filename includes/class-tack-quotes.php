@@ -10,6 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once TACK_QUOTES_DIR . 'includes/class-tack-settings.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-connect.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-rate-limit.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-block-product.php';

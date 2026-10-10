@@ -15,7 +15,7 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 🧭 **Tabbed settings page** — Overview dashboard plus Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync tabs; each tab saves only its own settings
 - 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
-- 🔑 Simple setup: paste your TackQuote API key
+- 🔑 Simple setup: press **Connect with TackQuote**, sign in and approve (no key to copy), or paste your TackQuote API key
 - 🌐 Storefront text bundled in German, Spanish, French, Italian, Japanese, Dutch and Brazilian Portuguese (`languages/`, generated from the shared TackQuote catalogue; see [`languages/README.md`](languages/README.md))
 - 🛡️ HPOS- and Cart/Checkout-blocks-compatible; nonce, capability and rate-limit protected; removes its own options, transients, user and product meta and queued jobs on uninstall
 
@@ -47,7 +47,7 @@ The storefront controls take the active theme's buttons, fields, fonts and colou
 1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/tackquote/woocommerce/releases) (direct link: [`tackquote.zip`](https://github.com/tackquote/woocommerce/releases/latest/download/tackquote.zip)), or build locally with `bash bin/build.sh`.
 2. In WP Admin go to **Plugins → Add New → Upload Plugin** and upload the ZIP.
 3. Activate the plugin.
-4. Go to **TackQuote** in the admin menu, open the **Connection** tab and paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**). Save, then click **Test TackQuote connection** to verify. The **Overview** tab then shows the connection, storefront, order sync and B2B switches at a glance.
+4. Go to **TackQuote** in the admin menu and open the **Connection** tab. Press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; the plugin stores the key it receives and runs the connection test. Or paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**), save, then click **Test TackQuote connection** to verify. The **Overview** tab then shows the connection, storefront, order sync and B2B switches at a glance.
 
    > **The key must carry the `quotes:write` scope.** *Test connection* uses the unscoped `ping` route, so a key without it passes the test and then fails every real quote submission with a 403. Order sync additionally needs `orders:write`.
 
@@ -76,6 +76,8 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Wholesale price gate (opt-in quote-only scope) | `GET /storefront/v1/price-access` (no fallback; fails closed) |
 | Net terms at checkout (opt-in payment method) and on the "Net terms" My Account tab | `GET /storefront/v1/net-terms` (no fallback; fails closed; one answer per customer reused for up to a minute, shared by checkout and the tab; re-read when the order is placed) |
 | Attachments (only when the server's `ping` lists `attachments`) | `POST /storefront/v1/quote-upload?name=` (quote files; opt-in switch; scope `quotes:write`), `POST /storefront/v1/wholesale-upload?form=&field=&name=` (wholesale files, signed-in only; scope `buyers:write`), raw `application/octet-stream`, `X-Api-Key` only; then `uploadIds` (+ a guest's `uploadToken`) on the quote request, or `POST /storefront/v1/wholesale-signup/<slug>` for an application with files |
+| Connect with TackQuote (only when an administrator presses the button; no key yet, so none is sent) | `POST /woocommerce-connect/requests` (site, admin and return address, site name, versions, locale, signed `state`, S256 `codeChallenge`) answers `requestId` + `connectUrl` for the browser; the browser comes back to `wp-admin/admin-post.php?action=tackquote_connect_return` with `code` + `state`; then `POST /woocommerce-connect/exchange` (`code`, `codeVerifier`, `siteUrl`) answers the API key once |
+| Revoke a Connect key (Remove saved API key, Connect keys only) | `POST /integrations/woocommerce/plugin-key/revoke` with that key (204) |
 | Accepted quote to store checkout (`?tackquote_checkout=` link) | `GET /integrations/woocommerce/quote-checkout/<token>` (once per token, never retried; sends only the token; the order then syncs with `tackQuoteRef`) |
 
 Every request carries `X-TackQuote-Plugin-Version` and `X-TackQuote-Site-Url` (the store's `home_url()`), and none follows an HTTP redirect (the key is never re-sent elsewhere). `/storefront/v1/*` calls send the key in

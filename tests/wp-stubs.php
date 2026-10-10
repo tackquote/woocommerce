@@ -202,7 +202,7 @@ function add_submenu_page( $parent, $page_title, $menu_title, $capability, $menu
  * `home_url()` scopes the idempotency key to one site. A fixed value is enough
  * here; the key is asserted for STABILITY, not for its contents.
  */
-function home_url( $path = '' ) { return 'https://shop.example' . $path; }
+function home_url( $path = '' ) { return ( $GLOBALS['TACK_HOME_URL'] ?? 'https://shop.example' ) . $path; }
 function wp_json_encode( $data, $options = 0, $depth = 512 ) { return json_encode( $data, $options, $depth ); }
 function wp_strip_all_tags( $text, $remove_breaks = false ) { return trim( strip_tags( (string) $text ) ); }
 

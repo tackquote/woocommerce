@@ -64,7 +64,39 @@ class Tack_Api_Client {
 		if ( '' === $key ) {
 			return new WP_Error( 'tack_no_key', __( 'No TackQuote API key configured.', 'tackquote' ) );
 		}
+		return $this->send( $method, $path, $body, $timeout, $headers, $key );
+	}
 
+	/**
+	 * A request that carries NO API key, for the two "Connect with TackQuote" calls
+	 * made before this site holds one (creating the connect request, and exchanging
+	 * the one-time code for the key). Same URL, timeout, header and no-redirect
+	 * handling as request(); only the key headers are absent.
+	 *
+	 * @since 1.11.0
+	 *
+	 * @param string     $method  HTTP method.
+	 * @param string     $path    Path beginning with '/'.
+	 * @param array|null $body    Optional JSON body.
+	 * @param int|null   $timeout Optional timeout override, in seconds.
+	 * @return array|WP_Error Decoded response array, or WP_Error.
+	 */
+	public function public_request( $method, $path, $body = null, $timeout = null ) {
+		return $this->send( $method, $path, $body, $timeout, array(), '' );
+	}
+
+	/**
+	 * Send one request and decode the answer.
+	 *
+	 * @param string            $method  HTTP method.
+	 * @param string            $path    Path beginning with '/'.
+	 * @param array|string|null $body    Optional JSON body, or raw bytes.
+	 * @param int|null          $timeout Optional timeout override, in seconds.
+	 * @param array             $headers Optional extra request headers.
+	 * @param string            $key     API key, or '' to send none.
+	 * @return array|WP_Error Decoded response array, or WP_Error.
+	 */
+	private function send( $method, $path, $body, $timeout, $headers, $key ) {
 		/*
 		 * Never follow a redirect. WordPress' HTTP API (Requests::parse_response(), WP
 		 * 7.1.3) re-sends the request headers, the key in `Authorization` and
@@ -84,8 +116,8 @@ class Tack_Api_Client {
 			'redirection' => 0,
 			'headers'     => array_merge(
 				array(
-					'Authorization'              => 'Bearer ' . $key,
-					'X-Api-Key'                  => $key,
+					'Authorization'              => '' !== $key ? 'Bearer ' . $key : null,
+					'X-Api-Key'                  => '' !== $key ? $key : null,
 					'Content-Type'               => 'application/json',
 					'Accept'                     => 'application/json',
 					'User-Agent'                 => 'TackQuotes-WooCommerce/' . TACK_QUOTES_VERSION,

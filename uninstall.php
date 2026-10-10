@@ -109,6 +109,12 @@ $tack_quotes_options = array(
 	// 1.10.0 Storefront > Styling.
 	'tack_quotes_theme_styles_only',
 	'tack_quotes_accent_color',
+
+	// Connect with TackQuote (Tack_Connect::OPTION_*), 1.11.0: the per-site secret
+	// that signs the connect state, how the saved key arrived, and when.
+	'tack_quotes_connect_secret',
+	'tack_quotes_connected_via',
+	'tack_quotes_connected_at',
 );
 
 /**
@@ -145,9 +151,11 @@ $tack_quotes_hooks = array( 'tack_quotes_sync_order', 'tack_quotes_requeue_unsyn
  *
  * The per-visitor rate-limit counters (`tack_qr_*`, `tack_qu_*` uploads, `tack_qf_*` applications, `tack_qc_*` checkout links) and the five-minute form-outcome tokens
  * (`tack_sf_*`, Tack_Storefront_Forms::RESULT_PREFIX) are not listed, nor are the one-minute
- * net-terms standing answers (`tack_nt_<user id>`, Tack_Gateway_Net_Terms::CACHE_PREFIX): they
+ * net-terms standing answers (`tack_nt_<user id>`, Tack_Gateway_Net_Terms::CACHE_PREFIX), nor the
+ * Connect with TackQuote transients (`tack_quotes_connect_<hash>`, 15 minutes, and
+ * `tack_quotes_connect_notice_<user id>`, 5 minutes; Tack_Connect): they
  * are keyed per visitor so there is no fixed name to delete, there is no WordPress API for wildcard transient deletion,
- * and they expire within ten minutes on their own. Sweeping them would mean a direct
+ * and they expire within fifteen minutes on their own. Sweeping them would mean a direct
  * LIKE query against the options table that also silently does nothing on a site using an
  * external object cache, which is a worse trade than letting them lapse.
  */

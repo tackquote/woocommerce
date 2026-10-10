@@ -17,6 +17,7 @@ define( 'TACK_QUOTES_URL', 'https://shop.example/wp-content/plugins/tackquote/' 
 define( 'TACK_QUOTES_VERSION', 'test' );
 
 require TACK_QUOTES_DIR . 'includes/class-tack-settings.php';
+require TACK_QUOTES_DIR . 'includes/class-tack-connect.php';
 require TACK_QUOTES_DIR . 'includes/class-tack-quotes.php';
 
 $failures = 0;
@@ -158,6 +159,10 @@ require __DIR__ . '/with-options-block-test.php';
 // 1.10.0 connection test: only an authenticated ping is "Connected" (defect D1).
 echo "\n-- connection test (401/403 rejected, 404 unverified, ping only) --\n";
 require __DIR__ . '/connection-test-test.php';
+
+// 1.11.0 Connect with TackQuote: PKCE, signed single-use state, exchange, revoke on remove.
+echo "\n-- connect with TackQuote --\n";
+require __DIR__ . '/connect-test.php';
 
 // 1.10.0 standards audit: email trust on every path, rate limits, quotable products,
 // no redirects with the key, uninstall completeness, privacy exporter/eraser.

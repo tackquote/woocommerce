@@ -107,6 +107,7 @@ class Tack_Settings {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		( new Tack_Connect() )->init();
 	}
 
 	/**
@@ -280,7 +281,7 @@ class Tack_Settings {
 		$this->setting( 'connection', 'tack_quotes_api_key', array( $this, 'sanitize_api_key' ) );
 		$this->setting( 'connection', 'tack_quotes_api_url', array( $this, 'sanitize_url' ) );
 
-		$this->section( 'connection', 'tack_quotes_connection', __( 'Connect to TackQuote', 'tackquote' ), array( $this, 'section_connection' ) );
+		$this->section( 'connection', 'tack_quotes_connection', __( 'Or paste an API key', 'tackquote' ), array( $this, 'section_connection' ) );
 		$this->field( 'connection', 'tack_quotes_connection', 'tack_quotes_api_key', __( 'API key', 'tackquote' ), array( $this, 'field_api_key' ), array( 'label_for' => 'tack_quotes_api_key' ) );
 		$this->field( 'connection', 'tack_quotes_connection', 'tack_quotes_api_url', __( 'API URL', 'tackquote' ), array( $this, 'field_api_url' ) );
 
@@ -744,10 +745,13 @@ class Tack_Settings {
 	 * Covers loopback, RFC1918 and link-local addresses, the reserved development TLDs,
 	 * and single-label names such as a container or service name (`api`).
 	 *
+	 * Public since 1.11.0: "Connect with TackQuote" applies the same rule to this
+	 * site's own address, and TackQuote checks the return address with a port of it.
+	 *
 	 * @param string $host Lower-cased host component.
 	 * @return bool
 	 */
-	private static function is_non_public_host( $host ) {
+	public static function is_non_public_host( $host ) {
 		if ( 'localhost' === $host || false === strpos( $host, '.' ) ) {
 			return true;
 		}
@@ -866,7 +870,7 @@ class Tack_Settings {
 	 * Intro copy for the Connection section.
 	 */
 	public function section_connection() {
-		echo '<p>' . esc_html__( 'Paste an API key from TackQuote (Settings → Developer → API Keys), save, then test the connection.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'Prefer to do it by hand? Paste an API key from TackQuote (Settings → Developer → API Keys), save, then test the connection.', 'tackquote' ) . '</p>';
 		$this->learn_more(
 			array(
 				__( 'Quote requests, order sync and everything on the B2B pricing and Buyer groups tabs need this key. The Storefront tab can be set up first, but a shopper who presses a quote button before the store is connected gets an error.', 'tackquote' ),
@@ -1936,12 +1940,19 @@ class Tack_Settings {
 			// This page sits outside Settings, so WordPress does not print the "Settings
 			// saved." notice or a sanitizer's add_settings_error() on its own.
 			settings_errors();
+			if ( null === $this->action_result ) {
+				// The outcome of a "Connect with TackQuote" round trip, carried across its redirects.
+				$this->action_result = Tack_Connect::take_notice();
+			}
 			$this->render_action_result();
 			$this->render_tabs( $tab );
 
 			if ( self::DEFAULT_TAB === $tab ) {
 				$this->render_overview();
 			} else {
+				if ( 'connection' === $tab ) {
+					Tack_Connect::render_card();
+				}
 				$this->render_tab_form( $tab );
 			}
 			if ( 'connection' === $tab ) {
@@ -2048,13 +2059,32 @@ class Tack_Settings {
 		if ( isset( $_POST['tack_quotes_remove_key_nonce'] )
 			&& wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['tack_quotes_remove_key_nonce'] ) ), 'tack_quotes_remove_key' )
 			&& 'remove_api_key' === sanitize_key( wp_unslash( $_POST['tack_quotes_action'] ) ) ) {
+			// A key "Connect with TackQuote" issued is also revoked in TackQuote, best
+			// effort, BEFORE it is deleted here (the revoke authenticates with the key
+			// itself). A pasted key is only deleted from this site, as before: the
+			// merchant made it in TackQuote and may use it elsewhere.
+			$revoked = Tack_Connect::revoke_saved_key();
 			delete_option( 'tack_quotes_api_key' );
+			delete_option( Tack_Connect::OPTION_VIA );
+			delete_option( Tack_Connect::OPTION_AT );
 			delete_transient( 'tack_quotes_registration_config' );
 			delete_transient( self::CONNECTION_CHECK );
-			$this->action_result = array(
-				'type'    => 'success',
-				'message' => __( 'The saved TackQuote API key has been removed.', 'tackquote' ),
-			);
+			if ( null === $revoked ) {
+				$this->action_result = array(
+					'type'    => 'success',
+					'message' => __( 'The saved TackQuote API key has been removed.', 'tackquote' ),
+				);
+			} elseif ( true === $revoked ) {
+				$this->action_result = array(
+					'type'    => 'success',
+					'message' => __( 'The saved TackQuote API key has been removed from this site and revoked in TackQuote.', 'tackquote' ),
+				);
+			} else {
+				$this->action_result = array(
+					'type'    => 'warning',
+					'message' => __( 'The saved TackQuote API key has been removed from this site, but TackQuote could not be reached to revoke it. Revoke it in TackQuote under Settings → Developer → API Keys.', 'tackquote' ),
+				);
+			}
 		}
 	}
 
@@ -2063,6 +2093,20 @@ class Tack_Settings {
 	 * Overview, against a fingerprint of the key that was tested.
 	 */
 	private function run_connection_test() {
+		$this->action_result = self::record_connection_test();
+	}
+
+	/**
+	 * Run the connection test and remember its outcome for the Overview.
+	 *
+	 * Shared by the "Test TackQuote connection" button and "Connect with TackQuote",
+	 * which runs it right after storing the key it received.
+	 *
+	 * @since 1.11.0
+	 *
+	 * @return array{type:string,message:string,ok:bool}
+	 */
+	public static function record_connection_test() {
 		$client = new Tack_Api_Client();
 		$result = $client->test_connection();
 		$ok     = true === $result;
@@ -2074,9 +2118,10 @@ class Tack_Settings {
 				: Tack_Api_Client::STATE_FAILED;
 		}
 
-		$this->action_result = array(
+		$outcome = array(
 			'type'    => $ok ? 'success' : ( Tack_Api_Client::STATE_UNVERIFIED === $state ? 'warning' : 'error' ),
 			'message' => $ok ? __( 'Connected to TackQuote successfully.', 'tackquote' ) : ( is_wp_error( $result ) ? $result->get_error_message() : __( 'TackQuote did not accept the connection test.', 'tackquote' ) ),
+			'ok'      => $ok,
 		);
 		set_transient(
 			self::CONNECTION_CHECK,
@@ -2085,10 +2130,11 @@ class Tack_Settings {
 				'state'   => $state,
 				'key'     => self::key_fingerprint( (string) get_option( 'tack_quotes_api_key', '' ) ),
 				'at'      => time(),
-				'message' => $this->action_result['message'],
+				'message' => $outcome['message'],
 			),
 			DAY_IN_SECONDS
 		);
+		return $outcome;
 	}
 
 	/**
@@ -2280,6 +2326,9 @@ class Tack_Settings {
 		echo '<dl class="tack-dl">';
 		$this->card_row( __( 'API host', 'tackquote' ), is_string( $host ) ? $host : '' );
 		$this->card_row( __( 'API key', 'tackquote' ), '' !== $key ? str_repeat( '•', 4 ) . substr( $key, -4 ) : __( 'None saved', 'tackquote' ) );
+		if ( '' !== $key ) {
+			$this->card_row( __( 'Connected via', 'tackquote' ), Tack_Connect::connected_via_label() );
+		}
 		if ( $status['checked_at'] > 0 ) {
 			$this->card_row(
 				__( 'Last test', 'tackquote' ),
@@ -2296,7 +2345,7 @@ class Tack_Settings {
 			echo '<p class="description">' . esc_html( $status['message'] ) . '</p>';
 		}
 		if ( 'none' === $status['state'] ) {
-			echo '<p class="description">' . esc_html__( 'Add an API key to send quotes and orders to TackQuote.', 'tackquote' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Press Connect with TackQuote on the Connection tab, or add an API key, to send quotes and orders to TackQuote.', 'tackquote' ) . '</p>';
 		} else {
 			$this->test_connection_form( 'overview' );
 			echo '<p class="description">' . esc_html__( 'The test checks the key is valid, not its scopes: quotes need quotes:write, order sync needs orders:write.', 'tackquote' ) . '</p>';
