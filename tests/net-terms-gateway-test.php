@@ -16,6 +16,22 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quotes.php';
 
 check( 'the gateway class loads once WC_Payment_Gateway exists', true === Tack_Quotes::load_gateway() );
+require_once TACK_QUOTES_DIR . 'includes/blocks/class-tack-net-terms-block.php';
+
+/** Builds the Blocks payment data for an injected gateway. */
+class Tack_Net_Terms_Block_Probe {
+	/** @var Tack_Net_Terms_Block */
+	private $block;
+	/** @param Tack_Gateway_Net_Terms $gateway Gateway. */
+	public function __construct( $gateway ) {
+		$this->block = new Tack_Net_Terms_Block( $gateway );
+		$this->block->initialize();
+	}
+	/** @return array */
+	public function data() {
+		return $this->block->get_payment_method_data();
+	}
+}
 $tack_nt_registered = Tack_Quotes::register_gateway( array( 'WC_Gateway_Cheque' ) );
 check( 'woocommerce_payment_gateways gains Tack_Gateway_Net_Terms', in_array( 'Tack_Gateway_Net_Terms', $tack_nt_registered, true ) && in_array( 'WC_Gateway_Cheque', $tack_nt_registered, true ) );
 check( 'gateway id is tackquote_net_terms (the order-sync payment.method tack keys on)', 'tackquote_net_terms' === Tack_Gateway_Net_Terms::ID );
@@ -190,6 +206,39 @@ foreach ( $tack_nt_refusals as $tack_nt_label => $tack_nt_case ) {
 tack_nt_reset();
 check( 'currency compare is case-insensitive (usd vs USD)', true === Tack_Gateway_Net_Terms::evaluate( json_decode( tack_nt_standing( array( 'currency' => 'usd' ) ), true ), 10, 'USD' )['eligible'] );
 
+// ── Remaining credit (`available`, tack W2-tack-orders) vs the whole line ──
+$tack_nt_eval = function ( $account, $amount ) {
+	return Tack_Gateway_Net_Terms::evaluate( json_decode( tack_nt_standing( $account ), true ), $amount, 'USD' );
+};
+check( 'available present: total within it -> offered', true === $tack_nt_eval( array( 'available' => '1500.0000' ), 1200.00 )['eligible'] );
+check( 'available present: total equal to it -> offered', true === $tack_nt_eval( array( 'available' => 1200 ), 1200.00 )['eligible'] );
+check( 'available present: total above it, though within the limit -> insufficient_available_credit', 'insufficient_available_credit' === $tack_nt_eval( array( 'available' => '800.0000' ), 1200.00 )['reason'] );
+check( 'available 0 -> refused', 'insufficient_available_credit' === $tack_nt_eval( array( 'available' => 0 ), 0.01 )['reason'] );
+check( 'available negative (over-drawn) -> refused', 'insufficient_available_credit' === $tack_nt_eval( array( 'available' => '-50' ), 1.00 )['reason'] );
+check( 'available present and no creditLimit -> judged on available alone', true === $tack_nt_eval( array( 'available' => '2000', 'creditLimit' => null ), 1200.00 )['eligible'] );
+check( 'available absent (older server): creditLimit comparison kept', 'over_limit' === $tack_nt_eval( array( 'creditLimit' => '1000.0000' ), 1200.00 )['reason'] && true === $tack_nt_eval( array(), 1200.00 )['eligible'] );
+check( 'available non-numeric counts as absent (falls back to the limit)', 'over_limit' === $tack_nt_eval( array( 'available' => 'n/a', 'creditLimit' => '1000' ), 1200.00 )['reason'] );
+$tack_nt_top = json_decode( tack_nt_standing(), true );
+$tack_nt_top['available'] = 100;
+check( 'top-level available is honoured too', 'insufficient_available_credit' === Tack_Gateway_Net_Terms::evaluate( $tack_nt_top, 1200.00, 'USD' )['reason'] );
+
+tack_nt_reset();
+tack_test_set_http_response( 200, tack_nt_standing( array( 'available' => '300.0000' ) ) );
+check( 'over the remaining credit (wire): hidden', false === tack_nt_gateway()->is_available() );
+tack_nt_reset();
+tack_test_set_http_response( 200, tack_nt_standing( array( 'available' => '4000.0000' ) ) );
+$gw = tack_nt_gateway();
+check( 'within the remaining credit (wire): offered', true === $gw->is_available() );
+$gw->order = new Tack_NT_Test_Order( array( 'id' => 84, 'customer_id' => 1, 'total' => 1200.00, 'currency' => 'USD' ) );
+tack_test_set_http_response( 200, tack_nt_standing( array( 'available' => '1000.0000' ) ) );
+check( 'credit used up since the page loaded: fresh re-check refuses', array( 'result' => 'failure' ) === $gw->process_payment( 84 ) && '' === $gw->order->status_set );
+check( 'insufficient-credit notice carries no figure', false === strpos( (string) end( $GLOBALS['TACK_NOTICES'] ), '1000' ) && false !== strpos( (string) end( $GLOBALS['TACK_NOTICES'] ), 'net-terms credit' ) );
+tack_nt_reset();
+tack_test_set_http_response( 200, tack_nt_standing( array( 'available' => '4000.0000' ) ) );
+$tack_nt_block = new Tack_Net_Terms_Block_Probe( tack_nt_gateway() );
+$tack_nt_json  = wp_json_encode( $tack_nt_block->data() );
+check( 'Blocks data never carries available or the limit', false === strpos( $tack_nt_json, '4000' ) && false === stripos( $tack_nt_json, 'available' ) && false === strpos( $tack_nt_json, '5000' ) );
+
 // ── Fail closed: errors, timeouts, 404 ──────────────────────────────────────
 tack_nt_reset();
 tack_test_set_http_response( 500, wp_json_encode( array( 'message' => 'boom' ) ) );
@@ -232,7 +281,7 @@ tack_nt_reset();
 $gw        = tack_nt_gateway();
 $gw->order = new Tack_NT_Test_Order( array( 'id' => 78, 'customer_id' => 1, 'total' => 6000.00, 'currency' => 'USD' ) );
 check( 'order grew past the limit: refused', array( 'result' => 'failure' ) === $gw->process_payment( 78 ) );
-check( 'over-limit notice names the limit, not a figure', false !== strpos( (string) end( $GLOBALS['TACK_NOTICES'] ), 'credit limit' ) && false === strpos( (string) end( $GLOBALS['TACK_NOTICES'] ), '5000' ) );
+check( 'over-limit notice names the credit, not a figure', false !== strpos( (string) end( $GLOBALS['TACK_NOTICES'] ), 'net-terms credit' ) && false === strpos( (string) end( $GLOBALS['TACK_NOTICES'] ), '5000' ) );
 
 tack_nt_reset();
 $gw        = tack_nt_gateway();

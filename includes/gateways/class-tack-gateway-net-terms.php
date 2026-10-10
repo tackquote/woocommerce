@@ -24,16 +24,18 @@
  *     (Tack_Storefront_Forms::trusted_account_email(): a self-changed,
  *     unconfirmed address resolves nobody);
  *   - `GET /storefront/v1/net-terms` answered `standing` with an account whose
- *     status is `active`, a positive `termsDays`, a numeric `creditLimit`, a
- *     `currency` equal to the checkout currency, and a limit that covers the total.
+ *     status is `active`, a positive `termsDays`, a `currency` equal to the
+ *     checkout currency, and remaining credit (`available`, or on an older
+ *     server the whole `creditLimit`) that covers the total.
  * Any error, timeout, 404, unknown shape or missing field hides the gateway.
  *
- * LIMIT, NOT BALANCE. The standing answer carries the credit LIMIT, not what is
- * left of it (tack `storefront-net-terms.ts` selects `credit_limit`, not
- * `credit_used`). This gateway therefore refuses an order larger than the whole
- * line; whether earlier open invoices leave room is TackQuote's check when it
- * books the synced order (two-repo follow-up named in the PR). It never claims
- * more than it can see.
+ * REMAINING CREDIT WHEN KNOWN. A server that sends `available` (remaining
+ * credit, account currency) is held to it: the total must be at most what is
+ * left (`insufficient_available_credit`). An older server sends only the
+ * credit LIMIT (tack `storefront-net-terms.ts` before W2-tack-orders), and then
+ * an order larger than the whole line is refused (`over_limit`); whether earlier
+ * open invoices leave room is TackQuote's check when it books the synced order.
+ * Neither figure ever reaches the browser or the order.
  *
  * process_payment() reads the standing AGAIN, fresh, and refuses the order if
  * it no longer qualifies: the read that showed the method may be a minute old,
@@ -256,22 +258,53 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 		if ( '' === $account_currency || strtoupper( trim( (string) $currency ) ) !== $account_currency ) {
 			return self::verdict( 'currency_mismatch' );
 		}
-		if ( ! isset( $account['creditLimit'] ) || ! is_numeric( $account['creditLimit'] ) ) {
-			return self::verdict( 'no_limit' );
-		}
 		if ( ! is_numeric( $amount ) || ! is_finite( (float) $amount ) || (float) $amount < 0 ) {
 			return self::verdict( 'bad_amount' );
 		}
-		$limit_units  = (int) round( (float) $account['creditLimit'] * self::MONEY_SCALE );
 		$amount_units = (int) round( (float) $amount * self::MONEY_SCALE );
-		if ( $amount_units > $limit_units ) {
-			return self::verdict( 'over_limit' );
+
+		// Remaining credit, when the server sends it: the total must fit what is LEFT.
+		$available = self::available_credit( $answer, $account );
+		if ( null !== $available ) {
+			if ( $amount_units > (int) round( $available * self::MONEY_SCALE ) ) {
+				return self::verdict( 'insufficient_available_credit' );
+			}
+		} else {
+			// Older server: only the whole line is known.
+			if ( ! isset( $account['creditLimit'] ) || ! is_numeric( $account['creditLimit'] ) ) {
+				return self::verdict( 'no_limit' );
+			}
+			if ( $amount_units > (int) round( (float) $account['creditLimit'] * self::MONEY_SCALE ) ) {
+				return self::verdict( 'over_limit' );
+			}
 		}
 		return array(
 			'eligible'  => true,
 			'reason'    => 'eligible',
 			'termsDays' => $days,
 		);
+	}
+
+	/**
+	 * Remaining credit in the account currency, or null when the server did not send it.
+	 *
+	 * Read from `account.available` (beside `creditLimit`, same currency), else a
+	 * top-level `available`. UNVERIFIED: the exact location is set by the tack lane
+	 * adding the field (W2-tack-orders); an older server sends neither, and the
+	 * gateway then compares against `creditLimit` as before. A non-numeric value
+	 * counts as absent.
+	 *
+	 * @param array $answer  The standing answer.
+	 * @param array $account Its account block.
+	 * @return float|null
+	 */
+	private static function available_credit( array $answer, array $account ) {
+		foreach ( array( $account, $answer ) as $source ) {
+			if ( isset( $source['available'] ) && is_numeric( $source['available'] ) && is_finite( (float) $source['available'] ) ) {
+				return (float) $source['available'];
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -344,8 +377,8 @@ class Tack_Gateway_Net_Terms extends WC_Payment_Gateway {
 	 */
 	private function refuse( $reason ) {
 		$this->log( 'net-terms order refused at checkout: ' . $reason );
-		$message = 'over_limit' === $reason
-			? __( 'This order is larger than your net-terms credit limit. Please choose another payment method or contact us.', 'tackquote' )
+		$message = in_array( $reason, array( 'over_limit', 'insufficient_available_credit' ), true )
+			? __( 'This order is more than the net-terms credit you have available. Please choose another payment method or contact us.', 'tackquote' )
 			: __( 'Net terms are not available for this order right now. Please choose another payment method or contact us.', 'tackquote' );
 		wc_add_notice( $message, 'error' );
 		return array( 'result' => 'failure' );
