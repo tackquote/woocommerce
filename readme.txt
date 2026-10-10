@@ -353,7 +353,7 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
-* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`; product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta.
+* User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`; product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
 
 Deleting the plugin removes every option above, the fixed-name transients, the user meta, the product meta and queued order-sync jobs, on every site of a multisite network. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
 
@@ -414,6 +414,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Fixed: variable products on quote showed no size or colour choice on classic themes** in store-wide quote-only mode. The variation form now renders on quote for classic and block themes, with the quantity and quote buttons in place of the cart button; a quote-only variation still cannot be added to the cart.
 * **Fixed on block themes:** the volume-pricing table renders after the Add to Cart block, once per product, instead of above the excerpt.
 * The readme Description is now a short overview (wordpress.org trims a Description over 2,500 words, External services and Privacy included); the detailed field lists moved, unchanged, into the FAQ, and changelog entries for 1.5.1 and earlier into `changelog.txt`.
+* Tools → Export Personal Data now includes, per order, the purchase-order number, the TackQuote quote reference and number, and the net terms (through WooCommerce's order exporter). Erase Personal Data deletes the purchase-order number when WooCommerce's "Remove personal data from orders on request" is on.
 * When a wholesale or net-terms application is refused, the answers put back in the form are kept for 2 minutes (was 5) and no longer include phone numbers or tax, VAT or registration numbers; the customer types those again.
 * **Requires WordPress 6.4 and WooCommerce 8.0 or later** (was 6.0 and 6.0). Older releases are untested and no longer receive security fixes. The plugin still checks that a newer WooCommerce feature exists before it uses it.
 

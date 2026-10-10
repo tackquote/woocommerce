@@ -7,6 +7,8 @@
  *        states them agrees.
  *   L-3  an application's error outcome (a `tack_sf_*` transient under a URL token) never
  *        holds a phone number or a tax / VAT / registration number, and lives 120 s.
+ *   L-2  (remainder) the PO number, quote reference / number and net terms on an order are
+ *        in WooCommerce's order export; only the PO number is erased.
  *
  * Run: php tests/run.php
  *
@@ -105,3 +107,41 @@ $tack_w9_credit_refill = (string) wp_json_encode( $tack_w9_credit['refill'] );
 check( 'L-3: a refused net-terms application keeps the business name, address and references', null !== $tack_w9_credit['error'] && 'Acme Ltd' === ( $tack_w9_credit['refill']['legalBusinessName'] ?? '' ) && isset( $tack_w9_credit['refill']['billingAddress']['city'] ) && 'Supplier A' === ( $tack_w9_credit['refill']['tradeReferences'][0]['companyName'] ?? '' ), $tack_w9_credit_refill );
 check( 'L-3: ...but not the tax ID', ! array_key_exists( 'taxId', $tack_w9_credit['refill'] ) && false === strpos( $tack_w9_credit_refill, 'GB987654321' ), $tack_w9_credit_refill );
 check( 'L-3: ...nor the contact phone or a reference phone', ! array_key_exists( 'contactPhone', $tack_w9_credit['refill'] ) && false === strpos( $tack_w9_credit_refill, '0113 496' ), $tack_w9_credit_refill );
+
+// ── L-2 remainder: the plugin's order meta in WooCommerce's order export / erasure ──
+
+$tack_w9_core_export = array( 'Transaction ID' => 'Transaction ID' );
+$tack_w9_export      = Tack_Quotes::add_order_meta_to_export( $tack_w9_core_export );
+check( 'L-2: WooCommerce\'s own order meta stays in the export', isset( $tack_w9_export['Transaction ID'] ) );
+foreach ( array( '_tackquote_po_number', '_tackquote_quote_ref', '_tackquote_quote_number', '_tackquote_net_terms' ) as $tack_w9_key ) {
+	check( "L-2: $tack_w9_key is exported with a label", isset( $tack_w9_export[ $tack_w9_key ] ) && '' !== $tack_w9_export[ $tack_w9_key ] );
+}
+check( 'L-2: the PO literal is Tack_Po_Number::META_KEY', array_key_exists( Tack_Po_Number::META_KEY, Tack_Quotes::privacy_order_meta() ) );
+check( 'L-2: the quote literals are Tack_Quote_Checkout::META_REF and META_NUMBER', array_key_exists( Tack_Quote_Checkout::META_REF, Tack_Quotes::privacy_order_meta() ) && array_key_exists( Tack_Quote_Checkout::META_NUMBER, Tack_Quotes::privacy_order_meta() ) );
+check( 'L-2: the net-terms literal is Tack_Gateway_Net_Terms::META_TERMS', class_exists( 'Tack_Gateway_Net_Terms', false ) && array_key_exists( Tack_Gateway_Net_Terms::META_TERMS, Tack_Quotes::privacy_order_meta() ) );
+
+// The exporter's value filter: the net-terms array becomes text; everything else passes through.
+check( 'L-2: net terms export as text', '30 days (checked 2026-10-10T12:00:00+00:00)' === Tack_Quotes::format_order_meta_export( array( 'termsDays' => 30, 'checkedAt' => '2026-10-10T12:00:00+00:00' ), '_tackquote_net_terms' ) );
+check( 'L-2: the PO number exports as stored', 'PO-4471' === Tack_Quotes::format_order_meta_export( 'PO-4471', '_tackquote_po_number' ) );
+check( 'L-2: another plugin\'s array meta is not touched', array( 'termsDays' => 30 ) === Tack_Quotes::format_order_meta_export( array( 'termsDays' => 30 ), 'Payer first name' ) );
+
+// Erasure: the PO number only, deleted rather than replaced with "[deleted]".
+$tack_w9_erase = Tack_Quotes::add_order_meta_to_erase( array( 'Transaction ID' => 'numeric_id' ) );
+check( 'L-2: the PO number is erased', isset( $tack_w9_erase['_tackquote_po_number'] ) && isset( $tack_w9_erase['Transaction ID'] ) );
+check( 'L-2: the quote reference, quote number and net terms are kept (business records)', ! isset( $tack_w9_erase['_tackquote_quote_ref'] ) && ! isset( $tack_w9_erase['_tackquote_quote_number'] ) && ! isset( $tack_w9_erase['_tackquote_net_terms'] ) );
+check( 'L-2: an erased PO number is deleted, not stored as a placeholder order sync would send', '' === Tack_Quotes::erase_order_meta_value( '[deleted]', '_tackquote_po_number' ) );
+check( 'L-2: other meta keeps WooCommerce\'s anonymised value', '[deleted]' === Tack_Quotes::erase_order_meta_value( '[deleted]', 'Payer first name' ) );
+
+// Wiring: the four WooCommerce filters (names as in WooCommerce 11.2.1's class-wc-privacy-exporters.php /
+// class-wc-privacy-erasers.php) are hooked to these callbacks.
+$tack_w9_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quotes.php' );
+foreach (
+	array(
+		"'woocommerce_privacy_export_order_personal_data_meta', array( __CLASS__, 'add_order_meta_to_export' )",
+		"'woocommerce_privacy_export_order_personal_data_meta_value', array( __CLASS__, 'format_order_meta_export' ), 10, 2",
+		"'woocommerce_privacy_remove_order_personal_data_meta', array( __CLASS__, 'add_order_meta_to_erase' )",
+		"'woocommerce_privacy_remove_order_personal_data_meta_value', array( __CLASS__, 'erase_order_meta_value' ), 10, 2",
+	) as $tack_w9_hook
+) {
+	check( 'L-2: hooked: ' . strtok( $tack_w9_hook, ',' ), false !== strpos( $tack_w9_src, 'add_filter( ' . $tack_w9_hook . ' );' ) );
+}
