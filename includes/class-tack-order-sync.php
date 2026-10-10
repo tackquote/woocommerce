@@ -544,7 +544,7 @@ class Tack_Order_Sync {
 		} else {
 			/*
 			 * `WC_Order::get_shipping_phone()` is `@since 5.6.0` (includes/class-wc-order.php).
-			 * This plugin declares `WC requires at least: 6.0`, so it is always present on a
+			 * This plugin declares `WC requires at least: 8.0`, so it is always present on a
 			 * store that meets the floor — but WordPress does not ENFORCE that header, it only
 			 * warns, so a merchant on WooCommerce 5.x can still activate this plugin. A fatal
 			 * error inside a background sync job would be invisible to them until orders

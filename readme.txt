@@ -1,7 +1,7 @@
 === TackQuote for WooCommerce ===
 Contributors: tackquote
 Tags: woocommerce, request a quote, b2b, wholesale, rfq
-Requires at least: 6.0
+Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -414,6 +414,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Fixed: variable products on quote showed no size or colour choice on classic themes** in store-wide quote-only mode. The variation form now renders on quote for classic and block themes, with the quantity and quote buttons in place of the cart button; a quote-only variation still cannot be added to the cart.
 * **Fixed on block themes:** the volume-pricing table renders after the Add to Cart block, once per product, instead of above the excerpt.
 * The readme Description is now a short overview (wordpress.org trims a Description over 2,500 words, External services and Privacy included); the detailed field lists moved, unchanged, into the FAQ, and changelog entries for 1.5.1 and earlier into `changelog.txt`.
+* **Requires WordPress 6.4 and WooCommerce 8.0 or later** (was 6.0 and 6.0). Older releases are untested and no longer receive security fixes. The plugin still checks that a newer WooCommerce feature exists before it uses it.
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.

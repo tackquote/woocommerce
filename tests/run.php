@@ -168,5 +168,9 @@ require __DIR__ . '/standards-audit-test.php';
 echo "\n-- theme blend and customisation --\n";
 require __DIR__ . '/theme-blend-test.php';
 
+// 1.10.0 final polish: version floors, application refill minimisation, order privacy export.
+echo "\n-- final polish (W9) --\n";
+require __DIR__ . '/final-polish-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

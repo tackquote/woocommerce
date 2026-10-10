@@ -4,7 +4,7 @@
  * Plugin URI:        https://tackquote.com/integrations/woocommerce
  * Description:       Add a "Request a Quote" button to your WooCommerce store and sync orders with your TackQuote B2B quoting account.
  * Version:           1.10.0
- * Requires at least: 6.0
+ * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            TackQuote
  * Author URI:        https://tackquote.com
@@ -13,7 +13,7 @@
  * Text Domain:       tackquote
  * Domain Path:       /languages
  * Requires Plugins:  woocommerce
- * WC requires at least: 6.0
+ * WC requires at least: 8.0
  * WC tested up to:   11.2
  *
  * @package TackQuotes
@@ -22,6 +22,20 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
+
+/*
+ * Version floors (`Requires at least: 6.4`, `WC requires at least: 8.0`).
+ *
+ * These are the oldest WordPress and WooCommerce releases this plugin supports, not the
+ * oldest it happens to load on. Every newer API it uses is still guarded, and the guards
+ * stay: FeaturesUtil and the Blocks payment base class behind class_exists(),
+ * woocommerce_register_additional_checkout_field() behind function_exists(), and Store API
+ * hooks that are simply never fired on a store without them. So an older store does not
+ * fatal. But nothing below these floors is tested, and those releases no longer receive
+ * security fixes, so the headers do not claim them. WordPress refuses to activate the
+ * plugin below `Requires at least` (validate_plugin_requirements()); `WC requires at least`
+ * only earns a warning from WooCommerce, which is why the guards matter.
+ */
 
 define( 'TACK_QUOTES_VERSION', '1.10.0' );
 define( 'TACK_QUOTES_FILE', __FILE__ );
