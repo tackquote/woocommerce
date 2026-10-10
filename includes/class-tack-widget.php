@@ -439,6 +439,8 @@ class Tack_Widget {
 		/**
 		 * Filter the number of quote requests allowed per client per window.
 		 *
+		 * @since 1.3.1
+		 *
 		 * @param int $max Maximum requests. Zero or less disables the limit.
 		 */
 		return (int) apply_filters( 'tack_quotes_rate_limit_max', self::RATE_LIMIT_MAX );

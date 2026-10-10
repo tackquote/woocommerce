@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<ruleset name="TackQuote for WooCommerce"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
+
+	<description>WordPress + WooCommerce coding standards for the TackQuote WooCommerce plugin.</description>
+
+	<!--
+		Run from the plugin root: `composer lint` (phpcs) / `composer lint:fix` (phpcbf).
+		The gate is zero errors AND zero warnings; CI runs `vendor/bin/phpcs -q`.
+	-->
+
+	<!-- What to scan. -->
+	<file>.</file>
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<!-- Show sniff names (s) and progress (p). -->
+	<arg value="sp"/>
+	<!-- Four parallel workers are plenty for twelve files and keep CI quiet. -->
+	<arg name="parallel" value="4"/>
+
+	<!-- Never scanned: the offline test runner and its WordPress/WooCommerce stubs,
+	     build output, and dependency trees. -->
+	<exclude-pattern>*/tests/*</exclude-pattern>
+	<exclude-pattern>*/dist/*</exclude-pattern>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+
+	<!--
+		Aligned with the plugin header (tackquote.php): `Requires PHP: 7.4` and
+		`Requires at least: 6.0`. Bump these together with the header, never alone.
+	-->
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<rule ref="WordPress-Extra"/>
+	<rule ref="WordPress-Docs"/>
+	<rule ref="WooCommerce-Core"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- The text domain must equal the WordPress.org slug. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="tackquote"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Every global (function, class, constant, option, hook) carries one of these. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="tack"/>
+				<element value="Tack"/>
+				<element value="TACK"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		`manage_woocommerce` is WooCommerce's own capability (registered by
+		WC_Install::get_core_capabilities()), not a WordPress core one, so the
+		capabilities sniff does not know it. Registering it here is the documented
+		way to teach the sniff; it does not change what the plugin checks.
+	-->
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="manage_woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

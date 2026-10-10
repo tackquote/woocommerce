@@ -57,7 +57,11 @@ class Tack_B2B_Notices {
 	 */
 	const TIMEOUT = 5;
 
-	/** API client. @var Tack_Api_Client */
+	/**
+	 * API client.
+	 *
+	 * @var Tack_Api_Client
+	 */
 	private $client;
 
 	/**
@@ -67,7 +71,11 @@ class Tack_B2B_Notices {
 	 */
 	private $limits = array();
 
-	/** Buyer group for this request, or false when not yet asked. @var array|false|null */
+	/**
+	 * Buyer group for this request, or false when not yet asked.
+	 *
+	 * @var array|false|null
+	 */
 	private $group = false;
 
 	/**
@@ -439,7 +447,7 @@ class Tack_B2B_Notices {
 	 * source, not assumed.
 	 *
 	 * Its one protection is `email_exists()`, which refuses an address already
-	 * held by another WORDPRESS user. That is the whole gap: a TackQuote buyer
+	 * held by another WordPress user. That is the whole gap: a TackQuote buyer
 	 * approved for Net-30 who has never registered on this store is not a
 	 * WordPress user, so their address is free to take. Register, retype their
 	 * email, reload — wholesale pricing and their payment terms.
@@ -507,6 +515,8 @@ class Tack_B2B_Notices {
 			 * Default false. A store that verifies email another way (an
 			 * identity plugin, SSO) can return true — but only if that
 			 * verification actually happened.
+			 *
+			 * @since 1.7.1
 			 *
 			 * @param bool $trust   Whether to trust it anyway.
 			 * @param int  $user_id The customer.

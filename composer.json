@@ -1,0 +1,31 @@
+{
+    "name": "tackquote/woocommerce",
+    "description": "Development tooling for the TackQuote for WooCommerce plugin: WordPress + WooCommerce coding standards (PHPCS). The plugin itself has no Composer runtime dependencies; this file and vendor/ never ship in tackquote.zip.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "homepage": "https://tackquote.com/integrations/woocommerce",
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.10",
+        "wp-coding-standards/wpcs": "^3.1",
+        "woocommerce/woocommerce-sniffs": "^1.0",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "lint": "phpcs",
+        "lint:fix": "phpcbf"
+    },
+    "scripts-descriptions": {
+        "lint": "Check every PHP file against phpcs.xml.dist (WordPress-Extra, WordPress-Docs, WooCommerce-Core, PHPCompatibilityWP).",
+        "lint:fix": "Apply the automatic fixes phpcbf can make, then run `composer lint` for what remains."
+    }
+}

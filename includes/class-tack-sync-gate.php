@@ -120,6 +120,7 @@ class Tack_Sync_Gate {
 
 		if ( 429 === $status ) {
 			$wait = self::wait_seconds( $data, $now );
+
 			/*
 			 * TackQuote answers a key that keeps hitting a missing scope with 429 instead of
 			 * 403 after a few refusals. It is still the same terminal refusal, so it stays
@@ -131,8 +132,8 @@ class Tack_Sync_Gate {
 				$block['until'] = max( (int) $now + $wait, (int) $now + self::TERMINAL_REPROBE );
 				return $block;
 			}
-			$block['kind']  = 'throttled';
-			$block['wait']  = $wait;
+			$block['kind'] = 'throttled';
+			$block['wait'] = $wait;
 			// The server's own answer. record_failure() lengthens it for a REPEATED
 			// throttle (exponential back-off with jitter); classify() itself stays exact.
 			$block['until'] = (int) $now + $wait;
@@ -214,7 +215,9 @@ class Tack_Sync_Gate {
 		$exponent = min( $attempt - 1, 10 );
 		$base     = max( (int) $retry_after, self::DEFAULT_WAIT * ( 2 ** $exponent ) );
 		if ( null === $random ) {
-			$random = mt_rand( 0, mt_getrandmax() - 1 ) / mt_getrandmax();
+			// Same draw as before (an integer in [0, mt_getrandmax()) over mt_getrandmax(),
+			// so the result stays in [0, 1)), from WordPress's CSPRNG-backed wp_rand().
+			$random = wp_rand( 0, mt_getrandmax() - 1 ) / mt_getrandmax();
 		}
 		$random = min( max( (float) $random, 0.0 ), 0.999999 );
 		$jitter = (int) floor( $base * self::JITTER_FRACTION * $random );
@@ -257,7 +260,20 @@ class Tack_Sync_Gate {
 	 */
 	private static function lift( array $block ) {
 		self::clear();
-		do_action( self::UNBLOCKED_ACTION, (int) ( $block['since'] ?? $block['at'] ?? 0 ) );
+
+		/**
+		 * Fires when a block on order sync is lifted (a push succeeded, or a different
+		 * API key was saved). Tack_Order_Sync listens and re-queues the orders that
+		 * changed while pushes were held.
+		 *
+		 * The hook name is the UNBLOCKED_ACTION constant (`tack_quotes_order_sync_unblocked`)
+		 * so the listener in Tack_Order_Sync and this emitter cannot drift apart.
+		 *
+		 * @since 1.8.2
+		 *
+		 * @param int $since Unix time pushes started being held; 0 when unknown.
+		 */
+		do_action( self::UNBLOCKED_ACTION, (int) ( $block['since'] ?? $block['at'] ?? 0 ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- the constant holds the prefixed literal 'tack_quotes_order_sync_unblocked'; it is shared with the listener on purpose.
 	}
 
 	/**

@@ -43,6 +43,12 @@ rsync -a --delete \
 	`# by every user on every install and update for nothing. Leaving them in`\
 	`# took the zip from 84KB to 625KB.`\
 	--exclude '.wordpress-org' \
+	`# Coding-standards tooling: phpcs.xml.dist (covered by *.dist) and the`\
+	`# Composer manifest + lock that install it. The plugin has NO Composer`\
+	`# runtime dependency, so a shipped composer.json would only invite a`\
+	`# merchant's host to run composer install inside wp-content/plugins.`\
+	--exclude '/composer.json' \
+	--exclude '/composer.lock' \
 	--exclude '*.dist' \
 	--exclude '.DS_Store' \
 	--exclude '*.md' \
@@ -67,6 +73,22 @@ if [ "$LEAKED" -gt 0 ]; then
 	echo "BUILD FAILED: $LEAKED image/archive file(s) are inside the plugin zip." >&2
 	echo "Listing assets belong in .wordpress-org/ and must be excluded above." >&2
 	printf '%s\n' "$ENTRIES" | grep -E '\.(png|jpg|jpeg|gif|zip)$' >&2
+	exit 1
+fi
+
+# Same idea for the development tooling. composer.json / composer.lock are
+# committed (reproducible PHPCS in CI), vendor/ is what they install, and
+# phpcs.xml.dist is the ruleset: none of it is plugin code, and a composer.json
+# inside wp-content/plugins/ is an invitation for a host to run `composer
+# install` against the live site. Match on the entry's path within the zip
+# (`tackquote/composer.json`, `tackquote/vendor/...`), anchored at the plugin
+# root, so a product called "vendor" or a merchant's own file is not caught.
+TOOLING=$(printf '%s\n' "$ENTRIES" | awk '{print $NF}' \
+	| grep -E "^$PLUGIN_SLUG/(vendor/|composer\.(json|lock)$|phpcs\.xml(\.dist)?$|\.phpcs\.xml(\.dist)?$)" || true)
+if [ -n "$TOOLING" ]; then
+	echo "BUILD FAILED: development tooling is inside the plugin zip:" >&2
+	printf '%s\n' "$TOOLING" | sed 's/^/  /' >&2
+	echo "vendor/, composer.json, composer.lock and phpcs.xml.dist must be excluded above." >&2
 	exit 1
 fi
 

@@ -72,16 +72,28 @@ simply keeps its own prices.
 
 ```bash
 # Lint (PHP syntax)
-find . -name '*.php' -print0 | xargs -0 -n1 php -l
+find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
-# Lint (WordPress Coding Standards)
-composer install && ./vendor/bin/phpcs --standard=WordPress .
+# Offline regression tests (no WordPress install needed)
+php tests/run.php
 
 # Build a distributable zip
 bash bin/build.sh   # produces dist/tackquote.zip
 ```
 
-Releases are built and attached by the GitHub Actions workflow `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow calls `scripts/package.sh`, which delegates to `bin/build.sh`, so the two cannot drift. `bin/build.sh` leaves the repository scaffolding (`scripts/`, `.github/`, `LICENSE`) out of the zip.
+### Coding standards
+
+The plugin is held to the [WordPress Coding Standards](https://github.com/WordPress/WordPress-Coding-Standards) (`WordPress-Extra` + `WordPress-Docs`), the [WooCommerce sniffs](https://github.com/woocommerce/woocommerce-sniffs) (`WooCommerce-Core`) and `PHPCompatibilityWP` for PHP 7.4+, as configured in [`phpcs.xml.dist`](phpcs.xml.dist). The bar is **zero errors and zero warnings**; CI (`.github/workflows/ci.yml`, job `phpcs`) fails on either.
+
+```bash
+composer install      # installs the pinned sniff versions from composer.lock (dev only)
+composer lint         # phpcs against phpcs.xml.dist
+composer lint:fix     # phpcbf for the auto-fixable part, then run `composer lint` again
+```
+
+`composer.json`, `composer.lock`, `phpcs.xml.dist` and `vendor/` are development tooling only: the plugin has no Composer runtime dependency, and `bin/build.sh` both excludes them from `tackquote.zip` and fails the build if any of them is found inside it.
+
+Releases are built and attached by the GitHub Actions workflow `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow calls `scripts/package.sh`, which delegates to `bin/build.sh`, so the two cannot drift. `bin/build.sh` leaves the repository scaffolding (`scripts/`, `.github/`, `LICENSE`, the Composer files and `phpcs.xml.dist`) out of the zip.
 
 ## License
 

@@ -37,6 +37,14 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/**
+ * Quote-only (B2B catalogue) store mode.
+ *
+ * Withdraws "Add to cart" at the data layer (`woocommerce_is_purchasable`),
+ * empties carts filled before the switch, and optionally replaces prices with
+ * "Price on request". Sellers who can `manage_woocommerce` are exempt. See the
+ * file header for why each of those is needed.
+ */
 class Tack_Catalog_Mode {
 
 	const OPT_MODE       = 'tack_quotes_store_mode';
@@ -115,10 +123,11 @@ class Tack_Catalog_Mode {
 	 * refused the same way the button is.
 	 *
 	 * @param bool       $purchasable Current value.
-	 * @param WC_Product $product     Product being tested.
+	 * @param WC_Product $product     Product being tested. Part of the WooCommerce filter
+	 *                                signature; the decision is store-wide, not per product.
 	 * @return bool
 	 */
-	public function filter_is_purchasable( $purchasable, $product = null ) {
+	public function filter_is_purchasable( $purchasable, $product = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $product is the second argument WooCommerce passes to woocommerce_is_purchasable; kept so the callback matches the documented filter signature.
 		return $this->is_active() ? false : $purchasable;
 	}
 
@@ -139,7 +148,7 @@ class Tack_Catalog_Mode {
 			$product = isset( $item['data'] ) ? $item['data'] : null;
 			if ( $product instanceof WC_Product && ! $product->is_purchasable() ) {
 				WC()->cart->remove_cart_item( $key );
-				$removed++;
+				++$removed;
 			}
 		}
 
@@ -180,10 +189,11 @@ class Tack_Catalog_Mode {
 	 * Optional "price on request" — some B2B sellers do not publish list prices.
 	 *
 	 * @param string     $html    Rendered price HTML.
-	 * @param WC_Product $product Product.
+	 * @param WC_Product $product Product. Part of the WooCommerce filter signature; the
+	 *                            replacement text is the same for every product.
 	 * @return string
 	 */
-	public function filter_price_html( $html, $product = null ) {
+	public function filter_price_html( $html, $product = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $product is the second argument WooCommerce passes to woocommerce_get_price_html; kept so the callback matches the documented filter signature.
 		if ( ! $this->is_active() || 'yes' !== get_option( self::OPT_HIDE_PRICE, 'no' ) ) {
 			return $html;
 		}
