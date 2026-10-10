@@ -1,0 +1,64 @@
+TackQuote for WooCommerce: changelog for releases 1.5.1 and earlier.
+Newer releases are listed in readme.txt.
+
+= 1.5.1 =
+* Shortened the description and added links to the WooCommerce integration page and to account signup, so it is clear where to get an API key.
+* No code changes.
+
+= 1.5.0 =
+* Order sync now sends the whole order, not eleven fields of it. Previously the payload carried no address of any kind — a merchant testing it in production reported "no name, not address information, nothing", and they were right. It now carries both addresses in full, phone numbers, the WooCommerce customer ID and order note, the real item subtotal alongside discount/shipping/tax/total, coupon codes, payment method and gateway transaction reference, the created/modified/paid/completed timestamps, shipping and fee lines, and per-line product/variation IDs, line subtotal, tax and item meta (so "Large / Blue" survives the sync).
+* Fixed: `subtotal` was never sent, so the receiving end recorded `subtotal = total` — meaning every order from a store that charges tax or shipping claimed its goods cost what the customer paid.
+* New: `tack_quotes_order_po_number` filter. WooCommerce core has no purchase-order field, so nothing is sent unless your store wires one up; see the FAQ. Previously a purchase-order number could never be reported at all.
+* Fixed: `modifiedAt` is sent but deliberately excluded from the idempotency hash. Under HPOS, recording a successful push writes order meta, and that stamps a new modified date — so hashing it would have invalidated the key the push just recorded and de-duplication would never have converged.
+* The privacy disclosure on the settings screen, the wording offered to **Settings → Privacy**, and the **External services** and **Privacy** sections of this readme now describe the payload that is actually sent. An under-disclosure is worse than none: a merchant reads it and concludes the transfer is narrower than it is.
+* Fixed: the settings screen named the WooCommerce log source as `tack-quotes`; it has been `tackquote` since the 1.3.3 slug rename.
+* Added `tests/test-order-payload.php`, a WP-CLI contract test that names every required payload field against a real WooCommerce order, and offline payload coverage in `tests/run.php`.
+* Tests: the quote-only mode suite now asserts that `woocommerce_is_purchasable` is actually hooked, not just that the callback decides correctly. It previously proved only the latter, so a wiring mistake would have hidden the buttons while the Store API kept taking orders. No behaviour change — the wiring was already correct.
+
+= 1.4.0 =
+* New: **Store mode**. A single setting turns the whole storefront into a B2B catalogue — "Add to cart" is withdrawn and customers request a quote instead. Choose whether it applies to every customer, to signed-out visitors only (so approved trade customers keep a normal cart), or to specific roles. Optionally replace prices with "Price on request".
+* The switch is enforced server-side via `woocommerce_is_purchasable`, which WooCommerce checks before accepting any cart line — so a hand-crafted `?add-to-cart=` link, the Store API and cached pages are all refused, not just the button hidden.
+* Carts filled *before* the store was switched to quote-only are emptied on the cart and checkout pages with an explanatory notice. WooCommerce's own cart validation only checks that a product still exists, not that it is purchasable, so without this a pre-existing cart could still be checked out and the store would not really be quote-only.
+* Anyone who can manage WooCommerce keeps a working cart, so you can test your own store while it is closed to customers.
+* Quote buttons now also mount outside the add-to-cart form, so they survive when the cart button is withdrawn.
+
+= 1.3.4 =
+* Fixed: the **Settings** link on the Plugins screen led to "Sorry, you are not allowed to access this page." even for an administrator. The link carried a hardcoded `page=tack-quotes`, which was the admin page slug up to 1.3.1; the 1.3.2 and 1.3.3 renames moved the slug to `tackquote` and left the link behind. Pointing at an unregistered page makes WordPress emit its permission-denied message, so the failure looked like a capability problem and was not one. The link is now derived from the same constant the menu is registered with, so the two cannot drift again.
+* Added a regression test (`tests/run.php`, no PHPUnit or WordPress install required) asserting the Settings link resolves to a registered admin page that requires `manage_options`.
+
+= 1.3.3 =
+* The plugin slug, text domain, plugin folder and distributed ZIP are now all `tackquote`, matching the slug assigned on WordPress.org. WordPress requires the text domain to equal the slug, and a plugin folder that disagrees with either is its own defect. The admin page, the enqueued script/style handles, the Action Scheduler group and the WooCommerce log source move with it, so the log source is now `tackquote`.
+* readme.txt now carries an **External services** section disclosing the TackQuote API: that the plugin cannot function without it, that nothing is sent until an API key is entered, and, endpoint by endpoint, what is sent and when — with links to the Terms of Service and Privacy Policy.
+* Fixed the download links, which pointed at a repository that does not exist. The source now lives at https://github.com/tackquote/woocommerce.
+* Note for anyone updating a manually installed 1.3.2: the folder changed from `tackquote-for-woocommerce/` to `tackquote/`, so WordPress treats the new ZIP as a separate plugin. Deactivate and delete the old copy after installing this one. Your API key and toggles are stored as WordPress options and survive both.
+
+= 1.3.2 =
+* Packaging: the distributed ZIP now unpacks to `tackquote-for-woocommerce/`, matching the plugin slug, and is rebuilt from the current source. The previously published download still contained pre-1.2.0 code, so stores installing it got the old buttons and none of the 1.3.1 security fixes.
+* No functional changes to the plugin itself beyond the version bump.
+
+= 1.3.1 =
+* Security: company field names supplied by the API are now escaped and allowlisted before being rendered into the quote form, closing a cross-site scripting hole.
+* Security: the TackQuote API key is no longer rendered into the settings page HTML. Leave the field blank to keep the saved key; a new "Remove saved API key" button clears it.
+* Security: the settings page now requires the administrator capability, which is also the capability WordPress requires to save it — a shop manager previously saw the page but could not save it.
+* Quote requests from the storefront are rate limited per visitor, the note field is length-capped, and the request timeout is 5s instead of 20s.
+* Order sync is now queued and sent on a background request through Action Scheduler, so it no longer runs inside checkout, and each push carries an idempotency key so the same order state is never sent twice.
+* Order sync now defaults to OFF on new installs, and readme.txt documents exactly which fields are sent where. Existing stores keep their current setting.
+* An expired or cache-stale security token now says so and offers a reload, instead of showing a generic error that could never be resolved.
+* Quantity and variation are read from the clicked product's own form, fixing wrong values on grouped products, product archives, related-product rows and sticky add-to-cart bars.
+* Declares compatibility with the Cart and Checkout blocks, and adds the `WC tested up to` header that WooCommerce needs before it will surface any compatibility declaration.
+* Uninstall now removes every option and transient the plugin creates.
+
+= 1.3.0 =
+* "Add to Quote" no longer adds the product to the WooCommerce cart. It now adds to a separate, browser-side "quote list" that never touches stock, cart totals, or checkout. A floating "Quote list" button (bottom-right, site-wide) appears once at least one product is added, showing what's in it and a "Checkout as Quote" button that submits the whole list as one TackQuote request. The WooCommerce cart page no longer has a quote button — quoting and purchasing are now fully separate paths.
+
+= 1.2.0 =
+* Restored "Request a Quote" as an independent, configurable product-page button alongside "Add to Quote" — Settings → TackQuote now has checkboxes to show "Add to Quote", "Request a Quote", both, or neither on product pages (the cart page's "Checkout as Quote" is unaffected). Both default to on for existing and new installs.
+
+= 1.1.0 =
+* Split the single "Request a Quote" button into two: "Add to Quote" on product pages (adds the product to the cart, same as Add to Cart) and "Checkout as Quote" on the cart page (submits everything in the cart as one quote request). Previously the product-page button submitted a quote for that one product immediately, with no way to accumulate multiple products into a single request without using the whole-cart button on every add.
+
+= 1.0.1 =
+* Replaced the browser `prompt()`/`alert()` quote-request flow with a real modal dialog (email + optional note fields, inline validation, loading/success/error states). Email is pre-filled for logged-in customers.
+
+= 1.0.0 =
+* Initial release: Request a Quote button, one-way order sync, TackQuote settings, HPOS declaration.

@@ -13,23 +13,30 @@ Request a quote from WooCommerce for B2B wholesale quoting — sync orders to yo
 
 == Description ==
 
-**TackQuote for WooCommerce** adds request-a-quote buttons to your products, so B2B and wholesale shoppers can ask for a price instead of checking out — and optionally syncs orders one-way to your TackQuote account.
+**TackQuote for WooCommerce** lets B2B and wholesale shoppers ask for a price instead of checking out, and can sync orders one way to your TackQuote account.
+
+It is for stores that sell to trade customers (wholesalers, distributors, manufacturers) and quote prices per account, per quantity or per order. Setup is one field: paste your TackQuote API key.
 
 [Learn more about the WooCommerce integration](https://tackquote.com/integrations/woocommerce) &middot; [Create a free TackQuote account](https://app.tackquote.com/register)
 
-= What you get =
+= Features =
 
-* **Add to Quote** and **Request a Quote** buttons on product pages.
-* A floating **quote list** with **Checkout as Quote** — several products, one request. It is separate from the WooCommerce cart, so stock and checkout are untouched.
-* **Quote only (B2B catalogue) mode** — switch Add to Cart off across the whole store and take quotes instead. Your products, categories and search keep working; only checkout goes away. Apply it to everyone, to signed-out visitors only, or to chosen roles.
-* **More places to start a quote** (all off by default, so an update changes nothing a shopper sees): "Add to Quote" on product cards in the shop, category and search lists; "Request a quote for your cart" on the cart page (classic cart and the Cart block); and a **quote page** of your own via the `[tackquote_quote_page]` shortcode, where shoppers change quantities, add an optional target price per line and a message.
-* **Floating launcher settings** — side, offsets, label, icon, count, size, pages, mobile; defaults unchanged.
-* **Quote only, per product** — a "Quote only" checkbox in the product data panel hides Add to Cart for that product (its variations follow), and a fourth store-wide scope keeps the cart only for **approved wholesale accounts**.
-* **Per buyer group** (off by default): hide product categories, free or discounted shipping, and an optional WordPress role.
-* Optional one-way **order sync** to TackQuote — off by default, and queued through Action Scheduler so it never runs inside checkout.
-* Works with WooCommerce **High-Performance Order Storage (HPOS)**.
+* **Add to Quote** and **Request a Quote** buttons on product pages, in your theme's button style.
+* A floating **quote list** with **Checkout as Quote**: several products in one request, separate from the cart.
+* **Quote-only mode** for the whole store, signed-out visitors, chosen roles, or all but approved wholesale accounts.
+* **Quote only per product**, with variations following their product and still selectable for a quote.
+* Optional quote buttons on **product cards** and the **cart page**, and a **quote page** with target prices.
+* A configurable **floating launcher**: side, offsets, label, icon, count, size, pages, mobile.
+* **B2B pricing** from TackQuote: account prices and volume tables, net of tax on any tax setting.
+* **Order limits**, a **buyer-group badge** and **tax-exempt buyers**.
+* Per buyer group: hidden **product categories**, free or discounted **shipping**, an optional **WordPress role**.
+* **Wholesale** and **net-terms application forms**, and a **Net terms** payment method with an optional PO number.
+* **Accepted quote checkout**: the buyer pays an accepted quote at your normal checkout, at the quoted prices.
+* Optional one-way **order sync** to TackQuote, off by default and queued so it never runs inside checkout.
+* Works with **HPOS**, the Cart and Checkout blocks, and block and classic themes.
+* Storefront text in English and seven more languages.
 
-Setup is one field: paste your TackQuote API key. You can [create an account here](https://app.tackquote.com/register).
+The FAQ below explains each feature, and lists exactly what the plugin sends and stores.
 
 = What it does not do =
 
@@ -175,62 +182,14 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 
 Every request carries an `X-TackQuote-Plugin-Version` header with the plugin's version number. It identifies the software, not a person.
 
-= What the B2B lookups and application forms send =
+= The full lists =
 
-* **B2B lookups**: the product SKU and quantity, the signed-in customer's email address, and their WordPress user ID (a number, sent only beside the email and only while they are signed in).
-* **Wholesale application**: exactly the answers the shopper typed into the seller's form, plus the WordPress user ID (`wooCustomerId`) when they are signed in. File fields are not sent in this release.
-* **Net-terms application**: the account's own email address (never a typed one), the WordPress user ID, and the legal business name, phone, tax/VAT ID, billing address, requested limit and terms, up to three trade references and notes the customer typed.
+Every field the plugin sends, and everything it stores on your site, is listed in the FAQ below:
 
-= What a quote request sends =
-
-Sent when a shopper submits the quote form, using only what they typed into it:
-
-* Email address
-* First name, last name
-* Phone number (if provided)
-* Company name, and any company fields the seller's registration policy requires (for example legal name, tax/VAT ID, registration number, address, city, state, postal code, country, company phone, industry, employee count)
-* The free-text note, if written (capped at 2,000 characters). From the quote page, any target prices the shopper typed are added to the note, one line per product
-* The requested products: name, SKU, quantity, unit price excluding tax, and the WooCommerce product ID
-* The store's currency code
-
-= What order sync sends (off by default) =
-
-Sent for each order when it is created and when its status changes, if the merchant
-has enabled **Sync orders to TackQuote**. This is the whole order. Read this list
-before switching order sync on.
-
-**The customer's identity and addresses**
-
-* Billing address in full: first name, last name, company, street (both lines), city, state or county, postal code, country, email address and phone number
-* Shipping address in full: the same fields, including shipping phone where WooCommerce holds one
-* The WooCommerce customer ID, or `0` for a guest order
-* The customer's order note, as they wrote it
-
-**The order**
-
-* WooCommerce order ID, order number and status
-* Currency, item subtotal, discount total, shipping total, tax total and order total
-* Coupon codes applied
-* A purchase-order number, from the optional checkout field (off by default) or the `tack_quotes_order_po_number` filter
-* The quote reference, for an order placed through a quote checkout link
-* Created, last-modified, paid and completed timestamps
-* An idempotency key, so a repeated delivery of the same order state can be discarded
-
-**Payment**
-
-* Payment method ID and its display title (for example `stripe` / "Credit Card")
-* The gateway transaction ID, where the gateway recorded one
-* Whether the order still needs payment, and when it was paid
-
-**No card numbers, no card details, and no gateway credentials are ever sent.** The
-transaction ID is a reference the gateway issued, not an instrument.
-
-**Line items**
-
-* Product name, SKU, WooCommerce product ID and variation ID
-* Quantity, line subtotal, line total and line tax
-* Item meta — the variation attributes and any custom item fields your store records on a line (for example "Size: Large", "Colour: Blue"). If your checkout writes customer-supplied text onto a line item, it is included here
-* Shipping lines: method title and cost. Fee lines: name and amount
+* **What does a quote request send?**
+* **What do the B2B lookups and application forms send?**
+* **What does order sync send?** (off by default)
+* **What does the plugin store on my site, and what does deleting it remove?**
 
 = If you are a merchant in the EU, UK or another jurisdiction with a transfer regime =
 
@@ -241,22 +200,6 @@ enable it, satisfy yourself that you have a lawful basis and, where required, a 
 processing agreement in place with TackQuote. Your own privacy policy should name
 TackQuote as a recipient; the plugin adds suggested wording to
 **Settings → Privacy** for you to review and adapt.
-
-= What is stored on your own site =
-
-* Plugin settings, as WordPress options: the TackQuote API key, API URL, button labels, and the feature toggles.
-* `tack_quotes_registration_config` — a transient caching the quote-form field policy for 15 minutes.
-* `tack_qr_*` — short-lived transients counting quote requests per visitor for rate limiting. They hold a salted hash of the visitor's IP address, never the address itself, and expire after 5 minutes.
-* `tack_quotes_wholesale_form_cache` — a transient caching wholesale form definitions for 5 minutes (60 seconds after a failure).
-* `tack_quotes_storefront_v1_missing` — a transient remembering for one hour that the TackQuote server has no `/storefront/v1` routes.
-* `tack_quotes_connection_check` — a transient remembering for one day whether the settings page's last "Test connection" passed, when, the message shown, and a 16-character SHA-256 prefix of the key that was tested (never the key itself). It lets the Overview say "Connected" only for the key saved now.
-* `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
-* `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
-* Net terms: `tack_nt_<user id>` (TackQuote's answer, one minute), order meta `_tackquote_net_terms` and `_tackquote_po_number`, option `woocommerce_tackquote_net_terms_settings`.
-* Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
-* `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
-
-Deleting the plugin removes every option above and the `tack_quotes_registration_config` transient, on every site of a multisite network. The `tack_qr_*` rate-limit counters are left to expire on their own (they last five minutes and are keyed on a hash, so there is no name to delete). The `_tack_quotes_sync_key` order meta is deliberately left in place: orders are financial records and an uninstall routine should not rewrite every one of them.
 
 = Suggested privacy policy text =
 
@@ -316,6 +259,79 @@ Into the request's note, one line per product ("Target prices: …"), after the 
 
 English, plus German, Spanish, French, Italian, Japanese, Dutch and Brazilian Portuguese for the storefront text, in `languages/` (machine-assisted from the TackQuote storefront catalogue; Italian awaits native review). A translate.wordpress.org language pack, when one exists, replaces the bundled file.
 
+= What does a quote request send? =
+
+Sent when a shopper submits the quote form, using only what they typed into it:
+
+* Email address
+* First name, last name
+* Phone number (if provided)
+* Company name, and any company fields the seller's registration policy requires (for example legal name, tax/VAT ID, registration number, address, city, state, postal code, country, company phone, industry, employee count)
+* The free-text note, if written (capped at 2,000 characters). From the quote page, any target prices the shopper typed are added to the note, one line per product
+* The requested products: name, SKU, quantity, unit price excluding tax, and the WooCommerce product ID
+* The store's currency code
+
+= What do the B2B lookups and application forms send? =
+
+* **B2B lookups**: the product SKU and quantity, the signed-in customer's email address, and their WordPress user ID (a number, sent only beside the email and only while they are signed in).
+* **Wholesale application**: exactly the answers the shopper typed into the seller's form, plus the WordPress user ID (`wooCustomerId`) when they are signed in. File fields are not sent in this release.
+* **Net-terms application**: the account's own email address (never a typed one), the WordPress user ID, and the legal business name, phone, tax/VAT ID, billing address, requested limit and terms, up to three trade references and notes the customer typed.
+
+= What does order sync send? =
+
+Sent for each order when it is created and when its status changes, if the merchant
+has enabled **Sync orders to TackQuote**. This is the whole order. Read this list
+before switching order sync on.
+
+**The customer's identity and addresses**
+
+* Billing address in full: first name, last name, company, street (both lines), city, state or county, postal code, country, email address and phone number
+* Shipping address in full: the same fields, including shipping phone where WooCommerce holds one
+* The WooCommerce customer ID, or `0` for a guest order
+* The customer's order note, as they wrote it
+
+**The order**
+
+* WooCommerce order ID, order number and status
+* Currency, item subtotal, discount total, shipping total, tax total and order total
+* Coupon codes applied
+* A purchase-order number, from the optional checkout field (off by default) or the `tack_quotes_order_po_number` filter
+* The quote reference, for an order placed through a quote checkout link
+* Created, last-modified, paid and completed timestamps
+* An idempotency key, so a repeated delivery of the same order state can be discarded
+
+**Payment**
+
+* Payment method ID and its display title (for example `stripe` / "Credit Card")
+* The gateway transaction ID, where the gateway recorded one
+* Whether the order still needs payment, and when it was paid
+
+**No card numbers, no card details, and no gateway credentials are ever sent.** The
+transaction ID is a reference the gateway issued, not an instrument.
+
+**Line items**
+
+* Product name, SKU, WooCommerce product ID and variation ID
+* Quantity, line subtotal, line total and line tax
+* Item meta — the variation attributes and any custom item fields your store records on a line (for example "Size: Large", "Colour: Blue"). If your checkout writes customer-supplied text onto a line item, it is included here
+* Shipping lines: method title and cost. Fee lines: name and amount
+
+= What does the plugin store on my site, and what does deleting it remove? =
+
+* Plugin settings, as WordPress options: the TackQuote API key, API URL, button labels, and the feature toggles.
+* `tack_quotes_registration_config` — a transient caching the quote-form field policy for 15 minutes.
+* `tack_qr_*` — short-lived transients counting quote requests per visitor for rate limiting. They hold a salted hash of the visitor's IP address, never the address itself, and expire after 5 minutes.
+* `tack_quotes_wholesale_form_cache` — a transient caching wholesale form definitions for 5 minutes (60 seconds after a failure).
+* `tack_quotes_storefront_v1_missing` — a transient remembering for one hour that the TackQuote server has no `/storefront/v1` routes.
+* `tack_quotes_connection_check` — a transient remembering for one day whether the settings page's last "Test connection" passed, when, the message shown, and a 16-character SHA-256 prefix of the key that was tested (never the key itself). It lets the Overview say "Connected" only for the key saved now.
+* `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
+* `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
+* Net terms: `tack_nt_<user id>` (TackQuote's answer, one minute), order meta `_tackquote_net_terms` and `_tackquote_po_number`, option `woocommerce_tackquote_net_terms_settings`.
+* Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
+* `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
+
+Deleting the plugin removes every option above and the `tack_quotes_registration_config` transient, on every site of a multisite network. The `tack_qr_*` rate-limit counters are left to expire on their own (they last five minutes and are keyed on a hash, so there is no name to delete). The `_tack_quotes_sync_key` order meta is deliberately left in place: orders are financial records and an uninstall routine should not rewrite every one of them.
+
 == Screenshots ==
 
 1. Quote buttons sit beside Add to Cart on the product page, so a shopper can buy or ask for a price without leaving the page.
@@ -354,6 +370,9 @@ English, plus German, Spanish, French, Italian, Japanese, Dutch and Brazilian Po
 * **Translations bundled** for de_DE, es_ES, fr_FR, it_IT, ja, nl_NL and pt_BR (`languages/`, generated from TackQuote's shared storefront catalogue by `bin/build-translations.php`; Italian pending native review). Header `Domain Path: /languages`; the textdomain is registered on `init`. The quote form and quote list script now reads its text through `wp.i18n` (`wp-i18n` dependency, `wp_set_script_translations`) instead of a localised array. A translate.wordpress.org language pack still takes precedence. The "Add to Quote", "Request a Quote" and "Checkout as Quote" labels left at their default now follow the visitor's language: activation no longer stores them in English, and a stored English default or a blank field means the translated default.
 * **Accepted quote to store checkout.** A buyer who accepts a quote in TackQuote's portal and chooses to check out in your store arrives at `?tackquote_checkout=<token>`. The plugin exchanges the single-use token server to server (`GET /integrations/woocommerce/quote-checkout/<token>`, once, never retried), refuses a quote in another currency, empties the cart and adds every quoted line at its quantity and quoted unit price (all or nothing: one unavailable product refuses the whole quote, by name), then redirects to checkout without the token. Quote lines keep the quoted price over B2B pricing, their quantities are locked (classic cart and Store API), other products cannot be added beside them, and products sold on quote only can be bought through their accepted quote. The order stores `_tackquote_quote_ref` and the quote's PO (unless the buyer typed one); with order sync on, the order is sent with `tackQuoteRef` so TackQuote links it to the quote. Active only while an API key is saved.
 * The plugin's buttons use WooCommerce's own button classes (`button`, plus `wp-element-button` on a block theme). **Fixed on block themes:** the product-page buttons and order-limit notice render with the Add to Cart block (`render_block_{name}`), once per product, also for quote-only products. Quote-only variations no longer disable them.
+* **Fixed: variable products on quote showed no size or colour choice on classic themes** in store-wide quote-only mode (the withdrawn add-to-cart template held the variation form). The variation form now renders on quote for classic and block themes, with the quantity and quote buttons in place of the cart button, so the chosen variation is quoted; a quote-only variation still cannot be added to the cart.
+* **Fixed on block themes:** the volume-pricing table renders after the Add to Cart block, once per product, instead of above the product excerpt.
+* The readme Description is now a short overview (wordpress.org trims a Description over 2,500 words, External services and Privacy included); the detailed field lists moved, unchanged, into the FAQ, and changelog entries for 1.5.1 and earlier into `changelog.txt`.
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.
@@ -398,64 +417,4 @@ English, plus German, Spanish, French, Italian, Japanese, Dutch and Brazilian Po
 * Anonymous shoppers are never priced and no request is made for them, so a page cache holding a logged-out render can never contain one customer's negotiated price.
 * One batched request per page rather than one per product: a category page resolves up to 50 SKUs in a single call.
 
-= 1.5.1 =
-* Shortened the description and added links to the WooCommerce integration page and to account signup, so it is clear where to get an API key.
-* No code changes.
-
-= 1.5.0 =
-* Order sync now sends the whole order, not eleven fields of it. Previously the payload carried no address of any kind — a merchant testing it in production reported "no name, not address information, nothing", and they were right. It now carries both addresses in full, phone numbers, the WooCommerce customer ID and order note, the real item subtotal alongside discount/shipping/tax/total, coupon codes, payment method and gateway transaction reference, the created/modified/paid/completed timestamps, shipping and fee lines, and per-line product/variation IDs, line subtotal, tax and item meta (so "Large / Blue" survives the sync).
-* Fixed: `subtotal` was never sent, so the receiving end recorded `subtotal = total` — meaning every order from a store that charges tax or shipping claimed its goods cost what the customer paid.
-* New: `tack_quotes_order_po_number` filter. WooCommerce core has no purchase-order field, so nothing is sent unless your store wires one up; see the FAQ. Previously a purchase-order number could never be reported at all.
-* Fixed: `modifiedAt` is sent but deliberately excluded from the idempotency hash. Under HPOS, recording a successful push writes order meta, and that stamps a new modified date — so hashing it would have invalidated the key the push just recorded and de-duplication would never have converged.
-* The privacy disclosure on the settings screen, the wording offered to **Settings → Privacy**, and the **External services** and **Privacy** sections of this readme now describe the payload that is actually sent. An under-disclosure is worse than none: a merchant reads it and concludes the transfer is narrower than it is.
-* Fixed: the settings screen named the WooCommerce log source as `tack-quotes`; it has been `tackquote` since the 1.3.3 slug rename.
-* Added `tests/test-order-payload.php`, a WP-CLI contract test that names every required payload field against a real WooCommerce order, and offline payload coverage in `tests/run.php`.
-* Tests: the quote-only mode suite now asserts that `woocommerce_is_purchasable` is actually hooked, not just that the callback decides correctly. It previously proved only the latter, so a wiring mistake would have hidden the buttons while the Store API kept taking orders. No behaviour change — the wiring was already correct.
-
-= 1.4.0 =
-* New: **Store mode**. A single setting turns the whole storefront into a B2B catalogue — "Add to cart" is withdrawn and customers request a quote instead. Choose whether it applies to every customer, to signed-out visitors only (so approved trade customers keep a normal cart), or to specific roles. Optionally replace prices with "Price on request".
-* The switch is enforced server-side via `woocommerce_is_purchasable`, which WooCommerce checks before accepting any cart line — so a hand-crafted `?add-to-cart=` link, the Store API and cached pages are all refused, not just the button hidden.
-* Carts filled *before* the store was switched to quote-only are emptied on the cart and checkout pages with an explanatory notice. WooCommerce's own cart validation only checks that a product still exists, not that it is purchasable, so without this a pre-existing cart could still be checked out and the store would not really be quote-only.
-* Anyone who can manage WooCommerce keeps a working cart, so you can test your own store while it is closed to customers.
-* Quote buttons now also mount outside the add-to-cart form, so they survive when the cart button is withdrawn.
-
-= 1.3.4 =
-* Fixed: the **Settings** link on the Plugins screen led to "Sorry, you are not allowed to access this page." even for an administrator. The link carried a hardcoded `page=tack-quotes`, which was the admin page slug up to 1.3.1; the 1.3.2 and 1.3.3 renames moved the slug to `tackquote` and left the link behind. Pointing at an unregistered page makes WordPress emit its permission-denied message, so the failure looked like a capability problem and was not one. The link is now derived from the same constant the menu is registered with, so the two cannot drift again.
-* Added a regression test (`tests/run.php`, no PHPUnit or WordPress install required) asserting the Settings link resolves to a registered admin page that requires `manage_options`.
-
-= 1.3.3 =
-* The plugin slug, text domain, plugin folder and distributed ZIP are now all `tackquote`, matching the slug assigned on WordPress.org. WordPress requires the text domain to equal the slug, and a plugin folder that disagrees with either is its own defect. The admin page, the enqueued script/style handles, the Action Scheduler group and the WooCommerce log source move with it, so the log source is now `tackquote`.
-* readme.txt now carries an **External services** section disclosing the TackQuote API: that the plugin cannot function without it, that nothing is sent until an API key is entered, and, endpoint by endpoint, what is sent and when — with links to the Terms of Service and Privacy Policy.
-* Fixed the download links, which pointed at a repository that does not exist. The source now lives at https://github.com/tackquote/woocommerce.
-* Note for anyone updating a manually installed 1.3.2: the folder changed from `tackquote-for-woocommerce/` to `tackquote/`, so WordPress treats the new ZIP as a separate plugin. Deactivate and delete the old copy after installing this one. Your API key and toggles are stored as WordPress options and survive both.
-
-= 1.3.2 =
-* Packaging: the distributed ZIP now unpacks to `tackquote-for-woocommerce/`, matching the plugin slug, and is rebuilt from the current source. The previously published download still contained pre-1.2.0 code, so stores installing it got the old buttons and none of the 1.3.1 security fixes.
-* No functional changes to the plugin itself beyond the version bump.
-
-= 1.3.1 =
-* Security: company field names supplied by the API are now escaped and allowlisted before being rendered into the quote form, closing a cross-site scripting hole.
-* Security: the TackQuote API key is no longer rendered into the settings page HTML. Leave the field blank to keep the saved key; a new "Remove saved API key" button clears it.
-* Security: the settings page now requires the administrator capability, which is also the capability WordPress requires to save it — a shop manager previously saw the page but could not save it.
-* Quote requests from the storefront are rate limited per visitor, the note field is length-capped, and the request timeout is 5s instead of 20s.
-* Order sync is now queued and sent on a background request through Action Scheduler, so it no longer runs inside checkout, and each push carries an idempotency key so the same order state is never sent twice.
-* Order sync now defaults to OFF on new installs, and readme.txt documents exactly which fields are sent where. Existing stores keep their current setting.
-* An expired or cache-stale security token now says so and offers a reload, instead of showing a generic error that could never be resolved.
-* Quantity and variation are read from the clicked product's own form, fixing wrong values on grouped products, product archives, related-product rows and sticky add-to-cart bars.
-* Declares compatibility with the Cart and Checkout blocks, and adds the `WC tested up to` header that WooCommerce needs before it will surface any compatibility declaration.
-* Uninstall now removes every option and transient the plugin creates.
-
-= 1.3.0 =
-* "Add to Quote" no longer adds the product to the WooCommerce cart. It now adds to a separate, browser-side "quote list" that never touches stock, cart totals, or checkout. A floating "Quote list" button (bottom-right, site-wide) appears once at least one product is added, showing what's in it and a "Checkout as Quote" button that submits the whole list as one TackQuote request. The WooCommerce cart page no longer has a quote button — quoting and purchasing are now fully separate paths.
-
-= 1.2.0 =
-* Restored "Request a Quote" as an independent, configurable product-page button alongside "Add to Quote" — Settings → TackQuote now has checkboxes to show "Add to Quote", "Request a Quote", both, or neither on product pages (the cart page's "Checkout as Quote" is unaffected). Both default to on for existing and new installs.
-
-= 1.1.0 =
-* Split the single "Request a Quote" button into two: "Add to Quote" on product pages (adds the product to the cart, same as Add to Cart) and "Checkout as Quote" on the cart page (submits everything in the cart as one quote request). Previously the product-page button submitted a quote for that one product immediately, with no way to accumulate multiple products into a single request without using the whole-cart button on every add.
-
-= 1.0.1 =
-* Replaced the browser `prompt()`/`alert()` quote-request flow with a real modal dialog (email + optional note fields, inline validation, loading/success/error states). Email is pre-filled for logged-in customers.
-
-= 1.0.0 =
-* Initial release: Request a Quote button, one-way order sync, TackQuote settings, HPOS declaration.
+Older releases (1.5.1 and earlier) are listed in `changelog.txt` inside the plugin and in the GitHub repository.
