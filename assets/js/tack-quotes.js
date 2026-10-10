@@ -699,7 +699,6 @@
       '</div>' +
       buildFilesField() +
       '<p class="tack-quote-modal-error" hidden></p>' +
-      '<p class="tack-quote-modal-success" hidden></p>' +
       '<div class="tack-quote-modal-actions">' +
       '<button type="button" class="' + buttonClass('tack-quote-modal-cancel') + '">' +
       escapeHtml(i18n.cancel) +
@@ -709,6 +708,11 @@
       '</button>' +
       '</div>' +
       '</form>' +
+      // OUTSIDE the form, on purpose (E2E attempt 2, D3): the success branch hides the
+      // form, and a message inside it was hidden with it, so a guest saw an empty dialog
+      // and sent the request again. Focusable (tabindex -1) so it can take focus for
+      // screen readers when it appears; role="status" announces it as well.
+      '<p class="tack-quote-modal-success" role="status" tabindex="-1" hidden></p>' +
       '</div>';
 
     document.body.appendChild(overlay);
@@ -969,6 +973,10 @@
                 .text(TackQuotes.i18n.portalLink || portalUrl)
             );
           }
+          // The submit button that had focus is hidden with the form; move focus to the
+          // message so keyboard and screen-reader users land on it. Escape and the close
+          // button still close the dialog.
+          $success.trigger('focus');
         } else {
           $error.text((res && res.data && res.data.message) || TackQuotes.i18n.error).show();
           $submit.prop('disabled', false).text(TackQuotes.i18n.submit);
