@@ -71,13 +71,13 @@ storefront for item 11. Sends your API key only: no store, order or customer dat
 Sent on storefront page views while quote buttons are on, at most every 15 minutes. Sends your API key only: no store, order or customer data.
 
 3. **Quote request** — `POST /integrations/woocommerce/quote-requests`.
-Sent when a shopper submits the quote form on your storefront. Sends what that shopper typed
+Sent when a shopper submits the quote form. Sends what that shopper typed
 into the form, plus the products being quoted: email address, first and last name, phone
 number if given, company name and any company details the seller's registration policy
 requires (legal name, tax/VAT ID, registration number, website, address, city, state, postal
 code, country, company phone, industry, employee count), the free-text note if written, and
-for each requested product its name, SKU, quantity, unit price excluding tax and WooCommerce
-product ID, together with the store's currency code.
+for each requested product its name, SKU, quantity, unit price excluding tax, WooCommerce
+product ID and any target price, together with the store's currency code.
 
 4. **Order sync** — `POST /integrations/woocommerce/order-sync`. **Off by default.**
 Sent when an order is created and each time its status changes, but only if the merchant has
@@ -273,7 +273,7 @@ Prices, quantity breaks, order limits, the buyer-group badge and the price gate 
 
 = Where do target prices on the quote page go? =
 
-Into the request's note, one line per product ("Target prices: …"), after the shopper's own message. The quote itself keeps your store price for each line.
+To the quote line, where the seller sees "Buyer asked for …" beside your store price, which the quote keeps. A TackQuote server older than the attachments feature cannot take the field, so there they go into the request's note instead, one line per product ("Target prices: …"), after the shopper's own message.
 
 = Can I change how it looks? =
 
@@ -291,8 +291,8 @@ Sent when a shopper submits the quote form, using only what they typed into it:
 * First name, last name
 * Phone number (if provided)
 * Company name, and any company fields the seller's registration policy requires (for example legal name, tax/VAT ID, registration number, address, city, state, postal code, country, company phone, industry, employee count)
-* The free-text note, if written (capped at 2,000 characters). From the quote page, any target prices the shopper typed are added to the note, one line per product
-* The requested products: name, SKU, quantity, unit price excluding tax, and the WooCommerce product ID
+* The free-text note, if written (capped at 2,000 characters). On a TackQuote server older than the attachments feature, any target prices the shopper typed on the quote page are added to the note, one line per product
+* The requested products: name, SKU, quantity, unit price excluding tax, the WooCommerce product ID and, from the quote page, the target price if the shopper typed one
 * The store's currency code
 * Attachments (only when "Allow attachments on quote requests" is on): each attached file's bytes and file name, sent before the request to `/storefront/v1/quote-upload`, with the signed-in customer's account email address and WordPress user ID, or for a guest a single-use upload token; the request then carries the upload IDs and the guest token. Files are never stored on your site
 
@@ -403,7 +403,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Add to Quote on product cards** (`woocommerce_after_shop_loop_item`, priority 11), off by default. Simple products go straight to the quote list; variable, grouped and external products link to their page.
 * **Request a quote for your cart** on the cart page, off by default: under Proceed to checkout on the classic cart (`woocommerce_proceed_to_checkout`), and as a fixed button on the Cart block (printed on `wp_footer` on the cart page when the cart has lines). It re-reads the live cart from WooCommerce's Store API before copying it into the quote list.
 * **Floating launcher settings**, mirroring the Shopify launcher: position, side and bottom offsets, show on (all pages, product pages, cart page, nowhere), label, icon only, item count, size, hide on mobile. Compact on phones. Defaults reproduce the 1.8 launcher.
-* **Quote page** shortcode `[tackquote_quote_page]` sharing the drawer's list: edit quantities, an optional target price per line (sent in the request note) and a message. New setting "Quote button opens: drawer or page", drawer by default.
+* **Quote page** shortcode `[tackquote_quote_page]` sharing the drawer's list: edit quantities, an optional target price per line (sent as the line's target price, shown to the seller as "Buyer asked for"; in the request note on older TackQuote servers) and a message. New setting "Quote button opens: drawer or page", drawer by default.
 * **Signed-in buyers see their price at the line quantity** in the quote list and on the quote page, re-priced (debounced) through TackQuote pricing when the merchant uses it.
 * **Per-product Quote only** checkbox (`woocommerce_product_options_general_product_data`, saved on `woocommerce_admin_process_product_object`, meta `_tackquote_quote_only`; variations inherit), enforced in `woocommerce_is_purchasable` and in the Store API through `woocommerce_store_api_validate_add_to_cart`. Off by default.
 * **Quote-only scope "approved wholesale accounts"** through `GET /storefront/v1/price-access` (sends the customer's email and WordPress user ID; fails closed). Off by default.
@@ -424,6 +424,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Requires WordPress 6.4 and WooCommerce 8.0 or later** (was 6.0 and 6.0). Older releases are untested and no longer receive security fixes. The plugin still checks that a newer WooCommerce feature exists before it uses it.
 * **Fixed: the quote form's success message was invisible.** It sat inside the form that is hidden on success, so a guest saw an empty dialog and could send the request twice. It now shows below the hidden form, takes focus and is announced to screen readers.
 * **Fixed: a variation in the quote list showed the parent's SKU and lowest price.** "Add to Quote" on size M listed the parent SKU at the cheapest variation's price; the drawer and quote page now show the chosen variation's own SKU and unit price (excluding tax, like every other line).
+* **Fixed: target prices now reach the seller as "Buyer asked for"** on each quote line (`lineItems[].targetPrice`) instead of only inside the request note. Sent only to TackQuote servers that take the field (those that advertise attachments); older servers still get them in the note.
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.

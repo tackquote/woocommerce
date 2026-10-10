@@ -87,3 +87,64 @@ $e2e_out = tack_parity_capture(
 check( 'D4: no map when "Add to Quote" is off (only that button reads it)', false === strpos( $e2e_out, 'data-tack-variation-lines' ), $e2e_out );
 $GLOBALS['TACK_OPTIONS']['tack_quotes_show_add_to_quote'] = 'yes';
 check( 'D4: the click handler builds the row through TackWithOptions.listRow with the map', false !== strpos( $e2e_js, "api.parseStates(\$btn.closest('.tack-quote-buttons').attr('data-tack-variation-lines'))" ) && false !== strpos( $e2e_js, 'var row = api.listRow(' ) );
+
+// ── D5: target prices as lineItems[].targetPrice, gated on the server ───────
+
+tack_test_set_option( 'tack_quotes_api_key', 'tq_live_secret_key' );
+$e2e_rows   = wp_json_encode(
+	array(
+		array( 'product_id' => 11, 'quantity' => 5, 'target_price' => 3.25 ),
+		array( 'product_id' => 51, 'quantity' => 3, 'target_price' => '9.5' ),
+		array( 'product_id' => 11, 'quantity' => 1 ),
+	)
+);
+$e2e_widget = ( new ReflectionClass( 'Tack_Widget' ) )->newInstanceWithoutConstructor();
+$e2e_base   = array(
+	'buyerEmail' => 'buyer@example.com',
+	'note'       => 'Need by Friday',
+	'source'     => 'woocommerce',
+	'lineItems'  => tack_parity_call( $e2e_widget, 'quote_list_line_items', array( $e2e_rows ) ),
+	'currency'   => 'USD',
+);
+check( 'D5: three lines built (two with a target, one without)', 3 === count( $e2e_base['lineItems'] ) && 'HH' === $e2e_base['lineItems'][1]['sku'], var_export( $e2e_base['lineItems'], true ) );
+
+// A server whose ping lists `attachments` (it also takes targetPrice).
+tack_test_reset_transients();
+tack_test_attach_routes( array( '/ping' => array( 200, array( 'ok' => true, 'capabilities' => array( 'attachments' ) ) ) ) );
+$e2e_client = new Tack_Api_Client();
+check( 'D5: a server that lists attachments takes targetPrice', true === $e2e_client->supports_target_price() );
+$e2e_new = $e2e_widget->with_target_prices( $e2e_base, $e2e_client->supports_target_price() );
+check(
+	'D5: new server: each line carries ITS targetPrice; a line without one carries none',
+	3.25 === $e2e_new['lineItems'][0]['targetPrice'] && 9.5 === $e2e_new['lineItems'][1]['targetPrice'] && ! array_key_exists( 'targetPrice', $e2e_new['lineItems'][2] ),
+	var_export( $e2e_new['lineItems'], true )
+);
+check( 'D5: new server: the unit price stays the store price (the target is context, not the price)', 4.5 === $e2e_new['lineItems'][0]['unitPrice'] && 12.0 === $e2e_new['lineItems'][1]['unitPrice'] );
+check( 'D5: new server: the note is the shopper\'s own, with no "Target prices" appendix', 'Need by Friday' === $e2e_new['note'], $e2e_new['note'] );
+
+// An older server: the ping lists nothing new.
+tack_test_reset_transients();
+tack_test_attach_routes( array( '/ping' => array( 200, array( 'ok' => true ) ) ) );
+$e2e_client = new Tack_Api_Client();
+check( 'D5: an older server (no capabilities) is not sent targetPrice', false === $e2e_client->supports_target_price() );
+$e2e_old  = $e2e_widget->with_target_prices( $e2e_base, $e2e_client->supports_target_price() );
+$e2e_json = (string) wp_json_encode( $e2e_old );
+check( 'D5: old server: NO targetPrice anywhere in the body (forbidNonWhitelisted would refuse it all)', false === strpos( $e2e_json, 'targetPrice' ), $e2e_json );
+check( 'D5: old server: the targets fall back to the note, after the shopper\'s message', 0 === strpos( $e2e_old['note'], 'Need by Friday' ) && false !== strpos( $e2e_old['note'], 'Hard Hat (HH) x3: 9.50 USD' ), $e2e_old['note'] );
+
+// A failed ping is "nothing new" as well.
+tack_test_reset_transients();
+tack_test_attach_routes( array( '/ping' => array( 503, array( 'message' => 'down' ) ) ) );
+check( 'D5: a failed ping never enables targetPrice', false === ( new Tack_Api_Client() )->supports_target_price() );
+unset( $GLOBALS['TACK_HTTP_RESPONDER'] );
+tack_test_reset_transients();
+
+check( 'D5: a 400 naming targetPrice is recognised (the cache is then dropped)', Tack_Widget::refused_target_price( new WP_Error( 'tack_http_400', 'property lineItems.0.targetPrice should not exist', array( 'status' => 400 ) ) ) );
+check( 'D5: ...an unrelated 400 or a 500 naming it is not', ! Tack_Widget::refused_target_price( new WP_Error( 'tack_http_400', 'email must be an email', array( 'status' => 400 ) ) ) && ! Tack_Widget::refused_target_price( new WP_Error( 'tack_http_500', 'targetPrice', array( 'status' => 500 ) ) ) );
+$e2e_rows_big = tack_parity_call( $e2e_widget, 'decode_rows', array( wp_json_encode( array( array( 'product_id' => 11, 'quantity' => 1, 'target_price' => 2e12 ) ) ) ) );
+check( 'D5: a target above the server maximum (1e12) is dropped, not sent', null === $e2e_rows_big[0]['target_price'] );
+
+$e2e_widget_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-widget.php' );
+check( 'D5: handle_request() decides per line vs note from the server capability', false !== strpos( $e2e_widget_src, '$payload = $this->with_target_prices( $payload, $client->supports_target_price() );' ) );
+check( 'D5: the stale "no per-line field" comment is gone', false === strpos( $e2e_widget_src, 'has no per-line field' ) );
+check( 'D5: a refusal naming targetPrice drops the capability cache', false !== strpos( $e2e_widget_src, 'self::refused_attachment_fields( $result ) || self::refused_target_price( $result )' ) );

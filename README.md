@@ -64,7 +64,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Purpose | Method & path |
 |---|---|
 | Connection test | `GET /integrations/woocommerce/ping` (`/health` only when ping answers 404: reachable, key not verified; 401/403 = key rejected). Also read at most daily from the storefront for the `attachments` capability |
-| Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` |
+| Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` (target prices as `lineItems[].targetPrice` when the ping lists `attachments`, else in the note) |
 | Order sync | `POST /integrations/woocommerce/order-sync` |
 | B2B pricing (per buyer, per quantity) | `POST /storefront-pricing/resolve` |
 | Product-page price (the page's own product) | `GET /storefront/v1/wholesale-price` |

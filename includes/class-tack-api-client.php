@@ -408,6 +408,24 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * Does the server take `lineItems[].targetPrice` on the quote request?
+	 *
+	 * No ping capability names the field. tack added it (`StorefrontPluginLineItemDto`,
+	 * commit b615540e1, 2026-10-10) BEFORE it added the `attachments` capability
+	 * (a7d0a2593, which descends from b615540e1: checked with
+	 * `git merge-base --is-ancestor`), so every server that lists `attachments` takes
+	 * `targetPrice`. An older server's `forbidNonWhitelisted` refuses the whole request
+	 * over the field, so it gets the target prices in the note instead.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return bool
+	 */
+	public function supports_target_price() {
+		return in_array( 'attachments', $this->server_capabilities(), true );
+	}
+
+	/**
 	 * Forget the cached capability list, so the next check pings again.
 	 *
 	 * Called when the server refused a field the cache said it supports (a 400

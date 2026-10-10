@@ -120,10 +120,10 @@ class Tack_Widget {
 	private $cart_button_rendered = false;
 
 	/**
-	 * Target prices collected while building the quote-list line items, so they can
-	 * be written into the request note (the plugin DTO has no per-line field).
+	 * Target prices collected while building the quote-list line items: sent per line
+	 * as `targetPrice`, or in the request note to an older server (`with_target_prices()`).
 	 *
-	 * @var array<int, array{name:string,sku:string,quantity:int,target:float}>
+	 * @var array<int, array{index:int,name:string,sku:string,quantity:int,target:float}>
 	 */
 	private $target_prices = array();
 
@@ -1470,15 +1470,15 @@ class Tack_Widget {
 			}
 		}
 
+		$client = new Tack_Api_Client();
+
 		/*
-		 * Target prices (1.10.0, quote page). The plugin's request DTO
-		 * (`StorefrontPluginLineItemDto` in tack) has no per-line field for them and no
-		 * per-line note either, so they travel INSIDE THE REQUEST NOTE, one line per
-		 * product, after the shopper's own message. Two-repo follow-up recorded in the
-		 * 1.10.0 PR: add an optional `targetPrice` to that DTO and move these there.
+		 * Target prices (1.10.0, quote page): `lineItems[].targetPrice`, which TackQuote
+		 * shows the seller as "Buyer asked for" (E2E attempt 2, D5), on a server that
+		 * takes the field; inside the request note, one line per product, on an older one.
 		 */
 		if ( ! empty( $this->target_prices ) ) {
-			$payload['note'] = $this->note_with_target_prices( $note, isset( $payload['currency'] ) ? $payload['currency'] : '' );
+			$payload = $this->with_target_prices( $payload, $client->supports_target_price() );
 		}
 
 		/*
@@ -1486,7 +1486,6 @@ class Tack_Widget {
 		 * and a guest's upload token. Checked before any outbound call, and only ever
 		 * forwarded to a server that advertises `attachments`.
 		 */
-		$client  = new Tack_Api_Client();
 		$payload = $this->attach_uploads(
 			$payload,
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified at the top of this handler.
@@ -1510,7 +1509,7 @@ class Tack_Widget {
 		$result = $client->create_quote_request( $payload );
 
 		if ( is_wp_error( $result ) ) {
-			if ( self::refused_attachment_fields( $result ) ) {
+			if ( self::refused_attachment_fields( $result ) || self::refused_target_price( $result ) ) {
 				// The cache said "attachments" but the server refused the fields: it is
 				// an older server now. Ask it again next time instead of failing every request.
 				$client->forget_capabilities();
@@ -1578,6 +1577,58 @@ class Tack_Widget {
 		}
 		$message = (string) $error->get_error_message();
 		return false !== strpos( $message, 'uploadIds' ) || false !== strpos( $message, 'uploadToken' );
+	}
+
+	/**
+	 * Did TackQuote refuse the request BECAUSE of `targetPrice` (a 400 naming it)?
+	 *
+	 * The capability cache said the server takes it (see
+	 * `Tack_Api_Client::supports_target_price()`); a refusal means the store now talks
+	 * to an older server, so the cache is dropped and the next request folds the target
+	 * prices into the note again.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 * @return bool
+	 */
+	public static function refused_target_price( $error ) {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || ! isset( $data['status'] ) || 400 !== (int) $data['status'] ) {
+			return false;
+		}
+		return false !== strpos( (string) $error->get_error_message(), 'targetPrice' );
+	}
+
+	/**
+	 * The quote-request payload with the shopper's target prices added.
+	 *
+	 * Per line as `lineItems[].targetPrice` when `$per_line` (the server takes the
+	 * field: tack `StorefrontPluginLineItemDto.targetPrice`, stored as the line's
+	 * `buyer_requested_price` and shown as "Buyer asked for"); the note is then left as
+	 * the shopper wrote it. Otherwise folded into the note, because an older server's
+	 * `forbidNonWhitelisted` refuses the WHOLE request over one unknown field.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param array $payload  The request payload (`lineItems`, `note`, maybe `currency`).
+	 * @param bool  $per_line Whether the server takes `lineItems[].targetPrice`.
+	 * @return array
+	 */
+	public function with_target_prices( array $payload, $per_line ) {
+		if ( empty( $this->target_prices ) ) {
+			return $payload;
+		}
+		if ( ! $per_line ) {
+			$payload['note'] = $this->note_with_target_prices( isset( $payload['note'] ) ? (string) $payload['note'] : '', isset( $payload['currency'] ) ? $payload['currency'] : '' );
+			return $payload;
+		}
+		foreach ( $this->target_prices as $t ) {
+			if ( isset( $t['index'], $payload['lineItems'][ $t['index'] ] ) ) {
+				$payload['lineItems'][ $t['index'] ]['targetPrice'] = (float) $t['target'];
+			}
+		}
+		return $payload;
 	}
 
 	/**
@@ -1758,6 +1809,7 @@ class Tack_Widget {
 			);
 			if ( null !== $row['target_price'] ) {
 				$this->target_prices[] = array(
+					'index'    => count( $items ) - 1,
 					'name'     => (string) $product->get_name(),
 					'sku'      => (string) $product->get_sku(),
 					'quantity' => (int) $row['quantity'],
@@ -1799,7 +1851,9 @@ class Tack_Widget {
 				continue;
 			}
 			$target = null;
-			if ( isset( $row['target_price'] ) && is_numeric( $row['target_price'] ) && (float) $row['target_price'] >= 0 ) {
+			// At most tack's MAX_PLUGIN_AMOUNT (1e12): a larger value would make the server
+			// refuse the whole request once it travels as `targetPrice`.
+			if ( isset( $row['target_price'] ) && is_numeric( $row['target_price'] ) && (float) $row['target_price'] >= 0 && (float) $row['target_price'] <= 1e12 ) {
 				$target = round( (float) $row['target_price'], 4 );
 			}
 			$rows[] = array(
