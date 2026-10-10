@@ -194,7 +194,7 @@ class Tack_Wholesale_Pricing {
 			add_action( 'woocommerce_single_product_summary', array( $this, 'render_quantity_breaks_summary' ), 25 );
 
 			/*
-			 * Block themes (1.9.0): WooCommerce fires the summary hook from its
+			 * Block themes (1.10.0): WooCommerce fires the summary hook from its
 			 * compatibility layer above the excerpt, away from the quantity box the
 			 * table is about. The table goes after the Add to Cart block instead, at
 			 * priority 5 so it sits before the quote buttons `Tack_Widget` appends at
@@ -504,7 +504,7 @@ class Tack_Wholesale_Pricing {
 	 * layer is firing the hook, where `append_quantity_breaks_to_block()` places
 	 * it instead.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_quantity_breaks_summary() {
 		if ( Tack_Block_Product::is_compat_hook() ) {
@@ -517,7 +517,7 @@ class Tack_Wholesale_Pricing {
 	 * `render_block_woocommerce/add-to-cart-form` and `.../add-to-cart-with-options`:
 	 * the table after the block, for the block's own product, once per product.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string               $block_content Rendered block.
 	 * @param array                $parsed_block  Parsed block (unused).
@@ -760,7 +760,7 @@ class Tack_Wholesale_Pricing {
 	 * Delegates to `Tack_B2B_Notices::trusted_buyer_email()`, the rule the badge,
 	 * restrictions and price gate already apply: '' for a guest AND for an account
 	 * whose address was self-changed on My Account and not re-confirmed
-	 * (`_tack_email_unverified`). Before 1.9.0 this read `user_email` directly, so
+	 * (`_tack_email_unverified`). Before 1.10.0 this read `user_email` directly, so
 	 * a new account that retyped an approved buyer's address was charged that
 	 * buyer's price book in listings and the cart. '' here means "priced as a
 	 * guest" (`should_apply()` stands down), never an outage.

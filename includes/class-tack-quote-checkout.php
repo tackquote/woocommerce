@@ -25,7 +25,7 @@
  * Server contract: tack `woocommerce-quote-checkout.service.ts` (PR #733).
  *
  * @package TackQuotes
- * @since   1.9.0
+ * @since   1.10.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -112,7 +112,7 @@ class Tack_Quote_Checkout {
 		/**
 		 * Filters whether the plugin handles `?tackquote_checkout=` links.
 		 *
-		 * @since 1.9.0
+		 * @since 1.10.0
 		 *
 		 * @param bool $on True when the store holds a TackQuote API key.
 		 */

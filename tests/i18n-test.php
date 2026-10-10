@@ -157,7 +157,7 @@ $tack_undefined = array_diff( array_unique( $tack_used[1] ), $tack_defined[1] );
 check( 'every TackQuotes.i18n key the script reads is defined through wp.i18n', count( $tack_defined[1] ) > 30 && array() === array_values( $tack_undefined ), 'undefined: ' . implode( ', ', $tack_undefined ) );
 
 // ── Button labels follow the visitor's language unless the merchant changed them ──
-// Until 1.9.0 activation stored __( 'Add to Quote' ) in the database, so the English
+// Until 1.10.0 activation stored __( 'Add to Quote' ) in the database, so the English
 // text was frozen into every store and no .mo could reach the product button.
 $GLOBALS['TACK_TRANSLATIONS'] = array(
 	'Add to Quote'      => 'Zum Angebot hinzufügen',

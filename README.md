@@ -11,8 +11,8 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 💷 **B2B pricing** — signed-in trade customers priced from their TackQuote price book, buyer group and quantity breaks, with an optional volume-pricing table
 - 📦 **Order limits** — minimum/maximum order quantities shown on the product page and enforced at the cart and checkout
 - 🏷️ **Buyer group badge** — tells a customer which pricing group they are on, so a discounted price does not read as an error
-- 👥 **Per buyer group** (1.10.0, each off by default) — hide product categories (loops, search, blocks, Store API, related/up-sells; direct URL 404; not purchasable; removed from carts), free or percentage-off shipping applied after the group restrictions, and an optional `tackquote_<code>` WordPress role (read only, never drives pricing)
-- 🧭 **Tabbed settings page** (1.10.0) — Overview dashboard plus Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync tabs; each tab saves only its own settings
+- 👥 **Per buyer group** (each off by default) — hide product categories (loops, search, blocks, Store API, related/up-sells; direct URL 404; not purchasable; removed from carts), free or percentage-off shipping applied after the group restrictions, and an optional `tackquote_<code>` WordPress role (read only, never drives pricing)
+- 🧭 **Tabbed settings page** — Overview dashboard plus Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync tabs; each tab saves only its own settings
 - 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: paste your TackQuote API key
@@ -56,7 +56,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Net-terms application | `POST /storefront/v1/credit-application` (falls back to `POST /integrations/woocommerce/credit-application`; scope `buyers:write`) |
 | Wholesale price gate (opt-in quote-only scope) | `GET /storefront/v1/price-access` (no fallback; fails closed) |
 | Net terms at checkout (opt-in payment method) | `GET /storefront/v1/net-terms` (no fallback; fails closed; re-read when the order is placed) |
-| Attachments (1.10.0; only when the server's `ping` lists `attachments`) | `POST /storefront/v1/quote-upload?name=` (quote files; opt-in switch; scope `quotes:write`), `POST /storefront/v1/wholesale-upload?form=&field=&name=` (wholesale files, signed-in only; scope `buyers:write`), raw `application/octet-stream`, `X-Api-Key` only; then `uploadIds` (+ a guest's `uploadToken`) on the quote request, or `POST /storefront/v1/wholesale-signup/<slug>` for an application with files |
+| Attachments (only when the server's `ping` lists `attachments`) | `POST /storefront/v1/quote-upload?name=` (quote files; opt-in switch; scope `quotes:write`), `POST /storefront/v1/wholesale-upload?form=&field=&name=` (wholesale files, signed-in only; scope `buyers:write`), raw `application/octet-stream`, `X-Api-Key` only; then `uploadIds` (+ a guest's `uploadToken`) on the quote request, or `POST /storefront/v1/wholesale-signup/<slug>` for an application with files |
 | Accepted quote to store checkout (`?tackquote_checkout=` link) | `GET /integrations/woocommerce/quote-checkout/<token>` (once per token, never retried; sends only the token; the order then syncs with `tackQuoteRef`) |
 
 Every request carries `X-TackQuote-Plugin-Version`. `/storefront/v1/*` calls send the key in

@@ -116,16 +116,16 @@ require __DIR__ . '/settings-tabs-test.php';
 echo "\n-- order-sync gate: terminal 401/403, 429 back-off, admin notice --\n";
 require __DIR__ . '/sync-gate-test.php';
 
-// 1.9.0 storefront parity: card/cart buttons, launcher settings, quote page,
+// 1.10.0 storefront parity: card/cart buttons, launcher settings, quote page,
 // per-product quote-only + Store API hooks, approved-wholesale price gate.
-echo "\n-- 1.9.0 storefront parity --\n";
+echo "\n-- 1.10.0 storefront parity --\n";
 require __DIR__ . '/storefront-parity-test.php';
 
 // Block themes: product-page buttons and order-limit notice on the Add to Cart blocks.
 echo "\n-- block-theme product page (render_block_woocommerce/add-to-cart-*) --\n";
 require __DIR__ . '/block-theme-buttons-test.php';
 
-// 1.9.0 net-terms payment gateway, its Checkout block integration, the PO field.
+// 1.10.0 net-terms payment gateway, its Checkout block integration, the PO field.
 echo "\n-- net-terms gateway + Blocks + PO number --\n";
 require __DIR__ . '/net-terms-gateway-test.php';
 
@@ -133,14 +133,14 @@ require __DIR__ . '/net-terms-gateway-test.php';
 echo "\n-- translations (languages/) --\n";
 require __DIR__ . '/i18n-test.php';
 
-// 1.9.0 accepted quote -> store checkout link (parity row 10).
+// 1.10.0 accepted quote -> store checkout link (parity row 10).
 echo "\n-- quote checkout link --\n";
 require __DIR__ . '/quote-checkout-test.php';
 
 // Tack_Tax_Basis: net TackQuote prices on inclusive / exclusive stores.
 require __DIR__ . '/tax-basis-test.php';
 
-// 1.9.0 follow-ups: quote-only variable products keep their variation form; volume table on block themes.
+// 1.10.0 follow-ups: quote-only variable products keep their variation form; volume table on block themes.
 echo "\n-- storefront follow-ups (variation form on quote, volume table on blocks) --\n";
 require __DIR__ . '/storefront-followups-test.php';
 

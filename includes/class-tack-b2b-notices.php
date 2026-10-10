@@ -171,7 +171,7 @@ class Tack_B2B_Notices {
 			return null;
 		}
 
-		// `/storefront/v1/order-limits` (W1-forms, 1.9.0), falling back to the legacy
+		// `/storefront/v1/order-limits` (W1-forms, 1.10.0), falling back to the legacy
 		// `/storefront-b2b/order-limits` inside the client when v1 is absent.
 		$response = $this->client->get_order_limits( $sku, $this->buyer_email() );
 		if ( is_wp_error( $response ) ) {
@@ -266,7 +266,7 @@ class Tack_B2B_Notices {
 	 * the courtesy notice directly above the block, where the classic template
 	 * puts it (summary priority 24, just before the add-to-cart form at 30).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param string               $block_content Rendered block.
 	 * @param array                $parsed_block  Parsed block (unused).
@@ -305,7 +305,7 @@ class Tack_B2B_Notices {
 	 * added under ONE code, `tackquote_order_limit`, so a block or a theme can
 	 * recognise the plugin's refusals without parsing the sentence.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param WP_Error $errors Error collector the Store API passes.
 	 * @param WC_Cart  $cart   The cart being validated.
@@ -327,7 +327,7 @@ class Tack_B2B_Notices {
 	 * words. Returns an empty array when nothing is wrong, when TackQuote has no
 	 * answer (fail open; see the file header), or when there is no cart to check.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param object|null $cart WC_Cart, or anything exposing `get_cart()`.
 	 * @return string[]
@@ -428,7 +428,7 @@ class Tack_B2B_Notices {
 			return null;
 		}
 
-		// `/storefront/v1/buyer-group`, legacy fallback inside the client (1.9.0).
+		// `/storefront/v1/buyer-group`, legacy fallback inside the client (1.10.0).
 		$response = $this->client->get_buyer_group( $email );
 		if ( is_wp_error( $response ) ) {
 			$this->log( 'buyer-group lookup failed: ' . $response->get_error_message() );
@@ -615,11 +615,11 @@ class Tack_B2B_Notices {
 	/**
 	 * Email of the signed-in customer that TackQuote may be told about, or ''.
 	 *
-	 * Public and static since 1.9.0 so the price gate in `Tack_Catalog_Mode` applies
+	 * Public and static since 1.10.0 so the price gate in `Tack_Catalog_Mode` applies
 	 * the SAME trust rule as pricing, limits and restrictions: one definition of
 	 * "whose email is this", not a second one that forgets the self-changed case.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return string
 	 */

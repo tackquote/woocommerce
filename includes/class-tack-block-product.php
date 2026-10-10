@@ -38,7 +38,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Shared helpers for the block-theme product-page mounts.
  *
- * @since 1.9.0
+ * @since 1.10.0
  */
 class Tack_Block_Product {
 

@@ -146,7 +146,7 @@
     saveList([]);
   }
 
-  // ─── 1.9.0: quantities, target prices, re-pricing, where "open the quote" goes ───
+  // ─── 1.10.0: quantities, target prices, re-pricing, where "open the quote" goes ───
 
   function sameRow(row, productId, variationId) {
     return row.productId === productId && (row.variationId || 0) === (variationId || 0);
@@ -294,7 +294,7 @@
     list.forEach(function (row) {
       var $li = $('<li class="tack-quote-list-item"></li>');
       $li.append($('<span class="tack-quote-list-item-name"></span>').text(row.name));
-      // Editable quantity (1.9.0). A change re-prices the line for a signed-in buyer.
+      // Editable quantity (1.10.0). A change re-prices the line for a signed-in buyer.
       var $qty = $('<span class="tack-quote-list-item-qty"></span>');
       $qty.append(document.createTextNode('×'));
       var $input = $('<input type="number" min="1" step="1" class="tack-quote-list-item-qty-input" />')
@@ -328,7 +328,7 @@
     renderQuotePage(list);
   }
 
-  // ─── 1.9.0: the quote page ([tackquote_quote_page]) ─────────────────────────
+  // ─── 1.10.0: the quote page ([tackquote_quote_page]) ─────────────────────────
   //
   // Same list as the drawer, on a page of the merchant's. Quantities, an optional
   // target price per line, and a message that becomes the request note.
@@ -699,7 +699,7 @@
       filesInput.tackUploaded = null;
     }
     $email.val(TackQuotes.customerEmail || '');
-    // The quote page's message, when the request comes from there (1.9.0).
+    // The quote page's message, when the request comes from there (1.10.0).
     $note.val(context.message || '');
     $error.hide().text('');
     $success.hide().text('');
@@ -1101,7 +1101,7 @@
     }, 1200);
   });
 
-  // Floating quote-list launcher: the drawer, or the merchant's quote page (1.9.0).
+  // Floating quote-list launcher: the drawer, or the merchant's quote page (1.10.0).
   $(document).on('click', '#tack-quote-list-toggle', function () {
     var href = $(this).data('href');
     if (href && !onQuotePage()) {
@@ -1111,7 +1111,7 @@
     $('#tack-quote-list-drawer').prop('hidden', false);
   });
 
-  // "Add to Quote" on a product card (1.9.0): simple products only, quantity 1. The
+  // "Add to Quote" on a product card (1.10.0): simple products only, quantity 1. The
   // server re-derives name/SKU/price from the id; the attributes are what the drawer shows.
   $(document).on('click', '.tack-card-quote-btn', function (e) {
     e.preventDefault();
@@ -1134,7 +1134,7 @@
     openQuote();
   });
 
-  // "Request a quote for your cart" (1.9.0). The lines were read from the cart when the
+  // "Request a quote for your cart" (1.10.0). The lines were read from the cart when the
   // page rendered; on the Cart block the cart changes without a page load, so the live
   // cart is re-read from WooCommerce's own Store API first (same site, the shopper's own
   // session) and the snapshot is the fallback. Quantities and membership come from the
@@ -1230,7 +1230,7 @@
       });
   });
 
-  // The quote page's submit: the whole list plus the page's message (1.9.0).
+  // The quote page's submit: the whole list plus the page's message (1.10.0).
   $(document).on('click', '#tack-quote-page-submit', function () {
     var list = getList();
     if (!list.length) {

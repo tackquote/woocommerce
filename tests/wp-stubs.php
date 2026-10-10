@@ -850,7 +850,7 @@ if ( ! function_exists( 'wc_get_order' ) ) {
 }
 
 
-// ── Stubs added for Tack_Storefront_Forms (1.9.0) ────────────────────────────
+// ── Stubs added for Tack_Storefront_Forms (1.10.0) ────────────────────────────
 //
 // Same guard pattern as above. The HTTP stub now also records the URL and args of
 // the last request, so a test can assert on what left the store (headers, body).
@@ -1165,7 +1165,7 @@ class Tack_Stub_Session {
 	}
 }
 
-// ── Stubs added for the 1.9.0 storefront parity features ────────────────────
+// ── Stubs added for the 1.10.0 storefront parity features ────────────────────
 $GLOBALS['TACK_CART_REMOVED'] = array();
 
 if ( ! function_exists( 'selected' ) ) {

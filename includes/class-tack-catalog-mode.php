@@ -7,7 +7,7 @@
  * way to transact. This is what a seller turns on to run their entire store
  * as B2B rather than mixing retail checkout with quoting.
  *
- * Since 1.9.0 the same control also exists PER PRODUCT ("Quote only" in the
+ * Since 1.10.0 the same control also exists PER PRODUCT ("Quote only" in the
  * product data panel, meta `_tackquote_quote_only`, inherited by variations),
  * and the store-wide mode gained a fourth scope, "approved wholesale accounts",
  * which keeps the cart only for buyers whose wholesale application TackQuote
@@ -80,14 +80,14 @@ class Tack_Catalog_Mode {
 	 * TackQuote has approved (`GET /storefront/v1/price-access` answers
 	 * `linked` + `wholesaleApproved: true`).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	const SCOPE_UNAPPROVED = 'unapproved';
 
 	/**
 	 * Product meta holding the per-product switch. `'yes'` when on; absent otherwise.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	const META_QUOTE_ONLY = '_tackquote_quote_only';
 
@@ -166,7 +166,7 @@ class Tack_Catalog_Mode {
 		add_action( 'wp', array( $this, 'remove_add_to_cart_templates' ) );
 
 		/*
-		 * Variable products on quote (1.9.0): keep the variation form, so the buyer
+		 * Variable products on quote (1.10.0): keep the variation form, so the buyer
 		 * can choose the size or colour they want quoted, and put the TackQuote
 		 * controls where WooCommerce's quantity + cart button would be. Classic
 		 * themes in store-wide mode get the form back at the slot the withdrawn
@@ -242,7 +242,7 @@ class Tack_Catalog_Mode {
 	 * an outage cannot be undone. An approved buyer who hits the outage can still
 	 * request a quote, and the failure is remembered for only ACCESS_FAIL_TTL.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @return bool
 	 */
@@ -296,7 +296,7 @@ class Tack_Catalog_Mode {
 	 * colour of it. Memoised per request: `woocommerce_is_purchasable` fires for
 	 * every product in a loop and for every line in a cart.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param WC_Product $product Product or variation.
 	 * @return bool
@@ -363,7 +363,7 @@ class Tack_Catalog_Mode {
 	 * read WHY, and it is the hook WooCommerce documents for refusing a Store API
 	 * add-to-cart, so the refusal does not rest on one filter alone.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param WC_Product $product Product being added.
 	 * @param array      $request Add-to-cart request (id, quantity, variation). Part of the
@@ -489,7 +489,7 @@ class Tack_Catalog_Mode {
 	 * WooCommerce, and a product of the buyer's accepted quote stays purchasable
 	 * (`filter_is_purchasable()`), so it is not swapped either.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param mixed $product Product.
 	 * @return bool
@@ -516,7 +516,7 @@ class Tack_Catalog_Mode {
 	 * summary hook: on a block theme the Add to Cart form block renders the same
 	 * template itself, and the compatibility layer fires above the excerpt.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_quote_only_variation_form() {
 		global $product;
@@ -555,7 +555,7 @@ class Tack_Catalog_Mode {
 	 * Same remove-then-restore pattern WooCommerce's own Add to Cart with Options
 	 * block uses on this hook (`AddToCartWithOptions::render()`, 11.2.1).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function swap_variation_cart_controls() {
 		global $product;
@@ -574,7 +574,7 @@ class Tack_Catalog_Mode {
 	 * `woocommerce_after_single_variation`: put WooCommerce's cart controls back
 	 * for the next form on the page (a related product, a purchasable product).
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function restore_variation_cart_controls() {
 		if ( ! $this->variation_swap['swapped'] ) {
@@ -601,7 +601,7 @@ class Tack_Catalog_Mode {
 	 * through `tackquote_variation_quote_controls`; its once-per-product flag
 	 * keeps them from rendering a second time from the other mounts.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_variation_quote_controls() {
 		global $product;
@@ -623,7 +623,7 @@ class Tack_Catalog_Mode {
 		/**
 		 * Prints the TackQuote buttons inside a quote-only product's variation form.
 		 *
-		 * @since 1.9.0
+		 * @since 1.10.0
 		 *
 		 * @param WC_Product $product The variable product.
 		 */
@@ -655,7 +655,7 @@ class Tack_Catalog_Mode {
 			/**
 			 * Filters the label shown beside the price of a quote-only product.
 			 *
-			 * @since 1.9.0
+			 * @since 1.10.0
 			 *
 			 * @param string     $label   Default "Available on quote".
 			 * @param WC_Product $product The product.
@@ -675,7 +675,7 @@ class Tack_Catalog_Mode {
 	 * `woocommerce_wp_checkbox()` is WooCommerce's own field helper for this panel;
 	 * `$product_object` is the global the panel's own fields read.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 */
 	public function render_quote_only_field() {
 		global $product_object;
@@ -709,7 +709,7 @@ class Tack_Catalog_Mode {
 	 * verified `woocommerce_meta_nonce` and the user's capability before firing it;
 	 * both are checked again here because this method is public and the cost is nil.
 	 *
-	 * @since 1.9.0
+	 * @since 1.10.0
 	 *
 	 * @param WC_Product $product The product being saved.
 	 */

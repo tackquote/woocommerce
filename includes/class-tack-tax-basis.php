@@ -14,11 +14,11 @@
  * unchanged is read as gross and the cart takes the tax back OUT of it: 10.00
  * net at 20 % became 8.33 + 1.67, so the seller absorbed the tax.
  *
- * Before 1.9.0 the B2B price path converted with `wc_get_price_including_tax()`.
+ * Before 1.10.0 the B2B price path converted with `wc_get_price_including_tax()`.
  * That function is a no-op for this purpose: on an inclusive store it treats the
  * price it is given as ALREADY inclusive and returns it unchanged for a customer
  * at the base location (WooCommerce 11.2.1 `wc-product-functions.php`). The
- * quote checkout path (1.9.0) had the correct maths; this class is that maths,
+ * quote checkout path (1.10.0) had the correct maths; this class is that maths,
  * shared by both paths so they cannot drift apart again.
  *
  * ─────────────────────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ class Tack_Tax_Basis {
 		/**
 		 * Core WooCommerce filter, read exactly as WC_Cart_Totals reads it.
 		 *
-		 * @since 1.9.0
+		 * @since 1.10.0
 		 * @param bool $adjust Remove base taxes for customers outside the base location. Default true.
 		 */
 		if ( apply_filters( 'woocommerce_adjust_non_base_location_prices', true ) ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound

@@ -1,6 +1,6 @@
 <?php
 /**
- * 1.9.0 storefront parity: product-card and cart-page quote controls, the
+ * 1.10.0 storefront parity: product-card and cart-page quote controls, the
  * launcher settings, the quote page, list re-pricing, per-product quote-only
  * (with its Store API hook), the approved-wholesale price gate, and the Store
  * API cart-errors twin of the order-limit check.

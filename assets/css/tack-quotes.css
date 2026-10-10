@@ -218,7 +218,7 @@ body.tack-quote-modal-open {
    from the WooCommerce cart. Hidden by JS until at least one item is added. */
 .tack-quote-list-widget {
   position: fixed;
-  /* 1.9.0: the merchant's offsets. The defaults are the 20px this always was. */
+  /* 1.10.0: the merchant's offsets. The defaults are the 20px this always was. */
   right: var(--tack-fab-x, 20px);
   bottom: var(--tack-fab-y, 20px);
   z-index: 99999;
@@ -467,7 +467,7 @@ del + ins {
   text-decoration: none;
 }
 
-/* ── 1.9.0: launcher settings ─────────────────────────────────────────────────
+/* ── 1.10.0: launcher settings ─────────────────────────────────────────────────
  * Position, size, icon, count and mobile behaviour are classes and two custom
  * properties printed by Tack_Widget::render_quote_list_drawer(). With no
  * setting changed, none of these rules change anything. */
@@ -570,7 +570,7 @@ del + ins {
   white-space: nowrap;
 }
 
-/* ── 1.9.0: product-card and cart-page controls ──────────────────────────────
+/* ── 1.10.0: product-card and cart-page controls ──────────────────────────────
  * Layout only. They wear WooCommerce's own button classes (`button`, and
  * `wp-element-button` on a block theme), so the theme paints them. */
 
@@ -611,7 +611,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   bottom: calc(var(--tack-fab-y, 20px) + 72px);
 }
 
-/* ── 1.9.0: the quote page ([tackquote_quote_page]) ───────────────────────────
+/* ── 1.10.0: the quote page ([tackquote_quote_page]) ───────────────────────────
  * Inherits the theme's `shop_table` styling; only the inputs and actions are sized. */
 
 .tack-quote-page-table input[type="number"] {
