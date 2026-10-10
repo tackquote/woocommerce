@@ -140,5 +140,9 @@ require __DIR__ . '/quote-checkout-test.php';
 // Tack_Tax_Basis: net TackQuote prices on inclusive / exclusive stores.
 require __DIR__ . '/tax-basis-test.php';
 
+// 1.9.0 follow-ups: quote-only variable products keep their variation form; volume table on block themes.
+echo "\n-- storefront follow-ups (variation form on quote, volume table on blocks) --\n";
+require __DIR__ . '/storefront-followups-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

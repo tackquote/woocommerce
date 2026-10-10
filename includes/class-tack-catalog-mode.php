@@ -123,6 +123,18 @@ class Tack_Catalog_Mode {
 	private $approved = null;
 
 	/**
+	 * Set while a quote-only variable product's variation form is being rendered
+	 * with the TackQuote controls in place of WooCommerce's cart controls, so
+	 * `restore_variation_cart_controls()` knows what to put back.
+	 *
+	 * @var array{swapped:bool, core_removed:bool}
+	 */
+	private $variation_swap = array(
+		'swapped'      => false,
+		'core_removed' => false,
+	);
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Tack_Api_Client|null $client Injected in tests; built lazily otherwise.
@@ -152,6 +164,19 @@ class Tack_Catalog_Mode {
 
 		// Presentation: withdraw the add-to-cart templates.
 		add_action( 'wp', array( $this, 'remove_add_to_cart_templates' ) );
+
+		/*
+		 * Variable products on quote (1.9.0): keep the variation form, so the buyer
+		 * can choose the size or colour they want quoted, and put the TackQuote
+		 * controls where WooCommerce's quantity + cart button would be. Classic
+		 * themes in store-wide mode get the form back at the slot the withdrawn
+		 * template used (priority 29, before the quote-button fallback at 30). The
+		 * swap itself runs inside `single-product/add-to-cart/variable.php`, so it
+		 * covers the classic template and the Add to Cart form block alike.
+		 */
+		add_action( 'woocommerce_single_product_summary', array( $this, 'render_quote_only_variation_form' ), 29 );
+		add_action( 'woocommerce_before_single_variation', array( $this, 'swap_variation_cart_controls' ) );
+		add_action( 'woocommerce_after_single_variation', array( $this, 'restore_variation_cart_controls' ) );
 
 		// Optional "price on request", and the per-product "available on quote" label.
 		add_filter( 'woocommerce_get_price_html', array( $this, 'filter_price_html' ), 99, 2 );
@@ -436,9 +461,14 @@ class Tack_Catalog_Mode {
 	 * `woocommerce_single_product_summary` for exactly this reason. Do not
 	 * remove one without the other.
 	 *
-	 * A per-product quote-only needs no template work: WooCommerce's own
-	 * add-to-cart templates return nothing for a product that is not purchasable,
-	 * and the loop button becomes "Read more".
+	 * The same goes for a variable product's variation form, which lives in the
+	 * withdrawn template too: `render_quote_only_variation_form()` puts it back
+	 * (without the cart controls) so a buyer can still choose what to quote.
+	 *
+	 * A per-product quote-only needs no template work: WooCommerce's simple
+	 * add-to-cart template returns nothing for a product that is not purchasable,
+	 * the variable one still renders its variation form (see
+	 * `swap_variation_cart_controls()`), and the loop button becomes "Read more".
 	 */
 	public function remove_add_to_cart_templates() {
 		if ( ! $this->is_active() ) {
@@ -447,6 +477,159 @@ class Tack_Catalog_Mode {
 
 		remove_action( 'woocommerce_after_shop_loop_item', 'woocommerce_template_loop_add_to_cart', 10 );
 		remove_action( 'woocommerce_single_product_summary', 'woocommerce_template_single_add_to_cart', 30 );
+	}
+
+	/**
+	 * Is this product offered on quote INSTEAD of the cart, for this visitor?
+	 *
+	 * True only when this plugin is the reason the product cannot be bought:
+	 * store-wide quote-only mode is in force for the visitor, or the product
+	 * (or, for a variation, its parent) is marked quote only. A product that is
+	 * not purchasable for any other reason (no price, unpublished) is left to
+	 * WooCommerce, and a product of the buyer's accepted quote stays purchasable
+	 * (`filter_is_purchasable()`), so it is not swapped either.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param mixed $product Product.
+	 * @return bool
+	 */
+	public function quotes_instead_of_cart( $product ) {
+		if ( ! $product instanceof WC_Product || $product->is_purchasable() ) {
+			return false;
+		}
+		return $this->is_active() || $this->is_quote_only( $product );
+	}
+
+	/**
+	 * Classic themes, store-wide quote-only: render the variable product's form
+	 * where the withdrawn `woocommerce_template_single_add_to_cart` would have.
+	 *
+	 * Without it the shopper sees no size or colour selects at all, and the quote
+	 * buttons (re-mounted by `Tack_Widget` at priority 30) have no variation or
+	 * quantity to read, so "Request a Quote" on a variable product was always
+	 * refused. The form is WooCommerce's own (`woocommerce_variable_add_to_cart`,
+	 * `single-product/add-to-cart/variable.php`); its cart controls are replaced
+	 * by `swap_variation_cart_controls()` while it renders.
+	 *
+	 * Skipped when WooCommerce's block-template compatibility layer fires the
+	 * summary hook: on a block theme the Add to Cart form block renders the same
+	 * template itself, and the compatibility layer fires above the excerpt.
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_quote_only_variation_form() {
+		global $product;
+		if ( ! $product instanceof WC_Product || ! $product->is_type( 'variable' ) ) {
+			return;
+		}
+		if ( class_exists( 'Tack_Block_Product' ) && Tack_Block_Product::is_compat_hook() ) {
+			return;
+		}
+		// Only when this plugin withdrew the template; otherwise WooCommerce renders the form.
+		if ( ! $this->is_active() || ! $this->quotes_instead_of_cart( $product ) ) {
+			return;
+		}
+		// WooCommerce's own renderer (pluggable, so a theme's override is used), the
+		// callback woocommerce_template_single_add_to_cart() reaches for this type.
+		if ( function_exists( 'woocommerce_variable_add_to_cart' ) ) {
+			woocommerce_variable_add_to_cart();
+		}
+	}
+
+	/**
+	 * `woocommerce_before_single_variation` (inside the variation form): for a
+	 * product on quote, replace WooCommerce's quantity + "Add to cart" block
+	 * (`woocommerce_single_variation_add_to_cart_button`, priority 20 on
+	 * `woocommerce_single_variation`) with the TackQuote controls.
+	 *
+	 * The core block is the cart: a submit button and a hidden `add-to-cart`
+	 * field. Left in place, it shows a cart button WooCommerce greys out with
+	 * "Sorry, this product is unavailable", and pressing Enter in the quantity
+	 * box posts the form to the cart (refused at the data layer by
+	 * `filter_is_purchasable()`, but with a cart error the shopper did not ask
+	 * for). The replacement keeps what the quote buttons read: the quantity
+	 * input and the hidden `variation_id` that WooCommerce's variation script
+	 * fills in. No `add-to-cart` field, no submit button.
+	 *
+	 * Same remove-then-restore pattern WooCommerce's own Add to Cart with Options
+	 * block uses on this hook (`AddToCartWithOptions::render()`, 11.2.1).
+	 *
+	 * @since 1.9.0
+	 */
+	public function swap_variation_cart_controls() {
+		global $product;
+		if ( $this->variation_swap['swapped'] || ! $this->quotes_instead_of_cart( $product ) ) {
+			return;
+		}
+		$this->variation_swap = array(
+			'swapped'      => true,
+			// False when a theme already removed it: then there is nothing to restore.
+			'core_removed' => (bool) remove_action( 'woocommerce_single_variation', 'woocommerce_single_variation_add_to_cart_button', 20 ),
+		);
+		add_action( 'woocommerce_single_variation', array( $this, 'render_variation_quote_controls' ), 20 );
+	}
+
+	/**
+	 * `woocommerce_after_single_variation`: put WooCommerce's cart controls back
+	 * for the next form on the page (a related product, a purchasable product).
+	 *
+	 * @since 1.9.0
+	 */
+	public function restore_variation_cart_controls() {
+		if ( ! $this->variation_swap['swapped'] ) {
+			return;
+		}
+		remove_action( 'woocommerce_single_variation', array( $this, 'render_variation_quote_controls' ), 20 );
+		if ( $this->variation_swap['core_removed'] && function_exists( 'woocommerce_single_variation_add_to_cart_button' ) ) {
+			add_action( 'woocommerce_single_variation', 'woocommerce_single_variation_add_to_cart_button', 20 );
+		}
+		$this->variation_swap = array(
+			'swapped'      => false,
+			'core_removed' => false,
+		);
+	}
+
+	/**
+	 * The controls printed in place of the cart controls: the quantity the
+	 * buyer wants quoted, the TackQuote buttons, and the `variation_id` field.
+	 *
+	 * The class names are WooCommerce's (`woocommerce-variation-add-to-cart`,
+	 * `variations_button`), so its variation script toggles them as it does the
+	 * cart controls and finds the quantity input inside `.single_variation_wrap`
+	 * (`add-to-cart-variation.js`, 11.2.1). The buttons come from `Tack_Widget`
+	 * through `tackquote_variation_quote_controls`; its once-per-product flag
+	 * keeps them from rendering a second time from the other mounts.
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_variation_quote_controls() {
+		global $product;
+		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+		echo '<div class="woocommerce-variation-add-to-cart variations_button tackquote-variation-quote-controls">';
+		if ( function_exists( 'woocommerce_quantity_input' ) ) {
+			woocommerce_quantity_input(
+				array(
+					'min_value'   => $product->get_min_purchase_quantity(),
+					'max_value'   => $product->get_max_purchase_quantity(),
+					'input_value' => $product->get_min_purchase_quantity(),
+				),
+				$product
+			);
+		}
+
+		/**
+		 * Prints the TackQuote buttons inside a quote-only product's variation form.
+		 *
+		 * @since 1.9.0
+		 *
+		 * @param WC_Product $product The variable product.
+		 */
+		do_action( 'tackquote_variation_quote_controls', $product );
+
+		echo '<input type="hidden" name="variation_id" class="variation_id" value="0" /></div>';
 	}
 
 	/**
