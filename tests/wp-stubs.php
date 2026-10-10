@@ -102,8 +102,64 @@ function register_setting( $group = '', $option = '', $args = array() ) {
 function add_settings_section( $id = '', $title = '', $cb = null, $page = '' ) {
 	$GLOBALS['TACK_SECTIONS'][] = array( 'id' => $id, 'title' => $title, 'callback' => $cb, 'page' => $page );
 }
-function add_settings_field( $id = '', $title = '', $cb = null, $page = '', $section = 'default' ) {
-	$GLOBALS['TACK_FIELDS'][] = array( 'id' => $id, 'title' => $title, 'callback' => $cb, 'page' => $page, 'section' => $section );
+function add_settings_field( $id = '', $title = '', $cb = null, $page = '', $section = 'default', $args = array() ) {
+	$GLOBALS['TACK_FIELDS'][] = array( 'id' => $id, 'title' => $title, 'callback' => $cb, 'page' => $page, 'section' => $section, 'args' => $args );
+}
+
+/*
+ * Rendering side of the Settings API, enough to draw one tab the way
+ * wp-admin/includes/template.php does: each section of the page in registration
+ * order, its intro callback, then its fields in a form-table.
+ */
+function settings_fields( $group ) {
+	echo '<input type="hidden" name="option_page" value="' . esc_attr( $group ) . '" />';
+}
+function do_settings_sections( $page ) {
+	foreach ( $GLOBALS['TACK_SECTIONS'] as $section ) {
+		if ( $section['page'] !== $page ) {
+			continue;
+		}
+		echo '<h2>' . esc_html( $section['title'] ) . '</h2>';
+		call_user_func( $section['callback'], $section );
+		echo '<table class="form-table" role="presentation">';
+		foreach ( $GLOBALS['TACK_FIELDS'] as $field ) {
+			if ( $field['page'] === $page && $field['section'] === $section['id'] ) {
+				echo '<tr><th scope="row">' . esc_html( $field['title'] ) . '</th><td>';
+				call_user_func( $field['callback'], $field['args'] );
+				echo '</td></tr>';
+			}
+		}
+		echo '</table>';
+	}
+}
+function submit_button( $text = null, $type = 'primary', $name = 'submit', $wrap = true ) {
+	echo '<input type="submit" name="' . esc_attr( $name ) . '" class="button ' . esc_attr( $type ) . '" value="' . esc_attr( (string) $text ) . '" />';
+}
+function settings_errors() {
+	echo '<!-- settings_errors -->';
+}
+function esc_html_e( $text, $domain = null ) {
+	echo esc_html( __( $text, $domain ) );
+}
+function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false ) {
+	$GLOBALS['TACK_ENQUEUED_STYLES'][ $handle ] = $src;
+}
+function human_time_diff( $from, $to = 0 ) {
+	return max( 1, (int) round( abs( $to - $from ) / 60 ) ) . ' mins';
+}
+function plugins_url( $path = '', $plugin = '' ) {
+	return 'https://shop.example/wp-content/plugins/tackquote/' . ltrim( $path, '/' );
+}
+function wp_parse_url( $url, $component = -1 ) {
+	return parse_url( $url, $component );
+}
+/** wp_die() ends the request; the stub throws so a test can observe it. */
+class Tack_Test_Wp_Die extends Exception {}
+function wp_die( $message = '' ) {
+	throw new Tack_Test_Wp_Die( (string) $message );
+}
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
 }
 
 /** Plural form. The stub ignores locale rules; only the branch matters. */

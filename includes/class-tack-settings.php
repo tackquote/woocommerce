@@ -2,6 +2,9 @@
 /**
  * Settings page (WordPress Settings API) — TackQuote API key, API URL, and feature toggles.
  *
+ * Since 1.10.0 the page is split into tabs: an Overview dashboard plus one tab per
+ * area, each tab its own form with its own Settings API option group.
+ *
  * @package TackQuotes
  */
 
@@ -14,8 +17,34 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Tack_Settings {
 
+	/**
+	 * Prefix of every option group. Each tab registers `OPTION_GROUP . '_' . $tab`.
+	 *
+	 * WHY ONE GROUP PER TAB, AND NOT ONE GROUP FOR THE WHOLE PAGE. `options.php`
+	 * walks every option registered in the posted group and calls
+	 * `update_option( $option, $value )`, passing NULL for any option absent from
+	 * the POST. With a single group and one form per tab, saving the Storefront tab
+	 * would post nothing for the B2B pricing switches, and `sanitize_checkbox( null )`
+	 * answers 'no': every switch on every other tab would be turned off by an
+	 * unrelated save. A group per tab means a save only ever touches the options
+	 * its own form drew. `settings-page-test.php` pins both directions.
+	 */
 	const OPTION_GROUP = 'tack_quotes_settings';
 	const PAGE_SLUG    = 'tackquote';
+
+	/**
+	 * The tab shown when none (or an unknown one) is requested.
+	 */
+	const DEFAULT_TAB = 'overview';
+
+	/**
+	 * Transient remembering the outcome of the last "Test connection" press.
+	 *
+	 * Holds `ok` (bool), `key` (a 16-character SHA-256 prefix of the key that was
+	 * tested, never the key), `at` (Unix time) and `message`. The Overview only says
+	 * "Connected" when this exists, passed, AND was recorded for the key saved now.
+	 */
+	const CONNECTION_CHECK = 'tack_quotes_connection_check';
 
 	/**
 	 * The buyer group codes this store uses, as the merchant declared them.
@@ -46,11 +75,38 @@ class Tack_Settings {
 	const DEFAULT_API_URL = 'https://api.tackquote.com/v1';
 
 	/**
+	 * Public setup guide.
+	 */
+	/**
+	 * Admin menu icon: the TackQuote mark alone (no app-icon tile), `fill="black"`, as a
+	 * base64 SVG data URI. WordPress's svg-painter recolours a data-URI menu icon to the
+	 * current admin colour scheme, which it can only do for a single-colour SVG.
+	 * Source: the two paths of tack `apps/web/public/favicon-v3.svg`, viewBox cropped to
+	 * the mark. Same paths as `assets/images/tackquote-mark.svg`.
+	 */
+	const MENU_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ijk1IDg3IDMyMiAzMjIiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHBhdGggZmlsbD0iYmxhY2siIGQ9Ik0gMzA1LjMgODkuMCBMIDMwNy4zIDg5LjAgTCAzMDYuMyA5My4wIEwgMzAyLjQgOTYuMCBMIDMwMC40IDEwMC45IEwgMjk2LjQgMTAzLjkgTCAyOTYuNCAxMDUuOSBMIDI5NC40IDEwNi45IEwgMjk0LjQgMTA4LjggTCAyODguNSAxMTUuOCBMIDI4Ny41IDExOS44IEwgMjgzLjUgMTIzLjcgTCAyODMuNSAxMjYuNiBMIDI3OC42IDEzMi42IEwgMjc3LjYgMTM3LjYgTCAyNjguNyAxNTQuNSBMIDI2OC43IDE1OC40IEwgMjY2LjcgMTYwLjQgTCAyNjUuNyAxNjcuNCBMIDI2My43IDE2OS4zIEwgMjU5LjcgMTg3LjIgTCAyNTguNyAxODcuMiBMIDI1OC43IDE5My4xIEwgMjU3LjcgMTkzLjEgTCAyNTYuOCAyMDMuMSBMIDI1NS44IDIwMy4xIEwgMjU0LjggMjE5LjAgTCAyNTMuOCAyMTkuMCBMIDI1NC44IDI1Ni43IEwgMjU1LjggMjU2LjcgTCAyNTYuOCAyNjkuNiBMIDI1Ny43IDI2OS42IEwgMjU4LjcgMjc5LjUgTCAyNjAuNyAyODIuNCBMIDI2Mi44IDI5My40IEwgMjY1LjcgMjk4LjMgTCAyNjguNyAzMDkuMiBMIDI3OC42IDMyOS4xIEwgMjgwLjYgMzMwLjEgTCAyODEuNSAzMzQuMCBMIDI4My41IDMzNS4xIEwgMjgzLjUgMzM3LjAgTCAyODUuNiAzMzguMCBMIDI4NS42IDM0MC4wIEwgMjg3LjUgMzQxLjAgTCAyODcuNSAzNDIuOSBMIDI5MC41IDM0NC45IEwgMjkwLjUgMzQ3LjAgTCAyOTMuNCAzNDguOSBMIDI5NS40IDM1Mi45IEwgMjkyLjUgMzUzLjkgTCAyOTIuNSAzNTIuOSBMIDI3Mi42IDM1MC45IEwgMjcyLjYgMzQ5LjkgTCAyMzguOCAzNDguOSBMIDIzOC44IDM0OS45IEwgMjE2LjEgMzUwLjkgTCAyMTYuMSAzNTEuOSBMIDIwOS4yIDM1MS45IEwgMjA5LjIgMzUyLjkgTCAxOTUuMyAzNTQuOCBMIDE5Mi4yIDM1Ni44IEwgMTg4LjMgMzU2LjggTCAxODguMyAzNTcuOSBMIDE3MC41IDM2Mi44IEwgMTY4LjQgMzY0LjggTCAxNjUuNSAzNjQuOCBMIDE2MS42IDM2Ny43IEwgMTU0LjYgMzY5LjggTCAxNTMuNiAzNzEuOCBMIDE0Ni42IDM3My43IEwgMTQ1LjYgMzc1LjcgTCAxNDEuNyAzNzYuNyBMIDE0MC43IDM3OC42IEwgMTMwLjggMzgzLjcgTCAxMjguOCAzODYuNiBMIDEyNC45IDM4Ny42IEwgMTIxLjggMzkxLjUgTCAxMTkuOCAzOTEuNSBMIDExNi45IDM5NS42IEwgMTE0LjkgMzk1LjYgTCAxMDcuOSA0MDMuNSBMIDEwNi4wIDQwMy41IEwgMTA1LjAgNDA2LjUgTCAxMDMuMCA0MDYuNSBMIDEwMi4wIDQwMy41IEwgMTAzLjAgNDAzLjUgTCAxMDUuMCAzODMuNyBMIDEwNi4wIDM4My43IEwgMTA3LjAgMzczLjcgTCAxMDcuOSAzNzMuNyBMIDEwNy45IDM2OC44IEwgMTA4LjkgMzY4LjggTCAxMDguOSAzNjMuOCBMIDEwOS45IDM2My44IEwgMTA5LjkgMzU3LjkgTCAxMTEuOSAzNTQuOCBMIDExNC45IDMzOS4wIEwgMTE2LjkgMzM2LjEgTCAxMTYuOSAzMzIuMCBMIDExOC45IDMyOS4xIEwgMTE4LjkgMzI1LjEgTCAxMTkuOCAzMjUuMSBMIDEyNC45IDMwNy4yIEwgMTI2LjggMzA1LjMgTCAxMjkuOCAyOTMuNCBMIDEzMi43IDI4OS40IEwgMTMyLjcgMjg2LjQgTCAxMzcuNyAyNzcuNSBMIDEzNy43IDI3NC41IEwgMTQ0LjYgMjYyLjYgTCAxNDQuNiAyNTkuNiBMIDE1Mi42IDI0My44IEwgMTU3LjUgMjM3LjggTCAxNTkuNiAyMzEuOSBMIDE2NC41IDIyNS45IEwgMTY1LjUgMjIyLjAgTCAxNjcuNCAyMjEuMCBMIDE2Ny40IDIxOS4wIEwgMTY5LjQgMjE3LjkgTCAxNjkuNCAyMTYuMCBMIDE3MS41IDIxNS4wIEwgMTcxLjUgMjEzLjAgTCAxNzMuNSAyMTIuMCBMIDE3NC40IDIwOC4xIEwgMTc3LjQgMjA2LjAgTCAxNzkuMyAyMDEuMSBMIDE4Mi40IDE5OS4xIEwgMTg0LjQgMTk0LjEgTCAxODkuMyAxOTAuMiBMIDE5Mi4yIDE4NC4yIEwgMTk2LjMgMTgxLjIgTCAxOTYuMyAxNzkuMyBMIDIwMi4yIDE3NC40IEwgMjAyLjIgMTcyLjMgTCAyMDkuMiAxNjYuNCBMIDIwOS4yIDE2NC40IEwgMjMzLjkgMTM5LjYgTCAyMzUuOSAxMzkuNiBMIDI0MS45IDEzMi42IEwgMjQzLjkgMTMyLjYgTCAyNDcuOCAxMjcuNyBMIDI0OS44IDEyNy43IEwgMjU3LjcgMTE5LjggTCAyNjIuOCAxMTcuOCBMIDI2NS43IDExMy44IEwgMjY3LjcgMTEzLjggTCAyNjguNyAxMTEuOCBMIDI3Ni42IDEwNy45IEwgMjgxLjUgMTAyLjggTCAyODUuNiAxMDEuOSBMIDI4OS41IDk3LjkgTCAzMDIuNCA5MS45IFoiLz48cGF0aCBmaWxsPSJibGFjayIgZD0iTSAzNDkuMCAyMDUuMCBMIDM2Ny45IDIwNi4wIEwgMzY3LjkgMjA3LjAgTCAzNzQuOCAyMDguMSBMIDM3OC44IDIxMS4wIEwgMzgxLjggMjExLjAgTCAzODMuNyAyMTQuMCBMIDM4OC44IDIxNi4wIEwgNDAwLjcgMjI5LjggTCA0MDEuNiAyMzMuOSBMIDQwMy42IDIzNC44IEwgNDA2LjYgMjQ3LjcgTCA0MDcuNSAyNDcuNyBMIDQwNy41IDI1MS43IEwgNDA4LjUgMjUxLjcgTCA0MDguNSAyNTYuNyBMIDQwOS41IDI1Ni43IEwgNDEwLjUgMjc3LjUgTCA0MDkuNSAyNzcuNSBMIDQwOC41IDI5Ni4zIEwgNDA3LjUgMjk2LjMgTCA0MDQuNiAzMTMuMiBMIDQwMy42IDMxMy4yIEwgNDAxLjYgMzIyLjEgTCAzOTguNiAzMjYuMSBMIDM5OC42IDMyOS4xIEwgMzkzLjcgMzM5LjAgTCAzODkuNyAzNDIuOSBMIDM4OC44IDM0Ny4wIEwgMzgyLjggMzUyLjkgTCAzODIuOCAzNTQuOCBMIDM3OC44IDM1Ny45IEwgMzc4LjggMzU5LjkgTCAzNzYuNyAzNTkuOSBMIDM3Ni43IDM2MS44IEwgMzY0LjggMzczLjcgTCAzNjIuOSAzNzMuNyBMIDM1OS45IDM3Ny43IEwgMzU4LjAgMzc3LjcgTCAzNTIuMCAzODMuNyBMIDM0OC4wIDM4NC42IEwgMzQ0LjEgMzg4LjYgTCAzNDAuMSAzODkuNiBMIDMzOS4xIDM5MS41IEwgMzIzLjMgMzk5LjUgTCAzMTAuNCA0MDMuNSBMIDMwMi40IDM4Ny42IEwgMzAwLjQgMzg2LjYgTCAzMDAuNCAzODMuNyBMIDMwOC40IDM3OS42IEwgMzA5LjQgMzc3LjcgTCAzMTMuMyAzNzYuNyBMIDMxNy4yIDM3Mi43IEwgMzE5LjIgMzcyLjcgTCAzMzkuMSAzNTQuOCBMIDMzOS4xIDM1Mi45IEwgMzQ1LjEgMzQ3LjAgTCAzNDUuMSAzNDQuOSBMIDM0OS4wIDM0MS4wIEwgMzQ5LjAgMzM4LjAgTCAzNTIuMCAzMzUuMSBMIDM1Mi4wIDMzMi4wIEwgMzUzLjkgMzMwLjEgTCAzNTYuMCAzMjAuMSBMIDM1Ny4wIDMyMC4xIEwgMzU4LjAgMzA5LjIgTCAzNTcuMCAzMDguMiBMIDM0NS4xIDMwOC4yIEwgMzQ1LjEgMzA3LjIgTCAzMzkuMSAzMDcuMiBMIDMzNi4xIDMwNS4zIEwgMzMyLjIgMzA1LjMgTCAzMjIuMyAzMDAuNCBMIDMxOC4yIDI5NS4zIEwgMzE1LjMgMjk0LjMgTCAzMTUuMyAyOTIuNCBMIDMwOC40IDI4NS40IEwgMzAzLjQgMjc1LjUgTCAzMDIuNCAyNjUuNiBMIDMwMS40IDI2NS42IEwgMzAyLjQgMjQ0LjggTCAzMDMuNCAyNDQuOCBMIDMwMy40IDI0MC43IEwgMzEwLjQgMjI2LjkgTCAzMjMuMyAyMTQuMCBMIDMyNy4yIDIxMy4wIEwgMzI4LjIgMjExLjAgTCAzMzEuMiAyMTEuMCBMIDMzMi4yIDIwOS4xIEwgMzQyLjAgMjA3LjAgTCAzNDIuMCAyMDYuMCBMIDM0OS4wIDIwNi4wIFoiLz48L3N2Zz4=';
+
+	const DOCS_URL = 'https://tackquote.com/docs/integrations/woocommerce';
+
+	/**
+	 * Where merchants get help.
+	 */
+	const SUPPORT_URL = 'https://tackquote.com/contact';
+
+	/**
+	 * Outcome of this request's "Test connection" / "Remove saved API key" press.
+	 *
+	 * @var array|null array{type:string,message:string}
+	 */
+	private $action_result = null;
+
+	/**
 	 * Hook registration.
 	 */
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 	}
 
 	/**
@@ -78,30 +134,197 @@ class Tack_Settings {
 			'manage_options',
 			self::PAGE_SLUG,
 			array( $this, 'render_page' ),
-			'dashicons-money-alt',
+			self::MENU_ICON,
 			56
 		);
 	}
 
 	/**
+	 * Load the admin stylesheet and script on this page only.
+	 *
+	 * @param string $hook_suffix Current admin page hook.
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		if ( 'toplevel_page_' . self::PAGE_SLUG !== $hook_suffix ) {
+			return;
+		}
+		wp_enqueue_style( 'tackquote-admin', TACK_QUOTES_URL . 'assets/css/tack-admin.css', array(), TACK_QUOTES_VERSION );
+		wp_enqueue_script( 'tackquote-admin', TACK_QUOTES_URL . 'assets/js/tack-admin.js', array(), TACK_QUOTES_VERSION, true );
+	}
+
+	// ── Tabs ──────────────────────────────────────────────────────────────────
+
+	/**
+	 * Every tab, in reading order: slug => label.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function tabs() {
+		return array(
+			'overview'   => __( 'Overview', 'tackquote' ),
+			'connection' => __( 'Connection', 'tackquote' ),
+			'storefront' => __( 'Storefront', 'tackquote' ),
+			'pricing'    => __( 'B2B pricing', 'tackquote' ),
+			'groups'     => __( 'Buyer groups', 'tackquote' ),
+			'forms'      => __( 'Forms', 'tackquote' ),
+			'sync'       => __( 'Order sync', 'tackquote' ),
+		);
+	}
+
+	/**
+	 * The Settings API option group a tab's form posts.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return string
+	 */
+	public static function option_group( $tab ) {
+		return self::OPTION_GROUP . '_' . $tab;
+	}
+
+	/**
+	 * The Settings API "page" a tab's sections are registered on.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return string
+	 */
+	public static function tab_page( $tab ) {
+		return self::PAGE_SLUG . '_' . $tab;
+	}
+
+	/**
+	 * Admin URL of a tab.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return string
+	 */
+	public static function tab_url( $tab ) {
+		return admin_url( 'admin.php?page=' . self::PAGE_SLUG . '&tab=' . rawurlencode( $tab ) );
+	}
+
+	/**
+	 * The requested tab, or the Overview for anything unknown.
+	 *
+	 * Read-only navigation: the value only selects which registered tab to draw and is
+	 * compared against a fixed list, so no nonce applies.
+	 *
+	 * @return string
+	 */
+	public static function current_tab() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- navigation only, allow-listed below.
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+		return array_key_exists( $tab, self::tabs() ) ? $tab : self::DEFAULT_TAB;
+	}
+
+	/**
+	 * Register one option in a tab's group.
+	 *
+	 * @param string   $tab      Tab slug.
+	 * @param string   $option   Option name.
+	 * @param callable $callback Sanitize callback.
+	 */
+	private function setting( $tab, $option, $callback ) {
+		register_setting( self::option_group( $tab ), $option, array( 'sanitize_callback' => $callback ) );
+	}
+
+	/**
+	 * Register a section on a tab.
+	 *
+	 * @param string   $tab      Tab slug.
+	 * @param string   $id       Section id.
+	 * @param string   $title    Heading.
+	 * @param callable $callback Intro renderer.
+	 */
+	private function section( $tab, $id, $title, $callback ) {
+		add_settings_section( $id, $title, $callback, self::tab_page( $tab ) );
+	}
+
+	/**
+	 * Register a field row on a tab.
+	 *
+	 * @param string   $tab      Tab slug.
+	 * @param string   $section  Section id.
+	 * @param string   $id       Field id.
+	 * @param string   $title    Row label.
+	 * @param callable $callback Renderer.
+	 * @param array    $args     Optional: `label_for`, `class`.
+	 */
+	private function field( $tab, $section, $id, $title, $callback, $args = array() ) {
+		add_settings_field( $id, $title, $callback, self::tab_page( $tab ), $section, $args );
+	}
+
+	/**
 	 * Register settings + fields with sanitization callbacks.
+	 *
+	 * ── SECTION ORDER IS THE INSTRUCTIONS ─────────────────────────────────────
+	 *
+	 * Tabs follow the setup sequence a merchant actually needs, each depending only
+	 * on the ones before it: Connection (nothing works without a key), Storefront
+	 * (the store-wide "how do customers buy" decision and the buttons a shopper
+	 * sees), B2B pricing and Buyer groups (both need a key, and groups need codes),
+	 * Forms, and Order sync (independent, off by default). Inside a tab,
+	 * `do_settings_sections()` renders sections in registration order.
+	 *
+	 * Every option is registered in the group of the tab whose form draws it, and
+	 * only there. A tab whose group held an option its form did not draw would
+	 * reset that option on every save of that tab — see OPTION_GROUP.
 	 */
 	public function register_settings() {
-		register_setting( self::OPTION_GROUP, 'tack_quotes_api_key', array( 'sanitize_callback' => array( $this, 'sanitize_api_key' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_api_url', array( 'sanitize_callback' => array( $this, 'sanitize_url' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_button_label', array( 'sanitize_callback' => array( $this, 'sanitize_button_label' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_request_button_label', array( 'sanitize_callback' => array( $this, 'sanitize_button_label' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_checkout_button_label', array( 'sanitize_callback' => array( $this, 'sanitize_button_label' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_show_add_to_quote', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_show_request_quote', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_enable_widget', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, 'tack_quotes_enable_order_sync', array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Wholesale_Pricing::OPTION_ENABLED, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_B2B_Notices::OPTION_ORDER_LIMITS, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_B2B_Notices::OPTION_BUYER_GROUP, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_ENABLED, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, self::OPTION_GROUP_CODES, array( 'sanitize_callback' => array( $this, 'sanitize_group_codes' ) ) );
+		$checkbox = array( $this, 'sanitize_checkbox' );
+
+		// ── Connection ──────────────────────────────────────────────────────────
+		$this->setting( 'connection', 'tack_quotes_api_key', array( $this, 'sanitize_api_key' ) );
+		$this->setting( 'connection', 'tack_quotes_api_url', array( $this, 'sanitize_url' ) );
+
+		$this->section( 'connection', 'tack_quotes_connection', __( 'Connect to TackQuote', 'tackquote' ), array( $this, 'section_connection' ) );
+		$this->field( 'connection', 'tack_quotes_connection', 'tack_quotes_api_key', __( 'API key', 'tackquote' ), array( $this, 'field_api_key' ), array( 'label_for' => 'tack_quotes_api_key' ) );
+		$this->field( 'connection', 'tack_quotes_connection', 'tack_quotes_api_url', __( 'API URL', 'tackquote' ), array( $this, 'field_api_url' ) );
+
+		// ── Storefront: how customers buy ───────────────────────────────────────
+		$this->setting( 'storefront', Tack_Catalog_Mode::OPT_MODE, array( $this, 'sanitize_store_mode' ) );
+		$this->setting( 'storefront', Tack_Catalog_Mode::OPT_SCOPE, array( $this, 'sanitize_scope' ) );
+		$this->setting( 'storefront', Tack_Catalog_Mode::OPT_ROLES, array( $this, 'sanitize_roles' ) );
+		$this->setting( 'storefront', Tack_Catalog_Mode::OPT_HIDE_PRICE, $checkbox );
+		$this->setting( 'storefront', Tack_Catalog_Mode::OPT_PRICE_TEXT, 'sanitize_text_field' );
+
+		$this->section( 'storefront', 'tack_quotes_store_mode', __( 'How customers buy', 'tackquote' ), array( $this, 'section_store_mode' ) );
+		$this->field( 'storefront', 'tack_quotes_store_mode', Tack_Catalog_Mode::OPT_MODE, __( 'Store mode', 'tackquote' ), array( $this, 'field_store_mode' ) );
+		$this->field( 'storefront', 'tack_quotes_store_mode', Tack_Catalog_Mode::OPT_SCOPE, __( 'Applies to', 'tackquote' ), array( $this, 'field_quote_only_scope' ) );
+		$this->field( 'storefront', 'tack_quotes_store_mode', Tack_Catalog_Mode::OPT_HIDE_PRICE, __( 'Prices', 'tackquote' ), array( $this, 'field_hide_prices' ) );
+
+		// ── Storefront: buttons ─────────────────────────────────────────────────
+		$this->setting( 'storefront', 'tack_quotes_enable_widget', $checkbox );
+		$this->setting( 'storefront', 'tack_quotes_show_add_to_quote', $checkbox );
+		$this->setting( 'storefront', 'tack_quotes_show_request_quote', $checkbox );
+		$this->setting( 'storefront', 'tack_quotes_button_label', array( $this, 'sanitize_button_label' ) );
+		$this->setting( 'storefront', 'tack_quotes_request_button_label', array( $this, 'sanitize_button_label' ) );
+		$this->setting( 'storefront', 'tack_quotes_checkout_button_label', array( $this, 'sanitize_button_label' ) );
+
+		$this->section( 'storefront', 'tack_quotes_storefront', __( 'Buttons', 'tackquote' ), array( $this, 'section_storefront' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront', 'tack_quotes_enable_widget', __( 'Quote buttons', 'tackquote' ), array( $this, 'field_enable_widget' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront', 'tack_quotes_pdp_buttons', __( 'Product page', 'tackquote' ), array( $this, 'field_pdp_buttons' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront', 'tack_quotes_button_label', __( '"Add to Quote" label', 'tackquote' ), array( $this, 'field_button_label' ), array( 'label_for' => 'tack_quotes_button_label' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront', 'tack_quotes_request_button_label', __( '"Request a Quote" label', 'tackquote' ), array( $this, 'field_request_button_label' ), array( 'label_for' => 'tack_quotes_request_button_label' ) );
+
+		// ── Storefront: card/cart buttons, quote list, launcher, quote page ─────
+		$this->register_storefront_layout_settings();
+
+		// ── B2B pricing ─────────────────────────────────────────────────────────
+		$this->setting( 'pricing', Tack_Wholesale_Pricing::OPTION_ENABLED, $checkbox );
+		$this->setting( 'pricing', Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, $checkbox );
+		$this->setting( 'pricing', Tack_B2B_Notices::OPTION_ORDER_LIMITS, $checkbox );
+		$this->setting( 'pricing', Tack_B2B_Notices::OPTION_BUYER_GROUP, $checkbox );
+		$this->setting( 'pricing', Tack_Tax_Exempt::OPTION_ENABLED, array( $this, 'sanitize_storefront_forms_checkbox' ) );
+
+		$this->section( 'pricing', 'tack_quotes_b2b_pricing', __( 'B2B pricing', 'tackquote' ), array( $this, 'section_b2b_pricing' ) );
+		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Wholesale_Pricing::OPTION_ENABLED, __( 'TackQuote prices', 'tackquote' ), array( $this, 'field_enable_wholesale_pricing' ) );
+		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, __( 'Volume pricing table', 'tackquote' ), array( $this, 'field_show_quantity_breaks' ) );
+		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_B2B_Notices::OPTION_ORDER_LIMITS, __( 'Order limits', 'tackquote' ), array( $this, 'field_enable_order_limits' ) );
+		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_B2B_Notices::OPTION_BUYER_GROUP, __( 'Buyer group badge', 'tackquote' ), array( $this, 'field_enable_buyer_group' ) );
+		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ), array( $this, 'field_apply_tax_exempt' ) );
+
+		// ── Buyer groups: codes and checkout restrictions ───────────────────────
+		$this->setting( 'groups', self::OPTION_GROUP_CODES, array( $this, 'sanitize_group_codes' ) );
+		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_ENABLED, $checkbox );
 
 		/*
 		 * One sanitizer per map rather than one shared callback, because
@@ -110,122 +333,32 @@ class Tack_Settings {
 		 * sanitizing. Both maps need that name, to read the currently stored rules
 		 * back and merge onto them, so each gets a thin wrapper that supplies it.
 		 */
-		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_PAYMENT_MAP, array( 'sanitize_callback' => array( $this, 'sanitize_payment_group_map' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_SHIPPING_MAP, array( 'sanitize_callback' => array( $this, 'sanitize_shipping_group_map' ) ) );
+		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_PAYMENT_MAP, array( $this, 'sanitize_payment_group_map' ) );
+		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_SHIPPING_MAP, array( $this, 'sanitize_shipping_group_map' ) );
 
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_MODE, array( 'sanitize_callback' => array( $this, 'sanitize_store_mode' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_SCOPE, array( 'sanitize_callback' => array( $this, 'sanitize_scope' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_ROLES, array( 'sanitize_callback' => array( $this, 'sanitize_roles' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_HIDE_PRICE, array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Mode::OPT_PRICE_TEXT, array( 'sanitize_callback' => 'sanitize_text_field' ) );
+		$this->section( 'groups', 'tack_quotes_group_rules', __( 'Buyer groups and checkout restrictions', 'tackquote' ), array( $this, 'section_group_rules' ) );
+		$this->field( 'groups', 'tack_quotes_group_rules', self::OPTION_GROUP_CODES, __( 'Your buyer group codes', 'tackquote' ), array( $this, 'field_group_codes' ), array( 'label_for' => self::OPTION_GROUP_CODES ) );
+		$this->field( 'groups', 'tack_quotes_group_rules', Tack_Group_Restrictions::OPTION_ENABLED, __( 'Restrict methods by group', 'tackquote' ), array( $this, 'field_enable_group_restrictions' ) );
+		$this->field( 'groups', 'tack_quotes_group_rules', Tack_Group_Restrictions::OPTION_PAYMENT_MAP, __( 'Payment methods', 'tackquote' ), array( $this, 'field_payment_group_map' ) );
+		$this->field( 'groups', 'tack_quotes_group_rules', Tack_Group_Restrictions::OPTION_SHIPPING_MAP, __( 'Shipping methods', 'tackquote' ), array( $this, 'field_shipping_group_map' ) );
 
-		// ── BEGIN Storefront forms (W1-forms) ──────────────────────────────────
-		register_setting( self::OPTION_GROUP, Tack_Storefront_Forms::OPTION_FORM_SLUG, array( 'sanitize_callback' => array( $this, 'sanitize_form_slug' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, array( 'sanitize_callback' => array( $this, 'sanitize_storefront_forms_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, array( 'sanitize_callback' => array( $this, 'sanitize_storefront_forms_checkbox' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Tax_Exempt::OPTION_ENABLED, array( 'sanitize_callback' => array( $this, 'sanitize_storefront_forms_checkbox' ) ) );
-		// ── END Storefront forms ──────────────────────────────────────────────
-
-		/*
-		 * ── SECTION ORDER IS THE INSTRUCTIONS ────────────────────────────────
-		 *
-		 * `do_settings_sections()` renders sections in the order they are
-		 * registered here (WordPress stores them in an insertion-ordered array
-		 * keyed by id and simply foreaches it), so this list IS the order a
-		 * merchant reads the page in. They are therefore ordered as a setup
-		 * sequence, each step depending only on the ones above it:
-		 *
-		 *   1 Connect      nothing else in the plugin works without a key
-		 *   2 How to buy   the store-wide decision that frames everything below
-		 *   3 Buttons      what a shopper actually sees
-		 *   4 Order sync   independent of B2B, and off by default
-		 *   5 B2B pricing  needs a key AND a TackQuote plan with B2B pricing
-		 *   6 Buyer group rules  needs a key, and needs groups to exist first
-		 *
-		 * Steps 5 and 6 were one section until 1.8.0. Seven controls sat under
-		 * a single "B2B pricing" heading, of which the last three were about
-		 * hiding checkout methods and had nothing to do with pricing. Splitting
-		 * them is most of what makes this page readable.
-		 */
-		add_settings_section(
-			'tack_quotes_connection',
-			__( '1. Connect to TackQuote', 'tackquote' ),
-			array( $this, 'section_connection' ),
-			self::PAGE_SLUG
-		);
-		add_settings_section(
-			'tack_quotes_store_mode',
-			__( '2. How customers buy', 'tackquote' ),
-			array( $this, 'section_store_mode' ),
-			self::PAGE_SLUG
-		);
-		add_settings_section(
-			'tack_quotes_storefront',
-			__( '3. Quote buttons on your storefront', 'tackquote' ),
-			array( $this, 'section_storefront' ),
-			self::PAGE_SLUG
-		);
-		add_settings_section(
-			'tack_quotes_sync',
-			__( '4. Order sync', 'tackquote' ),
-			array( $this, 'section_sync' ),
-			self::PAGE_SLUG
-		);
-		add_settings_section(
-			'tack_quotes_b2b_pricing',
-			__( '5. B2B pricing', 'tackquote' ),
-			array( $this, 'section_b2b_pricing' ),
-			self::PAGE_SLUG
-		);
-		add_settings_section(
-			'tack_quotes_group_rules',
-			__( '6. Buyer groups and checkout restrictions', 'tackquote' ),
-			array( $this, 'section_group_rules' ),
-			self::PAGE_SLUG
-		);
-		// ── BEGIN Storefront forms (W1-forms) ──────────────────────────────────
-		add_settings_section(
-			'tack_quotes_storefront_forms',
-			__( '7. Storefront forms', 'tackquote' ),
-			array( $this, 'section_storefront_forms' ),
-			self::PAGE_SLUG
-		);
-		add_settings_field( Tack_Storefront_Forms::OPTION_FORM_SLUG, __( 'Wholesale form', 'tackquote' ), array( $this, 'field_wholesale_form_slug' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
-		add_settings_field( Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, __( '"Wholesale account" tab', 'tackquote' ), array( $this, 'field_enable_wholesale_tab' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
-		add_settings_field( Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, __( '"Net terms" tab', 'tackquote' ), array( $this, 'field_enable_net_terms_tab' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
-		add_settings_field( Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ), array( $this, 'field_apply_tax_exempt' ), self::PAGE_SLUG, 'tack_quotes_storefront_forms' );
-		// ── END Storefront forms ──────────────────────────────────────────────
-
-		add_settings_field( 'tack_quotes_api_key', __( 'TackQuote API Key', 'tackquote' ), array( $this, 'field_api_key' ), self::PAGE_SLUG, 'tack_quotes_connection' );
-		add_settings_field( 'tack_quotes_api_url', __( 'TackQuote API URL', 'tackquote' ), array( $this, 'field_api_url' ), self::PAGE_SLUG, 'tack_quotes_connection' );
-
-		add_settings_field( Tack_Catalog_Mode::OPT_MODE, __( 'How customers buy', 'tackquote' ), array( $this, 'field_store_mode' ), self::PAGE_SLUG, 'tack_quotes_store_mode' );
-		add_settings_field( Tack_Catalog_Mode::OPT_SCOPE, __( 'Applies to', 'tackquote' ), array( $this, 'field_quote_only_scope' ), self::PAGE_SLUG, 'tack_quotes_store_mode' );
-		add_settings_field( Tack_Catalog_Mode::OPT_HIDE_PRICE, __( 'Prices', 'tackquote' ), array( $this, 'field_hide_prices' ), self::PAGE_SLUG, 'tack_quotes_store_mode' );
-
-		add_settings_field( 'tack_quotes_enable_widget', __( 'Show quote buttons', 'tackquote' ), array( $this, 'field_enable_widget' ), self::PAGE_SLUG, 'tack_quotes_storefront' );
-		add_settings_field( 'tack_quotes_pdp_buttons', __( 'Product page buttons', 'tackquote' ), array( $this, 'field_pdp_buttons' ), self::PAGE_SLUG, 'tack_quotes_storefront' );
-		add_settings_field( 'tack_quotes_button_label', __( '"Add to Quote" button label (product page)', 'tackquote' ), array( $this, 'field_button_label' ), self::PAGE_SLUG, 'tack_quotes_storefront' );
-		add_settings_field( 'tack_quotes_request_button_label', __( '"Request a Quote" button label (product page)', 'tackquote' ), array( $this, 'field_request_button_label' ), self::PAGE_SLUG, 'tack_quotes_storefront' );
-		add_settings_field( 'tack_quotes_checkout_button_label', __( '"Checkout as Quote" button label (quote list)', 'tackquote' ), array( $this, 'field_checkout_button_label' ), self::PAGE_SLUG, 'tack_quotes_storefront' );
-
-		add_settings_field( 'tack_quotes_enable_order_sync', __( 'Sync orders to TackQuote', 'tackquote' ), array( $this, 'field_enable_order_sync' ), self::PAGE_SLUG, 'tack_quotes_sync' );
-
-		add_settings_field( Tack_Wholesale_Pricing::OPTION_ENABLED, __( 'Use TackQuote prices', 'tackquote' ), array( $this, 'field_enable_wholesale_pricing' ), self::PAGE_SLUG, 'tack_quotes_b2b_pricing' );
-		add_settings_field( Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, __( 'Show volume pricing table', 'tackquote' ), array( $this, 'field_show_quantity_breaks' ), self::PAGE_SLUG, 'tack_quotes_b2b_pricing' );
-		add_settings_field( Tack_B2B_Notices::OPTION_ORDER_LIMITS, __( 'Enforce order limits', 'tackquote' ), array( $this, 'field_enable_order_limits' ), self::PAGE_SLUG, 'tack_quotes_b2b_pricing' );
-		add_settings_field( Tack_B2B_Notices::OPTION_BUYER_GROUP, __( 'Show buyer group', 'tackquote' ), array( $this, 'field_enable_buyer_group' ), self::PAGE_SLUG, 'tack_quotes_b2b_pricing' );
-
-		add_settings_field( Tack_Group_Restrictions::OPTION_ENABLED, __( 'Restrict methods by group', 'tackquote' ), array( $this, 'field_enable_group_restrictions' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
-		add_settings_field( self::OPTION_GROUP_CODES, __( 'Your buyer group codes', 'tackquote' ), array( $this, 'field_group_codes' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
-		add_settings_field( Tack_Group_Restrictions::OPTION_PAYMENT_MAP, __( 'Payment methods', 'tackquote' ), array( $this, 'field_payment_group_map' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
-		add_settings_field( Tack_Group_Restrictions::OPTION_SHIPPING_MAP, __( 'Shipping methods', 'tackquote' ), array( $this, 'field_shipping_group_map' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
-
-		// 8. Quote buttons and launcher (1.9.0).
-		$this->register_storefront_layout_settings();
-
-		// 9. Catalogue and shipping per buyer group (1.10.0) — registered last, so it renders last.
+		// ── Buyer groups: catalogue, shipping discounts, role mirror (1.10.0) ───
 		$this->register_group_catalog_settings();
+
+		// ── Forms ───────────────────────────────────────────────────────────────
+		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, array( $this, 'sanitize_form_slug' ) );
+		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, array( $this, 'sanitize_storefront_forms_checkbox' ) );
+		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, array( $this, 'sanitize_storefront_forms_checkbox' ) );
+
+		$this->section( 'forms', 'tack_quotes_storefront_forms', __( 'Storefront forms', 'tackquote' ), array( $this, 'section_storefront_forms' ) );
+		$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, __( 'Wholesale form', 'tackquote' ), array( $this, 'field_wholesale_form_slug' ), array( 'label_for' => Tack_Storefront_Forms::OPTION_FORM_SLUG ) );
+		$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, __( '"Wholesale account" tab', 'tackquote' ), array( $this, 'field_enable_wholesale_tab' ) );
+		$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, __( '"Net terms" tab', 'tackquote' ), array( $this, 'field_enable_net_terms_tab' ) );
+
+		// ── Order sync ──────────────────────────────────────────────────────────
+		$this->setting( 'sync', 'tack_quotes_enable_order_sync', $checkbox );
+		$this->section( 'sync', 'tack_quotes_sync', __( 'Order sync', 'tackquote' ), array( $this, 'section_sync' ) );
+		$this->field( 'sync', 'tack_quotes_sync', 'tack_quotes_enable_order_sync', __( 'Sync orders to TackQuote', 'tackquote' ), array( $this, 'field_enable_order_sync' ) );
 	}
 
 	// ── Sanitizers ────────────────────────────────────────────────────────────
@@ -643,21 +776,107 @@ class Tack_Settings {
 		return ( 'yes' === $value || '1' === $value || 'on' === $value || true === $value ) ? 'yes' : 'no';
 	}
 
+	// ── Presentation helpers ──────────────────────────────────────────────────
+
+	/**
+	 * One short sentence of help under a field, plus an optional "Learn more"
+	 * disclosure holding the full explanation.
+	 *
+	 * The long explanations are kept word for word inside the disclosure: several of
+	 * them are safety statements (fail-closed behaviour, what data leaves the store),
+	 * and shortening the page must not drop a single one of those facts.
+	 *
+	 * @param string          $text Short help, already translated.
+	 * @param string|string[] $more Optional longer paragraphs, already translated.
+	 */
+	private function help( $text, $more = array() ) {
+		echo '<p class="description">' . esc_html( $text ) . '</p>';
+		$this->learn_more( $more );
+	}
+
+	/**
+	 * A native `<details>` disclosure: keyboard operable, announced by screen
+	 * readers, and readable with JavaScript off.
+	 *
+	 * @param string|string[] $more    Paragraphs, already translated.
+	 * @param string          $summary Optional summary text.
+	 */
+	private function learn_more( $more, $summary = '' ) {
+		$more = array_filter( (array) $more, 'strlen' );
+		if ( empty( $more ) ) {
+			return;
+		}
+		echo '<details class="tack-more"><summary>' . esc_html( '' !== $summary ? $summary : __( 'Learn more', 'tackquote' ) ) . '</summary>';
+		foreach ( $more as $paragraph ) {
+			echo '<p>' . esc_html( $paragraph ) . '</p>';
+		}
+		echo '</details>';
+	}
+
+	/**
+	 * Mark the current form-table ROW as shown only while a controller has one of
+	 * the given values. Rendered as an inert marker inside the row; tack-admin.js
+	 * hides the enclosing `<tr>`. With JavaScript off every row stays visible, and a
+	 * hidden row's inputs are still submitted, so hiding never changes what is saved.
+	 *
+	 * @param string          $controller Option name of the controlling input.
+	 * @param string|string[] $values     Values that show the row ('yes' = ticked).
+	 */
+	private function show_row_when( $controller, $values ) {
+		printf(
+			'<span class="tack-when tack-when--row" data-tack-when="%1$s" data-tack-when-value="%2$s" hidden></span>',
+			esc_attr( $controller ),
+			esc_attr( implode( ' ', (array) $values ) )
+		);
+	}
+
+	/**
+	 * Open a block shown only while a controller has one of the given values.
+	 *
+	 * @param string          $controller Option name of the controlling input.
+	 * @param string|string[] $values     Values that show the block.
+	 * @param string          $extra_class Extra class.
+	 */
+	private function open_when( $controller, $values, $extra_class = '' ) {
+		printf(
+			'<div class="tack-when %3$s" data-tack-when="%1$s" data-tack-when-value="%2$s">',
+			esc_attr( $controller ),
+			esc_attr( implode( ' ', (array) $values ) ),
+			esc_attr( $extra_class )
+		);
+	}
+
+	/**
+	 * A status pill. Always carries a text label: colour is never the only signal.
+	 *
+	 * @param string $state ok | off | warn | error.
+	 * @param string $label Visible text, already translated.
+	 */
+	private function pill( $state, $label ) {
+		printf( '<span class="tack-pill tack-pill--%1$s">%2$s</span>', esc_attr( $state ), esc_html( $label ) );
+	}
+
 	// ── Section intros ────────────────────────────────────────────────────────
 
 	/**
 	 * Intro copy for the Connection section.
 	 */
 	public function section_connection() {
-		echo '<p>' . esc_html__( 'Start here. Connect this WooCommerce store to your TackQuote account: create an API key in TackQuote under Settings → Developer → API Keys, paste it below, save, then use "Test TackQuote connection" at the bottom of this page.', 'tackquote' ) . '</p>';
-		echo '<p class="description">' . esc_html__( 'Quote requests, order sync and everything in steps 5 and 6 need this key. The quote buttons in steps 2 and 3 can be set up first, but a shopper who presses one before the store is connected gets an error.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'Paste an API key from TackQuote (Settings → Developer → API Keys), save, then test the connection.', 'tackquote' ) . '</p>';
+		$this->learn_more(
+			array(
+				__( 'Quote requests, order sync and everything on the B2B pricing and Buyer groups tabs need this key. The Storefront tab can be set up first, but a shopper who presses a quote button before the store is connected gets an error.', 'tackquote' ),
+				__( 'The test uses an unscoped route, so it passes for any valid key. Quote requests need the quotes:write scope and order sync needs orders:write.', 'tackquote' ),
+			)
+		);
 	}
 
 	/**
 	 * Intro copy for the storefront-buttons section.
 	 */
 	public function section_storefront() {
-		echo '<p>' . esc_html__( 'A floating “quote list” — separate from the WooCommerce cart — appears once a shopper adds a product, letting them review it and click “Checkout as Quote” to submit everything as one TackQuote request. On product pages, choose below whether shoppers see “Add to Quote” (adds the product to that quote list — never the WooCommerce cart, so it never touches stock or checkout), “Request a Quote” (submits a quote for just that product immediately), both, or neither.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'Which quote buttons shoppers see on product pages.', 'tackquote' ) . '</p>';
+		$this->learn_more( __( 'A floating “quote list” — separate from the WooCommerce cart — appears once a shopper adds a product, letting them review it and click “Checkout as Quote” to submit everything as one TackQuote request. On product pages, choose below whether shoppers see “Add to Quote” (adds the product to that quote list — never the WooCommerce cart, so it never touches stock or checkout), “Request a Quote” (submits a quote for just that product immediately), both, or neither.', 'tackquote' ) );
 	}
 
 	/**
@@ -665,8 +884,15 @@ class Tack_Settings {
 	 */
 	public function section_sync() {
 		echo '<p>' . esc_html__( 'Off by default. When enabled, this plugin pushes order data one-way to TackQuote when an order is created or its status changes. It does not import orders, sync the product catalog, or update inventory.', 'tackquote' ) . '</p>';
-		echo '<p>' . esc_html__( 'Each push is queued and sent on a background request through WooCommerce\'s Action Scheduler, so it never blocks checkout — queued jobs are visible under WooCommerce → Status → Scheduled Actions, and failures are logged under WooCommerce → Status → Logs (source: tackquote).', 'tackquote' ) . '</p>';
-		echo '<p>' . esc_html__( 'Personal data leaves your store when this is on. Each order sends the whole order: the buyer\'s full billing and shipping addresses, email address and phone numbers, their WooCommerce customer ID and order note, the order number and ID, status, currency, subtotal, discount, shipping, tax and total, coupon codes, the created/modified/paid/completed dates, the payment method and the payment gateway\'s transaction reference, and every line item with its name, SKU, product and variation IDs, quantity, subtotal, total, tax and item meta (for example “Size: Large”). No card numbers, card details or gateway credentials are ever sent.', 'tackquote' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Personal data leaves your store when this is on.', 'tackquote' ) . '</p>';
+		$this->learn_more(
+			__( 'Personal data leaves your store when this is on. Each order sends the whole order: the buyer\'s full billing and shipping addresses, email address and phone numbers, their WooCommerce customer ID and order note, the order number and ID, status, currency, subtotal, discount, shipping, tax and total, coupon codes, the created/modified/paid/completed dates, the payment method and the payment gateway\'s transaction reference, and every line item with its name, SKU, product and variation IDs, quantity, subtotal, total, tax and item meta (for example “Size: Large”). No card numbers, card details or gateway credentials are ever sent.', 'tackquote' ),
+			__( 'What data is sent', 'tackquote' )
+		);
+		$this->learn_more(
+			__( 'Each push is queued and sent on a background request through WooCommerce\'s Action Scheduler, so it never blocks checkout — queued jobs are visible under WooCommerce → Status → Scheduled Actions, and failures are logged under WooCommerce → Status → Logs (source: tackquote).', 'tackquote' ),
+			__( 'How sending works', 'tackquote' )
+		);
 	}
 
 	// ── Field renderers (escape all output) ─────────────────────────────────────
@@ -675,7 +901,7 @@ class Tack_Settings {
 	 * Intro copy for the Store mode section.
 	 */
 	public function section_store_mode() {
-		echo '<p class="description">' . esc_html__( 'Choose whether this is a normal shop that also takes quotes, or a B2B catalogue where every order starts as a quote.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'Choose whether this is a normal shop that also takes quotes, or a B2B catalogue where every order starts as a quote.', 'tackquote' ) . '</p>';
 	}
 
 	/**
@@ -697,10 +923,10 @@ class Tack_Settings {
 			),
 		);
 
-		echo '<fieldset class="tack-store-mode">';
+		echo '<fieldset class="tack-choices"><legend class="screen-reader-text">' . esc_html__( 'Store mode', 'tackquote' ) . '</legend>';
 		foreach ( $choices as $value => $choice ) {
 			printf(
-				'<label style="display:block;margin-bottom:.75em;"><input type="radio" name="%1$s" value="%2$s" %3$s /> <strong>%4$s</strong><br /><span class="description" style="margin-left:1.9em;display:block;">%5$s</span></label>',
+				'<label class="tack-choice"><input type="radio" name="%1$s" value="%2$s" %3$s /> <span class="tack-choice__text"><strong>%4$s</strong><span class="description">%5$s</span></span></label>',
 				esc_attr( Tack_Catalog_Mode::OPT_MODE ),
 				esc_attr( $value ),
 				checked( $mode, $value, false ),
@@ -722,6 +948,7 @@ class Tack_Settings {
 	 * the public sees a catalogue, approved trade customers keep a real cart.
 	 */
 	public function field_quote_only_scope() {
+		$this->show_row_when( Tack_Catalog_Mode::OPT_MODE, Tack_Catalog_Mode::MODE_QUOTE_ONLY );
 		$scope = get_option( Tack_Catalog_Mode::OPT_SCOPE, Tack_Catalog_Mode::SCOPE_EVERYONE );
 
 		$choices = array(
@@ -730,13 +957,13 @@ class Tack_Settings {
 			Tack_Catalog_Mode::SCOPE_ROLES      => __( 'Only the roles I choose below', 'tackquote' ),
 			// 1.9.0: the price gate. Needs the API key; TackQuote answers whether the signed-in
 			// buyer's wholesale application is approved (GET /storefront/v1/price-access).
-			Tack_Catalog_Mode::SCOPE_UNAPPROVED => __( 'Everyone except approved wholesale accounts — a signed-in customer whose wholesale application TackQuote has approved keeps a normal cart (needs the API key; if TackQuote cannot be reached, the catalogue is shown)', 'tackquote' ),
+			Tack_Catalog_Mode::SCOPE_UNAPPROVED => __( 'Everyone except approved wholesale accounts', 'tackquote' ),
 		);
 
-		echo '<fieldset>';
+		echo '<fieldset class="tack-choices"><legend class="screen-reader-text">' . esc_html__( 'Applies to', 'tackquote' ) . '</legend>';
 		foreach ( $choices as $value => $label ) {
 			printf(
-				'<label style="display:block;margin-bottom:.4em;"><input type="radio" name="%1$s" value="%2$s" %3$s /> %4$s</label>',
+				'<label class="tack-choice tack-choice--compact"><input type="radio" name="%1$s" value="%2$s" %3$s /> <span class="tack-choice__text">%4$s</span></label>',
 				esc_attr( Tack_Catalog_Mode::OPT_SCOPE ),
 				esc_attr( $value ),
 				checked( $scope, $value, false ),
@@ -747,16 +974,16 @@ class Tack_Settings {
 		$selected = (array) get_option( Tack_Catalog_Mode::OPT_ROLES, array() );
 		$roles    = function_exists( 'wp_roles' ) ? wp_roles()->get_names() : array();
 
-		echo '<div style="margin:.6em 0 0 1.9em;">';
+		$this->open_when( Tack_Catalog_Mode::OPT_SCOPE, Tack_Catalog_Mode::SCOPE_ROLES, 'tack-indent tack-checklist' );
 		printf(
-			'<label style="display:block;"><input type="checkbox" name="%1$s[]" value="guest" %2$s /> %3$s</label>',
+			'<label><input type="checkbox" name="%1$s[]" value="guest" %2$s /> %3$s</label>',
 			esc_attr( Tack_Catalog_Mode::OPT_ROLES ),
 			checked( in_array( 'guest', $selected, true ), true, false ),
 			esc_html__( 'Signed-out visitors', 'tackquote' )
 		);
 		foreach ( $roles as $slug => $name ) {
 			printf(
-				'<label style="display:block;"><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> %4$s</label>',
+				'<label><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> %4$s</label>',
 				esc_attr( Tack_Catalog_Mode::OPT_ROLES ),
 				esc_attr( $slug ),
 				checked( in_array( $slug, $selected, true ), true, false ),
@@ -765,24 +992,31 @@ class Tack_Settings {
 		}
 		echo '</div>';
 		echo '</fieldset>';
-		echo '<p class="description">' . esc_html__( 'Only used when "Quote only" is selected above.', 'tackquote' ) . '</p>';
+		$this->help(
+			__( 'Only used when "Quote only" is selected above.', 'tackquote' ),
+			__( 'Everyone except approved wholesale accounts — a signed-in customer whose wholesale application TackQuote has approved keeps a normal cart (needs the API key; if TackQuote cannot be reached, the catalogue is shown)', 'tackquote' )
+		);
 	}
 
 	/**
 	 * Optional "price on request".
 	 */
 	public function field_hide_prices() {
+		$this->show_row_when( Tack_Catalog_Mode::OPT_MODE, Tack_Catalog_Mode::MODE_QUOTE_ONLY );
 		$this->checkbox(
 			Tack_Catalog_Mode::OPT_HIDE_PRICE,
 			__( 'Hide prices while the store is quote-only.', 'tackquote' )
 		);
+		$this->open_when( Tack_Catalog_Mode::OPT_HIDE_PRICE, 'yes', 'tack-indent' );
 		printf(
-			'<p style="margin-top:.5em;"><input type="text" class="regular-text" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
+			'<p><label for="%1$s" class="tack-inline-label">%4$s</label> <input type="text" class="regular-text" id="%1$s" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
 			esc_attr( Tack_Catalog_Mode::OPT_PRICE_TEXT ),
 			esc_attr( (string) get_option( Tack_Catalog_Mode::OPT_PRICE_TEXT, '' ) ),
-			esc_attr__( 'Price on request', 'tackquote' )
+			esc_attr__( 'Price on request', 'tackquote' ),
+			esc_html__( 'Text instead of the price', 'tackquote' )
 		);
 		echo '<p class="description">' . esc_html__( 'Shown in place of the price. Leave blank for "Price on request".', 'tackquote' ) . '</p>';
+		echo '</div>';
 	}
 
 	/**
@@ -854,7 +1088,7 @@ class Tack_Settings {
 		$value  = (string) get_option( 'tack_quotes_api_key', '' );
 		$masked = '' !== $value ? str_repeat( '•', 8 ) . substr( $value, -4 ) : '';
 		printf(
-			'<input type="password" name="tack_quotes_api_key" value="" class="regular-text" autocomplete="new-password" placeholder="%s" />',
+			'<input type="password" id="tack_quotes_api_key" name="tack_quotes_api_key" value="" class="regular-text code" autocomplete="new-password" placeholder="%s" />',
 			esc_attr(
 				'' !== $masked
 					? __( 'Leave blank to keep the saved key', 'tackquote' )
@@ -872,14 +1106,19 @@ class Tack_Settings {
 	}
 
 	/**
-	 * The API base URL field.
+	 * The API base URL field, folded away: almost nobody should change it.
 	 */
 	public function field_api_url() {
+		$value = (string) get_option( 'tack_quotes_api_url', self::DEFAULT_API_URL );
+		$open  = ( '' !== $value && self::DEFAULT_API_URL !== $value ) ? ' open' : '';
+		echo '<details class="tack-advanced"' . esc_attr( $open ) . '><summary>' . esc_html__( 'Advanced: change the API URL', 'tackquote' ) . '</summary>';
 		printf(
-			'<input type="url" name="tack_quotes_api_url" value="%s" class="regular-text" placeholder="https://api.tackquote.com/v1" />',
-			esc_attr( (string) get_option( 'tack_quotes_api_url', self::DEFAULT_API_URL ) )
+			'<p><label for="tack_quotes_api_url" class="screen-reader-text">%2$s</label><input type="url" id="tack_quotes_api_url" name="tack_quotes_api_url" value="%1$s" class="regular-text code" placeholder="https://api.tackquote.com/v1" /></p>',
+			esc_attr( $value ),
+			esc_html__( 'API URL', 'tackquote' )
 		);
 		echo '<p class="description">' . esc_html__( 'Default is https://api.tackquote.com/v1. Change only if TackQuote support gives you a custom or staging API base URL (include the /v1 path, no trailing slash). Must use https:// — your API key and your buyers\' details are sent to this address.', 'tackquote' ) . '</p>';
+		echo '</details>';
 	}
 
 	/**
@@ -888,19 +1127,12 @@ class Tack_Settings {
 	 * product-page buttons entirely while keeping "Checkout as Quote" on cart.
 	 */
 	public function field_pdp_buttons() {
-		printf(
-			'<input type="hidden" name="tack_quotes_show_add_to_quote" value="no" />' .
-			'<label style="display:block;margin-bottom:6px;"><input type="checkbox" name="tack_quotes_show_add_to_quote" value="yes" %s /> %s</label>',
-			checked( 'yes' === get_option( 'tack_quotes_show_add_to_quote', 'yes' ), true, false ),
-			esc_html__( 'Show "Add to Quote" (adds the product to the cart)', 'tackquote' )
-		);
-		printf(
-			'<input type="hidden" name="tack_quotes_show_request_quote" value="no" />' .
-			'<label style="display:block;"><input type="checkbox" name="tack_quotes_show_request_quote" value="yes" %s /> %s</label>',
-			checked( 'yes' === get_option( 'tack_quotes_show_request_quote', 'yes' ), true, false ),
-			esc_html__( 'Show "Request a Quote" (submits a quote for just this product immediately)', 'tackquote' )
-		);
-		echo '<p class="description">' . esc_html__( 'Both can be shown at once, or either alone. If neither is checked, product pages show no quote button (the cart page\'s "Checkout as Quote" is unaffected).', 'tackquote' ) . '</p>';
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		echo '<fieldset class="tack-stack"><legend class="screen-reader-text">' . esc_html__( 'Product page', 'tackquote' ) . '</legend>';
+		$this->checkbox( 'tack_quotes_show_add_to_quote', __( 'Show "Add to Quote" (adds to the quote list)', 'tackquote' ) );
+		$this->checkbox( 'tack_quotes_show_request_quote', __( 'Show "Request a Quote" (submits a quote for just this product immediately)', 'tackquote' ) );
+		echo '</fieldset>';
+		$this->help( __( 'Both can be shown at once, or either alone. If neither is checked, product pages show no quote button (the cart page\'s "Checkout as Quote" is unaffected).', 'tackquote' ) );
 	}
 
 	/**
@@ -937,39 +1169,53 @@ class Tack_Settings {
 	}
 
 	/**
+	 * A label text input with the translated default as placeholder.
+	 *
+	 * @param string $option Label option.
+	 */
+	private function label_input( $option ) {
+		printf(
+			'<input type="text" id="%3$s" name="%3$s" value="%1$s" placeholder="%2$s" class="regular-text" />',
+			esc_attr( self::custom_label( $option ) ),
+			esc_attr( Tack_Widget::default_label( $option ) ),
+			esc_attr( $option )
+		);
+	}
+
+	/**
 	 * The "Add to Quote" button label field.
 	 */
 	public function field_button_label() {
-		printf(
-			'<input type="text" name="tack_quotes_button_label" value="%1$s" placeholder="%2$s" class="regular-text" />',
-			esc_attr( self::custom_label( 'tack_quotes_button_label' ) ),
-			esc_attr( Tack_Widget::default_label( 'tack_quotes_button_label' ) )
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->label_input( 'tack_quotes_button_label' );
+		$this->help(
+			__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ),
+			__( 'Shown next to Add to Cart on product pages. Clicking it adds the product to a separate quote list — never the WooCommerce cart — and does not submit a quote by itself.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown next to Add to Cart on product pages. Clicking it adds the product to a separate quote list — never the WooCommerce cart — and does not submit a quote by itself.', 'tackquote' ) . ' ' . esc_html__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ) . '</p>';
 	}
 
 	/**
 	 * The "Request a Quote" button label field.
 	 */
 	public function field_request_button_label() {
-		printf(
-			'<input type="text" name="tack_quotes_request_button_label" value="%1$s" placeholder="%2$s" class="regular-text" />',
-			esc_attr( self::custom_label( 'tack_quotes_request_button_label' ) ),
-			esc_attr( Tack_Widget::default_label( 'tack_quotes_request_button_label' ) )
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->label_input( 'tack_quotes_request_button_label' );
+		$this->help(
+			__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ),
+			__( 'Shown on product pages when enabled above. Clicking it immediately submits a quote request for just that product (does not add it to the cart).', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown on product pages when enabled above. Clicking it immediately submits a quote request for just that product (does not add it to the cart).', 'tackquote' ) . ' ' . esc_html__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ) . '</p>';
 	}
 
 	/**
 	 * The "Checkout as Quote" button label field.
 	 */
 	public function field_checkout_button_label() {
-		printf(
-			'<input type="text" name="tack_quotes_checkout_button_label" value="%1$s" placeholder="%2$s" class="regular-text" />',
-			esc_attr( self::custom_label( 'tack_quotes_checkout_button_label' ) ),
-			esc_attr( Tack_Widget::default_label( 'tack_quotes_checkout_button_label' ) )
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->label_input( 'tack_quotes_checkout_button_label' );
+		$this->help(
+			__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ),
+			__( 'Shown in the floating quote-list drawer (bottom-right of every page, once at least one product is added). Clicking it submits every item in the quote list as a single TackQuote quote request.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown in the floating quote-list drawer (bottom-right of every page, once at least one product is added). Clicking it submits every item in the quote list as a single TackQuote quote request.', 'tackquote' ) . ' ' . esc_html__( 'Leave blank for the default, shown in the visitor\'s language.', 'tackquote' ) . '</p>';
 	}
 
 	/**
@@ -978,22 +1224,22 @@ class Tack_Settings {
 	public function field_enable_widget() {
 		$this->checkbox(
 			'tack_quotes_enable_widget',
-			__( 'Display quote buttons on products and the floating quote-list drawer. Turn off to hide all of them at once.', 'tackquote' )
+			__( 'Show quote buttons and the floating quote list', 'tackquote' )
 		);
+		$this->help( __( 'Turn off to hide all of them at once. The options below apply only while this is on.', 'tackquote' ) );
 	}
 
 	/**
 	 * Explains what switching store prices over actually does.
 	 */
 	public function section_b2b_pricing() {
-		echo '<p>' . esc_html__(
-			'Price signed-in trade customers using their TackQuote price book, buyer group and quantity breaks — the same pricing that would appear on a quote. Prices are resolved per customer, so nothing changes for anonymous shoppers.',
-			'tackquote'
-		) . '</p>';
-		echo '<p class="description">' . esc_html__(
-			'Requires a TackQuote plan that includes B2B pricing. If your plan does not include it, or TackQuote cannot be reached, your store keeps its own prices — no product is ever left unpriced.',
-			'tackquote'
-		) . '</p>';
+		echo '<p>' . esc_html__( 'Price signed-in trade customers from TackQuote. Anonymous shoppers see your normal prices.', 'tackquote' ) . '</p>';
+		$this->learn_more(
+			array(
+				__( 'Price signed-in trade customers using their TackQuote price book, buyer group and quantity breaks — the same pricing that would appear on a quote. Prices are resolved per customer, so nothing changes for anonymous shoppers.', 'tackquote' ),
+				__( 'Requires a TackQuote plan that includes B2B pricing. If your plan does not include it, or TackQuote cannot be reached, your store keeps its own prices — no product is ever left unpriced.', 'tackquote' ),
+			)
+		);
 
 		$this->prerequisite_notice();
 	}
@@ -1006,10 +1252,7 @@ class Tack_Settings {
 			Tack_Wholesale_Pricing::OPTION_ENABLED,
 			__( 'Replace store prices with TackQuote prices for signed-in customers.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'This changes the price used at checkout, not just the price shown. Off by default.',
-			'tackquote'
-		) . '</p>';
+		$this->help( __( 'This changes the price used at checkout, not just the price shown. Off by default.', 'tackquote' ) );
 	}
 
 	/**
@@ -1020,10 +1263,7 @@ class Tack_Settings {
 			Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS,
 			__( 'Show a "Volume pricing" table on product pages.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'Only appears when the customer actually has more than one price tier for that product.',
-			'tackquote'
-		) . '</p>';
+		$this->help( __( 'Only appears when the customer actually has more than one price tier for that product.', 'tackquote' ) );
 	}
 
 	/**
@@ -1034,10 +1274,10 @@ class Tack_Settings {
 			Tack_B2B_Notices::OPTION_ORDER_LIMITS,
 			__( 'Show and enforce TackQuote minimum/maximum order quantities.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'The notice on the product page is a courtesy; the cart and checkout are what actually refuse an order that breaks a limit. If TackQuote cannot be reached, nothing is blocked — a checkout that fails on a slow API is worse than an unenforced minimum.',
-			'tackquote'
-		) . '</p>';
+		$this->help(
+			__( 'Cart and checkout refuse an order that breaks a limit.', 'tackquote' ),
+			__( 'The notice on the product page is a courtesy; the cart and checkout are what actually refuse an order that breaks a limit. If TackQuote cannot be reached, nothing is blocked — a checkout that fails on a slow API is worse than an unenforced minimum.', 'tackquote' )
+		);
 	}
 
 	/**
@@ -1048,10 +1288,24 @@ class Tack_Settings {
 			Tack_B2B_Notices::OPTION_BUYER_GROUP,
 			__( 'Show the signed-in customer which pricing group they are on.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'Without it a discounted price appears with no explanation, which reads as a pricing error rather than the negotiated rate it is.',
-			'tackquote'
-		) . '</p>';
+		$this->help(
+			__( 'Explains why a customer sees a negotiated price.', 'tackquote' ),
+			__( 'Without it a discounted price appears with no explanation, which reads as a pricing error rather than the negotiated rate it is.', 'tackquote' )
+		);
+	}
+
+	/**
+	 * The tax-exemption switch.
+	 */
+	public function field_apply_tax_exempt() {
+		$this->checkbox_default_off(
+			Tack_Tax_Exempt::OPTION_ENABLED,
+			__( 'Charge no tax to signed-in customers whose TackQuote buyer group is tax exempt.', 'tackquote' )
+		);
+		$this->help(
+			__( 'Off by default: it changes what checkout charges.', 'tackquote' ),
+			__( 'Charge no tax at checkout to signed-in customers whose TackQuote buyer group is marked tax exempt. Off by default: it changes what checkout charges.', 'tackquote' )
+		);
 	}
 
 	/**
@@ -1062,25 +1316,24 @@ class Tack_Settings {
 			Tack_Group_Restrictions::OPTION_ENABLED,
 			__( 'Limit payment and shipping methods to particular TackQuote buyer groups.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'Leave this off and the rules below are saved but ignored. A method with no groups ticked stays available to everyone either way, so switching this on changes nothing until you tick something. If a rule would remove every payment or shipping option, it is ignored and logged — a checkout nobody can complete is never the right answer to a misconfiguration.',
-			'tackquote'
-		) . '</p>';
+		$this->help(
+			__( 'While this is off, the rules below are saved but ignored.', 'tackquote' ),
+			__( 'Leave this off and the rules below are saved but ignored. A method with no groups ticked stays available to everyone either way, so switching this on changes nothing until you tick something. If a rule would remove every payment or shipping option, it is ignored and logged — a checkout nobody can complete is never the right answer to a misconfiguration.', 'tackquote' )
+		);
 	}
 
 	/**
 	 * Intro copy for the buyer-group rules section.
 	 */
 	public function section_group_rules() {
-		echo '<p>' . esc_html__(
-			'Keep a payment or shipping method for approved trade accounts only — "Net 30 is for approved accounts", "pallet delivery is for wholesale". Tick the buyer groups allowed to use each method below.',
-			'tackquote'
-		) . '</p>';
-		echo '<p class="description"><strong>' . esc_html__( 'A method with nothing ticked stays available to everyone.', 'tackquote' ) . '</strong> '
-			. esc_html__(
-				'That is the safe default and it is deliberate: if an unticked method meant "nobody", switching this feature on would remove every payment option at once. Tick a group only where you actually want to narrow who can use the method.',
-				'tackquote'
-			) . '</p>';
+		echo '<p>' . esc_html__( 'Keep a payment or shipping method for chosen buyer groups only, for example "Net 30 for approved accounts".', 'tackquote' ) . '</p>';
+		echo '<p class="description"><strong>' . esc_html__( 'A method with nothing ticked stays available to everyone.', 'tackquote' ) . '</strong></p>';
+		$this->learn_more(
+			array(
+				__( 'Keep a payment or shipping method for approved trade accounts only — "Net 30 is for approved accounts", "pallet delivery is for wholesale". Tick the buyer groups allowed to use each method below.', 'tackquote' ),
+				__( 'That is the safe default and it is deliberate: if an unticked method meant "nobody", switching this feature on would remove every payment option at once. Tick a group only where you actually want to narrow who can use the method.', 'tackquote' ),
+			)
+		);
 
 		$this->prerequisite_notice();
 	}
@@ -1098,11 +1351,13 @@ class Tack_Settings {
 		if ( '' !== (string) get_option( 'tack_quotes_api_key', '' ) ) {
 			return;
 		}
-		echo '<p class="description" style="padding:.6em .8em;border-left:4px solid #dba617;background:#fcf9e8;">'
+		echo '<div class="tack-callout tack-callout--warn"><p>'
 			. '<strong>' . esc_html__( 'Nothing in this section takes effect yet.', 'tackquote' ) . '</strong> '
-			. esc_html__( 'These settings depend on TackQuote knowing who your buyers are, and no API key is saved. Add one in step 1 above. Your settings here are still saved in the meantime.', 'tackquote' )
-			. '</p>';
+			. esc_html__( 'These settings depend on TackQuote knowing who your buyers are, and no API key is saved. Your settings here are still saved in the meantime.', 'tackquote' )
+			. ' <a href="' . esc_url( self::tab_url( 'connection' ) ) . '">' . esc_html__( 'Add an API key', 'tackquote' ) . '</a>'
+			. '</p></div>';
 	}
+
 
 	/**
 	 * Every buyer group code this store knows about.
@@ -1183,7 +1438,7 @@ class Tack_Settings {
 		$known  = $this->known_group_codes();
 
 		printf(
-			'<input type="text" name="%1$s" value="%2$s" class="regular-text" placeholder="%3$s" />',
+			'<input type="text" id="%1$s" name="%1$s" value="%2$s" class="regular-text code" placeholder="%3$s" />',
 			esc_attr( self::OPTION_GROUP_CODES ),
 			esc_attr( implode( ', ', $stored ) ),
 			// NOT translatable: an example of the VALUES typed into this box.
@@ -1192,10 +1447,10 @@ class Tack_Settings {
 			// does not have to reason about where the literal came from.
 			esc_attr( 'TIER2, TIER3' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'Separate codes with commas. Copy them from TackQuote under Buyer Groups — use the group\'s code, not its display name. Matching ignores case.',
-			'tackquote'
-		) . '</p>';
+		$this->help(
+			__( 'Separate codes with commas. The grids on this tab use them.', 'tackquote' ),
+			__( 'Separate codes with commas. Copy them from TackQuote under Buyer Groups — use the group\'s code, not its display name. Matching ignores case.', 'tackquote' )
+		);
 
 		$inherited = array_values( array_diff( $known, $stored ) );
 		if ( ! empty( $inherited ) ) {
@@ -1211,10 +1466,6 @@ class Tack_Settings {
 				$first = false;
 			}
 			echo '</p>';
-		}
-
-		if ( empty( $known ) ) {
-			echo '<p class="description">' . esc_html__( 'Add at least one code to switch the rules below from typing to ticking.', 'tackquote' ) . '</p>';
 		}
 	}
 
@@ -1368,66 +1619,75 @@ class Tack_Settings {
 
 		printf( '<input type="hidden" name="%s[mode]" value="matrix" />', esc_attr( $option ) );
 
-		echo '<table class="widefat striped" style="max-width:44em;">';
-		echo '<thead><tr><th scope="col">' . esc_html( $column ) . '</th><th scope="col">'
-			. esc_html( $copy['heading'] ) . '</th></tr></thead><tbody>';
+		if ( empty( $known ) && empty( $extra ) ) {
+			echo '<div class="tack-callout tack-callout--info"><p>' . esc_html( $copy['no_codes'] ) . '</p></div>';
+		}
+
+		/*
+		 * One column per group code, so a rule reads across a row and a group reads
+		 * down a column. Every checkbox carries an aria-label naming both the row and
+		 * the column: a screen reader user tabbing through the grid hears
+		 * "Cash on delivery: TIER2", not "checkbox, checkbox".
+		 */
+		echo '<div class="tack-table-wrap"><table class="widefat striped tack-grid">';
+		$columns = count( $extra ) + count( $known );
+		$rowspan = $columns > 0 ? ' rowspan="2"' : '';
+		echo '<thead><tr><th scope="col"' . $rowspan . ' class="tack-grid__row-head">' . esc_html( $column ) . '</th>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rowspan is one of two literals above.
+		if ( $columns > 0 ) {
+			printf( '<th scope="colgroup" colspan="%1$d" class="tack-grid__group">%2$s</th>', (int) $columns, esc_html( $copy['heading'] ) );
+		}
+		echo '<th scope="col"' . $rowspan . '>' . esc_html__( 'Result', 'tackquote' ) . '</th></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rowspan is one of two literals above.
+		if ( $columns > 0 ) {
+			echo '<tr>';
+			foreach ( $extra as $code => $label ) {
+				echo '<th scope="col" class="tack-grid__col">' . esc_html( $label ) . '</th>';
+			}
+			foreach ( $known as $code ) {
+				echo '<th scope="col" class="tack-grid__col"><code>' . esc_html( $code ) . '</code></th>';
+			}
+			echo '</tr>';
+		}
+		echo '</thead><tbody>';
 
 		foreach ( $rows as $row ) {
 			$id      = (string) $row['id'];
 			$allowed = isset( $stored[ $id ] ) ? $stored[ $id ] : array();
 
-			echo '<tr><td>';
-			echo '<strong>' . esc_html( $row['title'] ) . '</strong><br />';
+			echo '<tr><th scope="row" class="tack-grid__row-head">';
+			echo '<strong>' . esc_html( $row['title'] ) . '</strong> ';
 			echo '<code>' . esc_html( $id ) . '</code>';
 			printf( '<input type="hidden" name="%1$s[rendered][]" value="%2$s" />', esc_attr( $option ), esc_attr( $id ) );
-			echo '</td><td>';
+			echo '</th>';
 
-			if ( empty( $known ) && empty( $extra ) ) {
-				echo '<span class="description">' . esc_html( $copy['no_codes'] ) . '</span>';
-			} else {
-				foreach ( $extra as $code => $label ) {
-					printf(
-						'<label style="display:inline-block;margin:0 1em .35em 0;"><input type="checkbox" name="%1$s[groups][%2$s][]" value="%3$s" %4$s /> %5$s</label>',
-						esc_attr( $option ),
-						esc_attr( $id ),
-						esc_attr( $code ),
-						checked( in_array( $code, $allowed, true ), true, false ),
-						esc_html( $label )
-					);
-				}
-				foreach ( $known as $code ) {
-					/*
-					 * Escaped INLINE, one value at a time.
-					 *
-					 * Two earlier versions of this file got it wrong in
-					 * opposite directions: `esc_html( implode( '</code>,
-					 * <code>', $ids ) )` escapes the separators too, so the
-					 * merchant reads a literal "</code>, <code>"; and
-					 * pre-escaping with `array_map` into a variable fails
-					 * Plugin Check's EscapeOutput sniff, which cannot see
-					 * through it. Escaping at the point of output satisfies
-					 * both.
-					 */
-					printf(
-						'<label style="display:inline-block;margin:0 1em .35em 0;"><input type="checkbox" name="%1$s[groups][%2$s][]" value="%3$s" %4$s /> <code>%5$s</code></label>',
-						esc_attr( $option ),
-						esc_attr( $id ),
-						esc_attr( $code ),
-						checked( in_array( $code, $allowed, true ), true, false ),
-						esc_html( $code )
-					);
-				}
-				echo '<br /><span class="description">';
-				echo empty( $allowed )
-					? esc_html( $copy['untouched'] )
-					: esc_html( $copy['ticked'] );
-				echo '</span>';
+			foreach ( $extra as $code => $label ) {
+				printf(
+					'<td class="tack-grid__col"><input type="checkbox" name="%1$s[groups][%2$s][]" value="%3$s" %4$s aria-label="%5$s" /></td>',
+					esc_attr( $option ),
+					esc_attr( $id ),
+					esc_attr( $code ),
+					checked( in_array( $code, $allowed, true ), true, false ),
+					esc_attr( $row['title'] . ': ' . $label )
+				);
+			}
+			foreach ( $known as $code ) {
+				// Escaped at the point of output, one value at a time: pre-escaping into a
+				// variable fails Plugin Check's EscapeOutput sniff, which cannot see through it.
+				printf(
+					'<td class="tack-grid__col"><input type="checkbox" name="%1$s[groups][%2$s][]" value="%3$s" %4$s aria-label="%5$s" /></td>',
+					esc_attr( $option ),
+					esc_attr( $id ),
+					esc_attr( $code ),
+					checked( in_array( $code, $allowed, true ), true, false ),
+					esc_attr( $row['title'] . ': ' . $code )
+				);
 			}
 
-			echo '</td></tr>';
+			echo '<td class="tack-grid__state"><span class="description">';
+			echo empty( $allowed ) ? esc_html( $copy['untouched'] ) : esc_html( $copy['ticked'] );
+			echo '</span></td></tr>';
 		}
 
-		echo '</tbody></table>';
+		echo '</tbody></table></div>';
 
 		$this->render_preserved_rules_note( $rows, $stored );
 	}
@@ -1507,13 +1767,7 @@ class Tack_Settings {
 	 */
 	private function checkbox_default_off( $option, $label ) {
 		$checked = ( 'yes' === get_option( $option, 'no' ) );
-		printf(
-			'<input type="hidden" name="%1$s" value="no" />' .
-			'<label><input type="checkbox" name="%1$s" value="yes" %2$s /> %3$s</label>',
-			esc_attr( $option ),
-			checked( $checked, true, false ),
-			esc_html( $label )
-		);
+		$this->toggle( $option, $label, $checked );
 	}
 
 	/**
@@ -1524,7 +1778,7 @@ class Tack_Settings {
 			'tack_quotes_enable_order_sync',
 			__( 'Push new and updated WooCommerce orders to TackQuote (one-way).', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'Uncheck to stop outbound sync immediately. Existing quotes in TackQuote are not deleted.', 'tackquote' ) . '</p>';
+		$this->help( __( 'Uncheck to stop outbound sync immediately. Existing quotes in TackQuote are not deleted.', 'tackquote' ) );
 	}
 
 	/**
@@ -1535,9 +1789,21 @@ class Tack_Settings {
 	 */
 	private function checkbox( $option, $label ) {
 		$checked = ( 'yes' === get_option( $option, 'yes' ) );
+		$this->toggle( $option, $label, $checked );
+	}
+
+	/**
+	 * A real checkbox styled as a switch. The hidden "no" comes first, so an
+	 * unticked box still posts a value and unchecking saves.
+	 *
+	 * @param string $option  Option name.
+	 * @param string $label   Visible label.
+	 * @param bool   $checked Current state.
+	 */
+	private function toggle( $option, $label, $checked ) {
 		printf(
 			'<input type="hidden" name="%1$s" value="no" />' .
-			'<label><input type="checkbox" name="%1$s" value="yes" %2$s /> %3$s</label>',
+			'<label class="tack-toggle"><input type="checkbox" class="tack-toggle__input" name="%1$s" value="yes" %2$s /> <span class="tack-toggle__label">%3$s</span></label>',
 			esc_attr( $option ),
 			checked( $checked, true, false ),
 			esc_html( $label )
@@ -1547,11 +1813,16 @@ class Tack_Settings {
 	// ── BEGIN Storefront forms (W1-forms) ──────────────────────────────────────
 
 	/**
-	 * Section 7 intro.
+	 * Forms section intro.
 	 */
 	public function section_storefront_forms() {
-		echo '<p>' . esc_html__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is the one you design in TackQuote under Settings → Wholesale forms; the net-terms application goes to your TackQuote review queue.', 'tackquote' ) . '</p>';
-		echo '<p class="description">' . esc_html__( 'The shortcode [tackquote_wholesale_application] renders the wholesale form on any page; add slug="…" to render a different form. Both tabs below appear on My Account only when ticked. The API key needs the buyers:write scope for applications to be accepted.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'Let customers apply for a wholesale account or for net payment terms from your store.', 'tackquote' ) . '</p>';
+		$this->learn_more(
+			array(
+				__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is the one you design in TackQuote under Settings → Wholesale forms; the net-terms application goes to your TackQuote review queue.', 'tackquote' ),
+				__( 'The shortcode [tackquote_wholesale_application] renders the wholesale form on any page; add slug="…" to render a different form. Both tabs below appear on My Account only when ticked. The API key needs the buyers:write scope for applications to be accepted.', 'tackquote' ),
+			)
+		);
 	}
 
 	/**
@@ -1560,12 +1831,12 @@ class Tack_Settings {
 	public function field_wholesale_form_slug() {
 		$value = (string) get_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::DEFAULT_SLUG );
 		printf(
-			'<input type="text" class="regular-text code" name="%1$s" value="%2$s" placeholder="%3$s" />',
+			'<input type="text" class="regular-text code" id="%1$s" name="%1$s" value="%2$s" placeholder="%3$s" />',
 			esc_attr( Tack_Storefront_Forms::OPTION_FORM_SLUG ),
 			esc_attr( $value ),
 			esc_attr( Tack_Storefront_Forms::DEFAULT_SLUG )
 		);
-		echo '<p class="description">' . esc_html__( 'The form slug from TackQuote → Settings → Wholesale forms. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) . '</p>';
+		$this->help( __( 'The form slug from TackQuote → Settings → Wholesale forms. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) );
 	}
 
 	/**
@@ -1586,17 +1857,7 @@ class Tack_Settings {
 			Tack_Storefront_Forms::OPTION_NET_TERMS_TAB,
 			__( 'Add a "Net terms" tab to My Account where signed-in customers can apply to pay on account.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'To let approved buyers pay on net terms at checkout, enable "Net terms (TackQuote)" under WooCommerce → Settings → Payments.', 'tackquote' ) . '</p>';
-	}
-
-	/**
-	 * The tax-exemption switch.
-	 */
-	public function field_apply_tax_exempt() {
-		$this->checkbox_default_off(
-			Tack_Tax_Exempt::OPTION_ENABLED,
-			__( 'Charge no tax at checkout to signed-in customers whose TackQuote buyer group is marked tax exempt. Off by default: it changes what checkout charges.', 'tackquote' )
-		);
+		$this->help( __( 'To let approved buyers pay on net terms at checkout, enable "Net terms (TackQuote)" under WooCommerce → Settings → Payments.', 'tackquote' ) );
 	}
 
 	/**
@@ -1635,7 +1896,7 @@ class Tack_Settings {
 	// ── Page ────────────────────────────────────────────────────────────────────
 
 	/**
-	 * Render the settings screen.
+	 * Render the settings screen: header, tabs, then the current tab.
 	 */
 	public function render_page() {
 		// Must match add_menu()'s capability and options.php's own requirement — see the note
@@ -1643,40 +1904,121 @@ class Tack_Settings {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'tackquote' ) );
 		}
+		$tab = self::current_tab();
+		$this->maybe_handle_post_actions();
 		?>
-		<div class="wrap">
-			<h1><?php esc_html_e( 'TackQuote', 'tackquote' ); ?></h1>
-			<p class="description"><?php esc_html_e( 'TackQuote for WooCommerce — request-a-quote buttons and one-way order sync for B2B quoting.', 'tackquote' ); ?></p>
-			<?php $this->maybe_handle_post_actions(); ?>
-			<form method="post" action="options.php">
-				<?php
-				settings_fields( self::OPTION_GROUP );
-				do_settings_sections( self::PAGE_SLUG );
-				submit_button( __( 'Save TackQuote settings', 'tackquote' ) );
-				?>
-			</form>
-			<hr />
-			<h2><?php esc_html_e( 'Test connection', 'tackquote' ); ?></h2>
-			<p class="description"><?php esc_html_e( 'Uses the saved API URL and key to call TackQuote. Save settings first if you just changed them.', 'tackquote' ); ?></p>
-			<form method="post">
-				<?php wp_nonce_field( 'tack_quotes_test', 'tack_quotes_test_nonce' ); ?>
-				<input type="hidden" name="tack_quotes_action" value="test_connection" />
-				<?php submit_button( __( 'Test TackQuote connection', 'tackquote' ), 'secondary', 'submit', false ); ?>
-			</form>
-			<?php if ( '' !== (string) get_option( 'tack_quotes_api_key', '' ) ) : ?>
-				<hr />
-				<h2><?php esc_html_e( 'Remove saved API key', 'tackquote' ); ?></h2>
-				<p class="description">
-					<?php esc_html_e( 'Deletes the stored key from this site. Quote requests and order sync stop working until a new key is saved. Nothing in your TackQuote account is deleted.', 'tackquote' ); ?>
-				</p>
-				<form method="post">
-					<?php wp_nonce_field( 'tack_quotes_remove_key', 'tack_quotes_remove_key_nonce' ); ?>
-					<input type="hidden" name="tack_quotes_action" value="remove_api_key" />
-					<?php submit_button( __( 'Remove saved API key', 'tackquote' ), 'delete', 'submit', false ); ?>
-				</form>
-			<?php endif; ?>
+		<div class="wrap tack-admin">
+			<header class="tack-header">
+				<div class="tack-header__brand">
+					<img class="tack-logo" src="<?php echo esc_url( plugins_url( 'assets/images/tackquote-mark.svg', TACK_QUOTES_FILE ) ); ?>" alt="" width="40" height="40" />
+					<div>
+						<h1 class="tack-header__title"><?php esc_html_e( 'TackQuote', 'tackquote' ); ?></h1>
+						<p class="tack-header__tagline"><?php esc_html_e( 'Quotes, B2B pricing and order sync for WooCommerce.', 'tackquote' ); ?></p>
+					</div>
+				</div>
+				<div class="tack-header__meta">
+					<span class="tack-badge">
+						<?php
+						/* translators: %s: plugin version number. */
+						echo esc_html( sprintf( __( 'Version %s', 'tackquote' ), TACK_QUOTES_VERSION ) );
+						?>
+					</span>
+					<a href="<?php echo esc_url( self::DOCS_URL ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Docs', 'tackquote' ); ?><span class="screen-reader-text"> <?php esc_html_e( '(opens in a new tab)', 'tackquote' ); ?></span></a>
+				</div>
+			</header>
+			<?php // WordPress moves admin notices to just after this marker instead of into the header. ?>
+			<hr class="wp-header-end" />
+			<?php
+			// This page sits outside Settings, so WordPress does not print the "Settings
+			// saved." notice or a sanitizer's add_settings_error() on its own.
+			settings_errors();
+			$this->render_action_result();
+			$this->render_tabs( $tab );
+
+			if ( self::DEFAULT_TAB === $tab ) {
+				$this->render_overview();
+			} else {
+				$this->render_tab_form( $tab );
+			}
+			if ( 'connection' === $tab ) {
+				$this->render_connection_tools();
+			}
+			?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * The tab bar.
+	 *
+	 * @param string $current Current tab.
+	 */
+	private function render_tabs( $current ) {
+		echo '<nav class="nav-tab-wrapper tack-tabs" aria-label="' . esc_attr__( 'TackQuote settings', 'tackquote' ) . '">';
+		foreach ( self::tabs() as $slug => $label ) {
+			$active = $slug === $current;
+			printf(
+				'<a href="%1$s" class="nav-tab%2$s"%3$s>%4$s</a>',
+				esc_url( self::tab_url( $slug ) ),
+				$active ? ' nav-tab-active' : '',
+				$active ? ' aria-current="page"' : '',
+				esc_html( $label )
+			);
+		}
+		echo '</nav>';
+	}
+
+	/**
+	 * One tab's form: its own option group, its own sections, a sticky save bar.
+	 *
+	 * @param string $tab Tab slug.
+	 */
+	private function render_tab_form( $tab ) {
+		echo '<form method="post" action="options.php" class="tack-form" novalidate>';
+		settings_fields( self::option_group( $tab ) );
+		do_settings_sections( self::tab_page( $tab ) );
+		echo '<div class="tack-savebar">';
+		submit_button( __( 'Save changes', 'tackquote' ), 'primary', 'submit', false );
+		echo '</div></form>';
+	}
+
+	/**
+	 * Test connection and Remove saved API key, below the Connection form.
+	 */
+	private function render_connection_tools() {
+		echo '<div class="tack-cards tack-cards--two">';
+		echo '<section class="tack-card" aria-labelledby="tack-test-heading"><div class="tack-card__head"><h2 id="tack-test-heading">' . esc_html__( 'Test connection', 'tackquote' ) . '</h2></div>';
+		echo '<div class="tack-card__body"><p class="description">' . esc_html__( 'Uses the saved API URL and key to call TackQuote. Save settings first if you just changed them.', 'tackquote' ) . '</p>';
+		$this->test_connection_form( 'connection' );
+		echo '</div></section>';
+
+		if ( '' !== (string) get_option( 'tack_quotes_api_key', '' ) ) {
+			echo '<section class="tack-card tack-card--danger" aria-labelledby="tack-remove-heading"><div class="tack-card__head"><h2 id="tack-remove-heading">' . esc_html__( 'Remove saved API key', 'tackquote' ) . '</h2></div>';
+			echo '<div class="tack-card__body"><p class="description">' . esc_html__( 'Deletes the stored key from this site. Quote requests and order sync stop working until a new key is saved. Nothing in your TackQuote account is deleted.', 'tackquote' ) . '</p>';
+			printf(
+				'<form method="post" action="%1$s" data-tack-confirm="%2$s">',
+				esc_url( self::tab_url( 'connection' ) ),
+				esc_attr__( 'Remove the saved TackQuote API key? Quote requests and order sync stop until a new key is saved.', 'tackquote' )
+			);
+			wp_nonce_field( 'tack_quotes_remove_key', 'tack_quotes_remove_key_nonce' );
+			echo '<input type="hidden" name="tack_quotes_action" value="remove_api_key" />';
+			submit_button( __( 'Remove saved API key', 'tackquote' ), 'delete tack-button-danger', 'submit', false );
+			echo '</form></div></section>';
+		}
+		echo '</div>';
+	}
+
+	/**
+	 * The "Test TackQuote connection" button, posting back to the given tab.
+	 *
+	 * @param string $tab Tab to return to.
+	 */
+	private function test_connection_form( $tab ) {
+		printf( '<form method="post" action="%s" class="tack-inline-form">', esc_url( self::tab_url( $tab ) ) );
+		wp_nonce_field( 'tack_quotes_test', 'tack_quotes_test_nonce' );
+		echo '<input type="hidden" name="tack_quotes_action" value="test_connection" />';
+		submit_button( __( 'Test TackQuote connection', 'tackquote' ), 'secondary', 'submit', false );
+		echo '</form>';
 	}
 
 	/**
@@ -1695,7 +2037,7 @@ class Tack_Settings {
 		if ( isset( $_POST['tack_quotes_test_nonce'] )
 			&& wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['tack_quotes_test_nonce'] ) ), 'tack_quotes_test' )
 			&& 'test_connection' === sanitize_key( wp_unslash( $_POST['tack_quotes_action'] ) ) ) {
-			$this->render_test_result();
+			$this->run_connection_test();
 			return;
 		}
 
@@ -1704,72 +2046,455 @@ class Tack_Settings {
 			&& 'remove_api_key' === sanitize_key( wp_unslash( $_POST['tack_quotes_action'] ) ) ) {
 			delete_option( 'tack_quotes_api_key' );
 			delete_transient( 'tack_quotes_registration_config' );
-			echo '<div class="notice notice-success"><p>' . esc_html__( 'The saved TackQuote API key has been removed.', 'tackquote' ) . '</p></div>';
+			delete_transient( self::CONNECTION_CHECK );
+			$this->action_result = array(
+				'type'    => 'success',
+				'message' => __( 'The saved TackQuote API key has been removed.', 'tackquote' ),
+			);
 		}
 	}
 
 	/**
-	 * Call TackQuote with the saved credentials and print the outcome.
+	 * Call TackQuote with the saved credentials and remember the outcome for the
+	 * Overview, against a fingerprint of the key that was tested.
 	 */
-	private function render_test_result() {
+	private function run_connection_test() {
 		$client = new Tack_Api_Client();
 		$result = $client->test_connection();
-		if ( is_wp_error( $result ) ) {
-			echo '<div class="notice notice-error"><p>' . esc_html( $result->get_error_message() ) . '</p></div>';
-		} else {
-			echo '<div class="notice notice-success"><p>' . esc_html__( 'Connected to TackQuote successfully.', 'tackquote' ) . '</p></div>';
-		}
+		$ok     = ! is_wp_error( $result );
+
+		$this->action_result = array(
+			'type'    => $ok ? 'success' : 'error',
+			'message' => $ok ? __( 'Connected to TackQuote successfully.', 'tackquote' ) : $result->get_error_message(),
+		);
+		set_transient(
+			self::CONNECTION_CHECK,
+			array(
+				'ok'      => $ok,
+				'key'     => self::key_fingerprint( (string) get_option( 'tack_quotes_api_key', '' ) ),
+				'at'      => time(),
+				'message' => $this->action_result['message'],
+			),
+			DAY_IN_SECONDS
+		);
 	}
-	// ── 8. Quote buttons and launcher (1.9.0) ─────────────────────────────────
-	//
-	// Appended as one block: every option below is additive, OFF by default or
-	// defaulting to the 1.8.x layout, so an update changes nothing a shopper sees
-	// until the merchant chooses to.
 
 	/**
-	 * Register the storefront-layout settings and their section. Called last from
-	 * `register_settings()`, so the section is the last one a merchant reads.
+	 * Print this request's test/remove outcome as an admin notice.
+	 */
+	private function render_action_result() {
+		if ( null === $this->action_result ) {
+			return;
+		}
+		printf(
+			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
+			'success' === $this->action_result['type'] ? 'success' : 'error',
+			esc_html( $this->action_result['message'] )
+		);
+	}
+
+	/**
+	 * A one-way fingerprint, so the stored test result can tell keys apart without
+	 * holding one.
+	 *
+	 * @param string $api_key Key.
+	 * @return string
+	 */
+	private static function key_fingerprint( $api_key ) {
+		return substr( hash( 'sha256', (string) $api_key ), 0, 16 );
+	}
+
+	/**
+	 * What the Overview may truthfully say about the connection.
+	 *
+	 * States:
+	 *   none      no key is saved. NEVER reported as connected.
+	 *   ok        the last test passed, for the key saved now.
+	 *   failed    the last test failed, for the key saved now.
+	 *   untested  a key is saved but has not been tested (or a different key was).
+	 *
+	 * @return array{state:string,checked_at:int,message:string}
+	 */
+	public static function connection_status() {
+		$key = (string) get_option( 'tack_quotes_api_key', '' );
+		if ( '' === $key ) {
+			return array(
+				'state'      => 'none',
+				'checked_at' => 0,
+				'message'    => '',
+			);
+		}
+		$check = get_transient( self::CONNECTION_CHECK );
+		if ( ! is_array( $check ) || ( $check['key'] ?? '' ) !== self::key_fingerprint( $key ) ) {
+			return array(
+				'state'      => 'untested',
+				'checked_at' => 0,
+				'message'    => '',
+			);
+		}
+		return array(
+			'state'      => ! empty( $check['ok'] ) ? 'ok' : 'failed',
+			'checked_at' => (int) ( $check['at'] ?? 0 ),
+			'message'    => (string) ( $check['message'] ?? '' ),
+		);
+	}
+
+	// ── Overview ──────────────────────────────────────────────────────────────
+
+	/**
+	 * The Overview: a first-run checklist until the store is connected, then a card
+	 * per area with its live state and a link to the tab that configures it.
+	 */
+	private function render_overview() {
+		$status = self::connection_status();
+		if ( 'none' === $status['state'] ) {
+			$this->render_checklist();
+		}
+		echo '<div class="tack-cards">';
+		$this->card_connection( $status );
+		$this->card_storefront();
+		$this->card_sync();
+		$this->card_b2b();
+		$this->card_about();
+		echo '</div>';
+	}
+
+	/**
+	 * Open a card.
+	 *
+	 * @param string $id    Heading id.
+	 * @param string $title Heading.
+	 * @param string $state Pill state, or '' for none.
+	 * @param string $label Pill label.
+	 */
+	private function card_open( $id, $title, $state = '', $label = '' ) {
+		printf( '<section class="tack-card" aria-labelledby="%1$s"><div class="tack-card__head"><h2 id="%1$s">%2$s</h2>', esc_attr( $id ), esc_html( $title ) );
+		if ( '' !== $state ) {
+			$this->pill( $state, $label );
+		}
+		echo '</div><div class="tack-card__body">';
+	}
+
+	/**
+	 * Close a card, with a "Configure" link to its tab.
+	 *
+	 * @param string $tab  Tab slug, or '' for no link.
+	 * @param string $what Accessible name of what is configured.
+	 */
+	private function card_close( $tab = '', $what = '' ) {
+		echo '</div>';
+		if ( '' !== $tab ) {
+			printf(
+				'<div class="tack-card__foot"><a class="button" href="%1$s">%2$s<span class="screen-reader-text"> %3$s</span></a></div>',
+				esc_url( self::tab_url( $tab ) ),
+				esc_html__( 'Configure', 'tackquote' ),
+				esc_html( $what )
+			);
+		}
+		echo '</section>';
+	}
+
+	/**
+	 * A definition-list row inside a card.
+	 *
+	 * @param string $term  Label.
+	 * @param string $value Value, plain text.
+	 */
+	private function card_row( $term, $value ) {
+		echo '<div class="tack-dl__row"><dt>' . esc_html( $term ) . '</dt><dd>' . esc_html( $value ) . '</dd></div>';
+	}
+
+	/**
+	 * First-run steps, shown until a key is saved.
+	 */
+	private function render_checklist() {
+		$steps = array(
+			array(
+				'done'  => false,
+				'label' => __( 'Connect your TackQuote account', 'tackquote' ),
+				'tab'   => 'connection',
+			),
+			array(
+				'done'  => null !== get_option( Tack_Catalog_Mode::OPT_MODE, null ),
+				'label' => __( 'Choose how customers buy', 'tackquote' ),
+				'tab'   => 'storefront',
+			),
+			array(
+				'done'  => 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ),
+				'label' => __( 'Turn on quote buttons', 'tackquote' ),
+				'tab'   => 'storefront',
+			),
+		);
+		echo '<section class="tack-card tack-checklist-card" aria-labelledby="tack-start-heading"><div class="tack-card__head"><h2 id="tack-start-heading">' . esc_html__( 'Get started', 'tackquote' ) . '</h2></div><div class="tack-card__body"><ol class="tack-steps">';
+		foreach ( $steps as $step ) {
+			printf(
+				'<li class="tack-step%1$s"><span class="tack-step__mark" aria-hidden="true"></span><a href="%2$s">%3$s</a> <span class="screen-reader-text">%4$s</span></li>',
+				$step['done'] ? ' is-done' : '',
+				esc_url( self::tab_url( $step['tab'] ) ),
+				esc_html( $step['label'] ),
+				esc_html( $step['done'] ? __( '(done)', 'tackquote' ) : __( '(to do)', 'tackquote' ) )
+			);
+		}
+		echo '</ol></div></section>';
+	}
+
+	/**
+	 * Connection card.
+	 *
+	 * @param array $status connection_status().
+	 */
+	private function card_connection( $status ) {
+		$labels = array(
+			'none'     => array( 'error', __( 'Not connected', 'tackquote' ) ),
+			'ok'       => array( 'ok', __( 'Connected', 'tackquote' ) ),
+			'failed'   => array( 'error', __( 'Connection failed', 'tackquote' ) ),
+			'untested' => array( 'warn', __( 'Key saved, not tested', 'tackquote' ) ),
+		);
+		$pill   = $labels[ $status['state'] ];
+		$this->card_open( 'tack-card-connection', __( 'Connection', 'tackquote' ), $pill[0], $pill[1] );
+
+		$url  = (string) get_option( 'tack_quotes_api_url', self::DEFAULT_API_URL );
+		$host = wp_parse_url( '' !== $url ? $url : self::DEFAULT_API_URL, PHP_URL_HOST );
+		$key  = (string) get_option( 'tack_quotes_api_key', '' );
+
+		echo '<dl class="tack-dl">';
+		$this->card_row( __( 'API host', 'tackquote' ), is_string( $host ) ? $host : '' );
+		$this->card_row( __( 'API key', 'tackquote' ), '' !== $key ? str_repeat( '•', 4 ) . substr( $key, -4 ) : __( 'None saved', 'tackquote' ) );
+		if ( $status['checked_at'] > 0 ) {
+			$this->card_row(
+				__( 'Last test', 'tackquote' ),
+				sprintf(
+					/* translators: %s: how long ago, e.g. "5 mins". */
+					__( '%s ago', 'tackquote' ),
+					human_time_diff( $status['checked_at'], time() )
+				)
+			);
+		}
+		echo '</dl>';
+
+		if ( 'failed' === $status['state'] && '' !== $status['message'] ) {
+			echo '<p class="description">' . esc_html( $status['message'] ) . '</p>';
+		}
+		if ( 'none' === $status['state'] ) {
+			echo '<p class="description">' . esc_html__( 'Add an API key to send quotes and orders to TackQuote.', 'tackquote' ) . '</p>';
+		} else {
+			$this->test_connection_form( 'overview' );
+			echo '<p class="description">' . esc_html__( 'The test checks the key is valid, not its scopes: quotes need quotes:write, order sync needs orders:write.', 'tackquote' ) . '</p>';
+		}
+		$this->card_close( 'connection', __( 'connection', 'tackquote' ) );
+	}
+
+	/**
+	 * Storefront card.
+	 */
+	private function card_storefront() {
+		$on         = 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' );
+		$quote_only = Tack_Catalog_Mode::MODE_QUOTE_ONLY === get_option( Tack_Catalog_Mode::OPT_MODE, Tack_Catalog_Mode::MODE_CART );
+		$this->card_open( 'tack-card-storefront', __( 'Storefront', 'tackquote' ), $on ? 'ok' : 'off', $on ? __( 'Quote buttons on', 'tackquote' ) : __( 'Quote buttons off', 'tackquote' ) );
+		echo '<dl class="tack-dl">';
+		$this->card_row( __( 'How customers buy', 'tackquote' ), $quote_only ? __( 'Quote only (B2B catalogue)', 'tackquote' ) : __( 'Shop and quotes', 'tackquote' ) );
+		$this->card_row(
+			__( 'Quote button opens', 'tackquote' ),
+			'page' === get_option( Tack_Widget::OPT_OPENS, 'drawer' ) && '' !== (string) get_option( Tack_Widget::OPT_PAGE_URL, '' )
+				? __( 'Your quote page', 'tackquote' )
+				: __( 'The quote-list drawer', 'tackquote' )
+		);
+		echo '</dl>';
+		$this->card_close( 'storefront', __( 'storefront', 'tackquote' ) );
+	}
+
+	/**
+	 * Order sync card. Shows only what the plugin actually records: the switch,
+	 * a refusal TackQuote answered (Tack_Sync_Gate), and the queue length when
+	 * Action Scheduler is present. Failed pushes are logged, not marked failed in
+	 * the queue, so no "failed" count is shown: it would always read zero.
+	 */
+	private function card_sync() {
+		$on    = 'yes' === get_option( 'tack_quotes_enable_order_sync', 'no' );
+		$block = null;
+		if ( $on && class_exists( 'Tack_Sync_Gate' ) ) {
+			$block = Tack_Sync_Gate::active_block( (string) get_option( 'tack_quotes_api_key', '' ), time() );
+		}
+		if ( ! $on ) {
+			$this->card_open( 'tack-card-sync', __( 'Order sync', 'tackquote' ), 'off', __( 'Off', 'tackquote' ) );
+		} elseif ( is_array( $block ) && 'terminal' === ( $block['kind'] ?? '' ) ) {
+			$this->card_open( 'tack-card-sync', __( 'Order sync', 'tackquote' ), 'error', __( 'Refused by TackQuote', 'tackquote' ) );
+		} elseif ( is_array( $block ) ) {
+			$this->card_open( 'tack-card-sync', __( 'Order sync', 'tackquote' ), 'warn', __( 'Paused briefly', 'tackquote' ) );
+		} else {
+			$this->card_open( 'tack-card-sync', __( 'Order sync', 'tackquote' ), 'ok', __( 'On', 'tackquote' ) );
+		}
+
+		if ( is_array( $block ) && 'terminal' === ( $block['kind'] ?? '' ) ) {
+			echo '<p class="description">' . esc_html( Tack_Sync_Gate::notice_text( $block ) ) . '</p>';
+		} elseif ( is_array( $block ) ) {
+			echo '<p class="description">' . esc_html__( 'TackQuote asked the store to slow down. Sending resumes on its own.', 'tackquote' ) . '</p>';
+		} elseif ( ! $on ) {
+			echo '<p class="description">' . esc_html__( 'Orders stay in WooCommerce only.', 'tackquote' ) . '</p>';
+		}
+
+		if ( $on && function_exists( 'as_get_scheduled_actions' ) && class_exists( 'Tack_Order_Sync' ) ) {
+			$pending = as_get_scheduled_actions(
+				array(
+					'hook'     => Tack_Order_Sync::SYNC_HOOK,
+					'group'    => Tack_Order_Sync::SYNC_GROUP,
+					'status'   => 'pending',
+					'per_page' => 100,
+				),
+				'ids'
+			);
+			$count   = is_array( $pending ) ? count( $pending ) : 0;
+			echo '<dl class="tack-dl">';
+			$this->card_row( __( 'Waiting to send', 'tackquote' ), $count >= 100 ? '100+' : (string) $count );
+			echo '</dl>';
+		}
+		if ( $on ) {
+			printf(
+				'<p class="description"><a href="%1$s">%2$s</a></p>',
+				esc_url( admin_url( 'admin.php?page=wc-status&tab=logs&source=tackquote' ) ),
+				esc_html__( 'View sync logs', 'tackquote' )
+			);
+		}
+		$this->card_close( 'sync', __( 'order sync', 'tackquote' ) );
+	}
+
+	/**
+	 * B2B features card: every switch on the pricing, groups and forms tabs.
+	 */
+	private function card_b2b() {
+		$features = array(
+			array( Tack_Wholesale_Pricing::OPTION_ENABLED, __( 'TackQuote prices', 'tackquote' ) ),
+			array( Tack_B2B_Notices::OPTION_ORDER_LIMITS, __( 'Order limits', 'tackquote' ) ),
+			array( Tack_B2B_Notices::OPTION_BUYER_GROUP, __( 'Buyer group badge', 'tackquote' ) ),
+			array( Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ) ),
+			array( Tack_Group_Restrictions::OPTION_ENABLED, __( 'Payment and shipping by group', 'tackquote' ) ),
+			array( Tack_Catalog_Visibility::OPTION_ENABLED, __( 'Hidden categories by group', 'tackquote' ) ),
+			array( Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, __( 'Shipping discounts by group', 'tackquote' ) ),
+			array( Tack_Role_Mirror::OPTION_ENABLED, __( 'WordPress role per group', 'tackquote' ) ),
+			array( Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, __( 'Wholesale account tab', 'tackquote' ) ),
+			array( Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, __( 'Net terms tab', 'tackquote' ) ),
+		);
+		$on       = 0;
+		foreach ( $features as $feature ) {
+			if ( 'yes' === get_option( $feature[0], 'no' ) ) {
+				++$on;
+			}
+		}
+		$this->card_open(
+			'tack-card-b2b',
+			__( 'B2B features', 'tackquote' ),
+			$on > 0 ? 'ok' : 'off',
+			sprintf(
+				/* translators: 1: number of features switched on, 2: number of features. */
+				__( '%1$d of %2$d on', 'tackquote' ),
+				$on,
+				count( $features )
+			)
+		);
+		echo '<ul class="tack-features">';
+		foreach ( $features as $feature ) {
+			$enabled = 'yes' === get_option( $feature[0], 'no' );
+			printf(
+				'<li class="tack-feature%1$s"><span class="tack-feature__name">%2$s</span> <span class="tack-feature__state">%3$s</span></li>',
+				$enabled ? ' is-on' : '',
+				esc_html( $feature[1] ),
+				esc_html( $enabled ? __( 'On', 'tackquote' ) : __( 'Off', 'tackquote' ) )
+			);
+		}
+		echo '</ul>';
+		if ( '' === (string) get_option( 'tack_quotes_api_key', '' ) && $on > 0 ) {
+			echo '<p class="description">' . esc_html__( 'These need an API key before they take effect.', 'tackquote' ) . '</p>';
+		}
+		echo '</div><div class="tack-card__foot">';
+		foreach ( array(
+			'pricing' => __( 'B2B pricing', 'tackquote' ),
+			'groups'  => __( 'Buyer groups', 'tackquote' ),
+			'forms'   => __( 'Forms', 'tackquote' ),
+		) as $tab => $label ) {
+			printf( '<a class="button" href="%1$s">%2$s</a> ', esc_url( self::tab_url( $tab ) ), esc_html( $label ) );
+		}
+		echo '</div></section>';
+	}
+
+	/**
+	 * About card: version and help links.
+	 */
+	private function card_about() {
+		$this->card_open( 'tack-card-about', __( 'Help', 'tackquote' ) );
+		echo '<dl class="tack-dl">';
+		$this->card_row( __( 'Plugin version', 'tackquote' ), TACK_QUOTES_VERSION );
+		echo '</dl><ul class="tack-links">';
+		printf( '<li><a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s<span class="screen-reader-text"> %3$s</span></a></li>', esc_url( self::DOCS_URL ), esc_html__( 'Setup guide', 'tackquote' ), esc_html__( '(opens in a new tab)', 'tackquote' ) );
+		printf( '<li><a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s<span class="screen-reader-text"> %3$s</span></a></li>', esc_url( self::SUPPORT_URL ), esc_html__( 'Support', 'tackquote' ), esc_html__( '(opens in a new tab)', 'tackquote' ) );
+		echo '</ul>';
+		$this->card_close();
+	}
+
+	// ── Storefront: card/cart buttons, quote list and launcher, quote page (1.9.0) ─
+	//
+	// Every option below is additive, OFF by default or defaulting to the 1.8.x
+	// layout, so an update changes nothing a shopper sees until the merchant chooses to.
+
+	/**
+	 * Register the storefront-layout settings and their sections on the Storefront tab.
 	 *
 	 * @since 1.9.0
 	 */
 	public function register_storefront_layout_settings() {
-		$checkbox = array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) );
-		$text     = array( 'sanitize_callback' => 'sanitize_text_field' );
+		$checkbox = array( $this, 'sanitize_checkbox' );
 
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_CARD_BUTTONS, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_CART_BUTTON, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_CART_BUTTON_LABEL, $text );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_OPENS, array( 'sanitize_callback' => array( $this, 'sanitize_quote_opens' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_PAGE_URL, array( 'sanitize_callback' => array( $this, 'sanitize_quote_page_url' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_POSITION, array( 'sanitize_callback' => array( $this, 'sanitize_fab_position' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_OFFSET_X, array( 'sanitize_callback' => array( $this, 'sanitize_fab_offset' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_OFFSET_Y, array( 'sanitize_callback' => array( $this, 'sanitize_fab_offset' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_PAGES, array( 'sanitize_callback' => array( $this, 'sanitize_fab_pages' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_LABEL, $text );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_ICON_ONLY, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_SHOW_COUNT, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_SIZE, array( 'sanitize_callback' => array( $this, 'sanitize_fab_size' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Widget::OPT_FAB_HIDE_MOBILE, $checkbox );
+		$this->setting( 'storefront', Tack_Widget::OPT_CARD_BUTTONS, $checkbox );
+		$this->setting( 'storefront', Tack_Widget::OPT_CART_BUTTON, $checkbox );
+		$this->setting( 'storefront', Tack_Widget::OPT_CART_BUTTON_LABEL, 'sanitize_text_field' );
+		$this->setting( 'storefront', Tack_Widget::OPT_OPENS, array( $this, 'sanitize_quote_opens' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_PAGE_URL, array( $this, 'sanitize_quote_page_url' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_POSITION, array( $this, 'sanitize_fab_position' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_OFFSET_X, array( $this, 'sanitize_fab_offset' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_OFFSET_Y, array( $this, 'sanitize_fab_offset' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_PAGES, array( $this, 'sanitize_fab_pages' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_LABEL, 'sanitize_text_field' );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_ICON_ONLY, $checkbox );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_SHOW_COUNT, $checkbox );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_SIZE, array( $this, 'sanitize_fab_size' ) );
+		$this->setting( 'storefront', Tack_Widget::OPT_FAB_HIDE_MOBILE, $checkbox );
 
-		add_settings_section(
-			'tack_quotes_storefront_layout',
-			__( '8. Quote buttons and launcher', 'tackquote' ),
-			array( $this, 'section_storefront_layout' ),
-			self::PAGE_SLUG
-		);
-		add_settings_field( Tack_Widget::OPT_CARD_BUTTONS, __( 'Product cards', 'tackquote' ), array( $this, 'field_card_buttons' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
-		add_settings_field( Tack_Widget::OPT_CART_BUTTON, __( 'Cart page', 'tackquote' ), array( $this, 'field_cart_button' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
-		add_settings_field( Tack_Widget::OPT_OPENS, __( 'Quote button opens', 'tackquote' ), array( $this, 'field_quote_opens' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
-		add_settings_field( Tack_Widget::OPT_FAB_POSITION, __( 'Floating launcher', 'tackquote' ), array( $this, 'field_fab' ), self::PAGE_SLUG, 'tack_quotes_storefront_layout' );
+		// Product cards and the cart page belong with the other buttons.
+		$this->field( 'storefront', 'tack_quotes_storefront', Tack_Widget::OPT_CARD_BUTTONS, __( 'Product cards', 'tackquote' ), array( $this, 'field_card_buttons' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront', Tack_Widget::OPT_CART_BUTTON, __( 'Cart page', 'tackquote' ), array( $this, 'field_cart_button' ) );
+
+		$this->section( 'storefront', 'tack_quotes_storefront_layout', __( 'Quote list & launcher', 'tackquote' ), array( $this, 'section_storefront_layout' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', 'tack_quotes_checkout_button_label', __( '"Checkout as Quote" label', 'tackquote' ), array( $this, 'field_checkout_button_label' ), array( 'label_for' => 'tack_quotes_checkout_button_label' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', Tack_Widget::OPT_FAB_PAGES, __( 'Show launcher on', 'tackquote' ), array( $this, 'field_fab_pages' ), array( 'label_for' => Tack_Widget::OPT_FAB_PAGES ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', Tack_Widget::OPT_FAB_POSITION, __( 'Position', 'tackquote' ), array( $this, 'field_fab_position' ), array( 'label_for' => Tack_Widget::OPT_FAB_POSITION ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', Tack_Widget::OPT_FAB_OFFSET_X, __( 'Distance from edges', 'tackquote' ), array( $this, 'field_fab_offsets' ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', Tack_Widget::OPT_FAB_LABEL, __( 'Button text', 'tackquote' ), array( $this, 'field_fab_label' ), array( 'label_for' => Tack_Widget::OPT_FAB_LABEL ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', Tack_Widget::OPT_FAB_SIZE, __( 'Size', 'tackquote' ), array( $this, 'field_fab_size' ), array( 'label_for' => Tack_Widget::OPT_FAB_SIZE ) );
+		$this->field( 'storefront', 'tack_quotes_storefront_layout', Tack_Widget::OPT_FAB_ICON_ONLY, __( 'Display', 'tackquote' ), array( $this, 'field_fab_display' ) );
+
+		$this->section( 'storefront', 'tack_quotes_quote_page', __( 'Quote page', 'tackquote' ), array( $this, 'section_quote_page' ) );
+		$this->field( 'storefront', 'tack_quotes_quote_page', Tack_Widget::OPT_OPENS, __( 'Quote button opens', 'tackquote' ), array( $this, 'field_quote_opens' ) );
 	}
 
 	/**
-	 * Intro copy for the storefront-layout section.
+	 * Intro copy for the quote list and launcher section.
 	 *
 	 * @since 1.9.0
 	 */
 	public function section_storefront_layout() {
-		echo '<p>' . esc_html__( 'Where else shoppers can start a quote, and how the floating quote-list launcher looks. Everything here is off, or set to the layout the plugin always had, until you change it. Every control uses your theme\'s own button styling.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'The floating button that opens the shopper\'s quote list. Defaults match the launcher the plugin always had.', 'tackquote' ) . '</p>';
+		$this->learn_more(
+			array(
+				__( 'Where else shoppers can start a quote, and how the floating quote-list launcher looks. Everything here is off, or set to the layout the plugin always had, until you change it. Every control uses your theme\'s own button styling.', 'tackquote' ),
+				__( 'Defaults match the launcher the plugin always had: bottom right, 20 px from each edge, "Quote list (n)", regular size, every page. On phones narrower than 480 px the launcher is always compact and sits above the device\'s home indicator.', 'tackquote' ),
+			)
+		);
+	}
+
+	/**
+	 * Intro copy for the quote page section.
+	 */
+	public function section_quote_page() {
+		echo '<p>' . esc_html__( 'Send shoppers to a full quote page instead of the drawer.', 'tackquote' ) . '</p>';
 	}
 
 	/**
@@ -1778,11 +2503,15 @@ class Tack_Settings {
 	 * @since 1.9.0
 	 */
 	public function field_card_buttons() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
 		$this->checkbox_default_off(
 			Tack_Widget::OPT_CARD_BUTTONS,
 			__( 'Show "Add to Quote" on product cards in the shop, category and search lists.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'Simple products are added to the quote list straight from the card. Variable, grouped and external products link to their page, where the shopper chooses options first. Uses the "Add to Quote" label from step 3.', 'tackquote' ) . '</p>';
+		$this->help(
+			__( 'Uses the "Add to Quote" label above.', 'tackquote' ),
+			__( 'Simple products are added to the quote list straight from the card. Variable, grouped and external products link to their page, where the shopper chooses options first.', 'tackquote' )
+		);
 	}
 
 	/**
@@ -1791,17 +2520,24 @@ class Tack_Settings {
 	 * @since 1.9.0
 	 */
 	public function field_cart_button() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
 		$this->checkbox_default_off(
 			Tack_Widget::OPT_CART_BUTTON,
 			__( 'Show "Request a quote for your cart" on the cart page.', 'tackquote' )
 		);
+		$this->open_when( Tack_Widget::OPT_CART_BUTTON, 'yes', 'tack-indent' );
 		printf(
-			'<p style="margin-top:.5em;"><input type="text" class="regular-text" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
+			'<p><label for="%1$s" class="tack-inline-label">%4$s</label> <input type="text" class="regular-text" id="%1$s" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
 			esc_attr( Tack_Widget::OPT_CART_BUTTON_LABEL ),
 			esc_attr( (string) get_option( Tack_Widget::OPT_CART_BUTTON_LABEL, '' ) ),
-			esc_attr__( 'Request a quote for your cart', 'tackquote' )
+			esc_attr__( 'Request a quote for your cart', 'tackquote' ),
+			esc_html__( 'Button label', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__( 'Shown under "Proceed to checkout" on the classic cart page and as a fixed button on the Cart block. It copies every line of the cart into the quote list; the WooCommerce cart itself is untouched. Leave the label blank for the default.', 'tackquote' ) . '</p>';
+		echo '</div>';
+		$this->help(
+			__( 'Copies the cart into the quote list; the cart itself is untouched. Leave the label blank for the default.', 'tackquote' ),
+			__( 'Shown under "Proceed to checkout" on the classic cart page and as a fixed button on the Cart block. It copies every line of the cart into the quote list; the WooCommerce cart itself is untouched. Leave the label blank for the default.', 'tackquote' )
+		);
 	}
 
 	/**
@@ -1810,61 +2546,45 @@ class Tack_Settings {
 	 * @since 1.9.0
 	 */
 	public function field_quote_opens() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
 		$opens   = (string) get_option( Tack_Widget::OPT_OPENS, 'drawer' );
 		$choices = array(
 			'drawer' => __( 'The quote-list drawer (default)', 'tackquote' ),
 			'page'   => __( 'A quote page of my own, at this address:', 'tackquote' ),
 		);
-		echo '<fieldset>';
+		echo '<fieldset class="tack-choices"><legend class="screen-reader-text">' . esc_html__( 'Quote button opens', 'tackquote' ) . '</legend>';
 		foreach ( $choices as $value => $label ) {
 			printf(
-				'<label style="display:block;margin-bottom:.4em;"><input type="radio" name="%1$s" value="%2$s" %3$s /> %4$s</label>',
+				'<label class="tack-choice tack-choice--compact"><input type="radio" name="%1$s" value="%2$s" %3$s /> <span class="tack-choice__text">%4$s</span></label>',
 				esc_attr( Tack_Widget::OPT_OPENS ),
 				esc_attr( $value ),
 				checked( $opens, $value, false ),
 				esc_html( $label )
 			);
 		}
+		$this->open_when( Tack_Widget::OPT_OPENS, 'page', 'tack-indent' );
 		printf(
-			'<p style="margin:0 0 0 1.9em;"><input type="url" class="regular-text" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
+			'<p><label for="%1$s" class="screen-reader-text">%4$s</label><input type="url" class="regular-text" id="%1$s" name="%1$s" value="%2$s" placeholder="%3$s" /></p>',
 			esc_attr( Tack_Widget::OPT_PAGE_URL ),
 			esc_attr( (string) get_option( Tack_Widget::OPT_PAGE_URL, '' ) ),
-			esc_attr( home_url( '/quote/' ) )
+			esc_attr( home_url( '/quote/' ) ),
+			esc_html__( 'Quote page address', 'tackquote' )
 		);
-		echo '</fieldset>';
-		echo '<p class="description">' . esc_html__( 'Create a page containing the shortcode [tackquote_quote_page] and paste its address here. The launcher and the card and cart buttons then open that page, where shoppers can change quantities, add a target price per line and a message before sending. Without an address the drawer is used.', 'tackquote' ) . '</p>';
+		echo '</div></fieldset>';
+		$this->help(
+			__( 'Create a page containing the shortcode [tackquote_quote_page] and paste its address here.', 'tackquote' ),
+			__( 'Create a page containing the shortcode [tackquote_quote_page] and paste its address here. The launcher and the card and cart buttons then open that page, where shoppers can change quantities, add a target price per line and a message before sending. Without an address the drawer is used.', 'tackquote' )
+		);
 	}
 
 	/**
-	 * The floating launcher: side, offsets, pages, label, icon, count, size, mobile.
-	 *
-	 * @since 1.9.0
+	 * Launcher pages.
 	 */
-	public function field_fab() {
+	public function field_fab_pages() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
 		$fab = Tack_Widget::fab_settings();
-
-		$this->select(
-			Tack_Widget::OPT_FAB_POSITION,
-			__( 'Position', 'tackquote' ),
-			array(
-				'bottom-right' => __( 'Bottom right', 'tackquote' ),
-				'bottom-left'  => __( 'Bottom left', 'tackquote' ),
-			),
-			$fab['position']
-		);
-		printf(
-			'<p style="margin:.4em 0;"><label>%1$s <input type="number" min="0" max="%4$d" step="1" name="%2$s" value="%3$d" style="width:6em;" /> px</label> &nbsp; <label>%5$s <input type="number" min="0" max="%4$d" step="1" name="%6$s" value="%7$d" style="width:6em;" /> px</label></p>',
-			esc_html__( 'Side offset', 'tackquote' ),
-			esc_attr( Tack_Widget::OPT_FAB_OFFSET_X ),
-			(int) $fab['offsetX'],
-			(int) Tack_Widget::FAB_OFFSET_MAX,
-			esc_html__( 'Bottom offset', 'tackquote' ),
-			esc_attr( Tack_Widget::OPT_FAB_OFFSET_Y ),
-			(int) $fab['offsetY']
-		);
 		$this->select(
 			Tack_Widget::OPT_FAB_PAGES,
-			__( 'Show on', 'tackquote' ),
 			array(
 				'all'     => __( 'All pages', 'tackquote' ),
 				'product' => __( 'Product pages only', 'tackquote' ),
@@ -1873,43 +2593,99 @@ class Tack_Settings {
 			),
 			$fab['pages']
 		);
+	}
+
+	/**
+	 * Launcher side.
+	 */
+	public function field_fab_position() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->show_row_when( Tack_Widget::OPT_FAB_PAGES, array( 'all', 'product', 'cart' ) );
+		$fab = Tack_Widget::fab_settings();
+		$this->select(
+			Tack_Widget::OPT_FAB_POSITION,
+			array(
+				'bottom-right' => __( 'Bottom right', 'tackquote' ),
+				'bottom-left'  => __( 'Bottom left', 'tackquote' ),
+			),
+			$fab['position']
+		);
+	}
+
+	/**
+	 * Launcher offsets.
+	 */
+	public function field_fab_offsets() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->show_row_when( Tack_Widget::OPT_FAB_PAGES, array( 'all', 'product', 'cart' ) );
+		$fab = Tack_Widget::fab_settings();
+		echo '<div class="tack-inline-fields">';
 		printf(
-			'<p style="margin:.4em 0;"><label>%1$s <input type="text" class="regular-text" name="%2$s" value="%3$s" placeholder="%4$s" /></label></p>',
-			esc_html__( 'Button text', 'tackquote' ),
+			'<label>%1$s <input type="number" class="small-text" min="0" max="%4$d" step="1" name="%2$s" value="%3$d" /> px</label> <label>%5$s <input type="number" class="small-text" min="0" max="%4$d" step="1" name="%6$s" value="%7$d" /> px</label>',
+			esc_html__( 'Side offset', 'tackquote' ),
+			esc_attr( Tack_Widget::OPT_FAB_OFFSET_X ),
+			(int) $fab['offsetX'],
+			(int) Tack_Widget::FAB_OFFSET_MAX,
+			esc_html__( 'Bottom offset', 'tackquote' ),
+			esc_attr( Tack_Widget::OPT_FAB_OFFSET_Y ),
+			(int) $fab['offsetY']
+		);
+		echo '</div>';
+	}
+
+	/**
+	 * Launcher text.
+	 */
+	public function field_fab_label() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->show_row_when( Tack_Widget::OPT_FAB_PAGES, array( 'all', 'product', 'cart' ) );
+		printf(
+			'<input type="text" class="regular-text" id="%1$s" name="%1$s" value="%2$s" placeholder="%3$s" />',
 			esc_attr( Tack_Widget::OPT_FAB_LABEL ),
 			esc_attr( (string) get_option( Tack_Widget::OPT_FAB_LABEL, '' ) ),
 			esc_attr__( 'Quote list', 'tackquote' )
 		);
-		echo '<p style="margin:.4em 0;">';
-		$this->checkbox_default_off( Tack_Widget::OPT_FAB_ICON_ONLY, __( 'Icon only (the text stays for screen readers)', 'tackquote' ) );
-		echo '</p><p style="margin:.4em 0;">';
-		$this->checkbox( Tack_Widget::OPT_FAB_SHOW_COUNT, __( 'Show item count', 'tackquote' ) );
-		echo '</p>';
+	}
+
+	/**
+	 * Launcher size.
+	 */
+	public function field_fab_size() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->show_row_when( Tack_Widget::OPT_FAB_PAGES, array( 'all', 'product', 'cart' ) );
+		$fab = Tack_Widget::fab_settings();
 		$this->select(
 			Tack_Widget::OPT_FAB_SIZE,
-			__( 'Size', 'tackquote' ),
 			array(
 				'regular' => __( 'Regular', 'tackquote' ),
 				'compact' => __( 'Compact', 'tackquote' ),
 			),
 			$fab['size']
 		);
-		echo '<p style="margin:.4em 0;">';
-		$this->checkbox_default_off( Tack_Widget::OPT_FAB_HIDE_MOBILE, __( 'Hide on mobile', 'tackquote' ) );
-		echo '</p>';
-		echo '<p class="description">' . esc_html__( 'Defaults match the launcher the plugin always had: bottom right, 20 px from each edge, "Quote list (n)", regular size, every page. On phones narrower than 480 px the launcher is always compact and sits above the device\'s home indicator.', 'tackquote' ) . '</p>';
 	}
 
 	/**
-	 * A labelled select.
+	 * Launcher icon only, item count, hide on mobile.
+	 */
+	public function field_fab_display() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->show_row_when( Tack_Widget::OPT_FAB_PAGES, array( 'all', 'product', 'cart' ) );
+		echo '<fieldset class="tack-stack"><legend class="screen-reader-text">' . esc_html__( 'Display', 'tackquote' ) . '</legend>';
+		$this->checkbox_default_off( Tack_Widget::OPT_FAB_ICON_ONLY, __( 'Icon only (the text stays for screen readers)', 'tackquote' ) );
+		$this->checkbox( Tack_Widget::OPT_FAB_SHOW_COUNT, __( 'Show item count', 'tackquote' ) );
+		$this->checkbox_default_off( Tack_Widget::OPT_FAB_HIDE_MOBILE, __( 'Hide on mobile', 'tackquote' ) );
+		echo '</fieldset>';
+	}
+
+	/**
+	 * A select whose label is the form-table row heading (`label_for`).
 	 *
-	 * @param string $option  Option name.
-	 * @param string $label   Visible label.
+	 * @param string $option  Option name, also the element id.
 	 * @param array  $choices value => label.
 	 * @param string $current Current value.
 	 */
-	private function select( $option, $label, $choices, $current ) {
-		printf( '<p style="margin:.4em 0;"><label>%1$s <select name="%2$s">', esc_html( $label ), esc_attr( $option ) );
+	private function select( $option, $choices, $current ) {
+		printf( '<select id="%1$s" name="%1$s">', esc_attr( $option ) );
 		foreach ( $choices as $value => $text ) {
 			printf(
 				'<option value="%1$s" %2$s>%3$s</option>',
@@ -1918,7 +2694,7 @@ class Tack_Settings {
 				esc_html( $text )
 			);
 		}
-		echo '</select></label></p>';
+		echo '</select>';
 	}
 
 	/**
@@ -2003,42 +2779,36 @@ class Tack_Settings {
 		return in_array( $value, array( 'regular', 'compact' ), true ) ? (string) $value : 'regular';
 	}
 
-	// ── 9. Catalogue and shipping per buyer group (1.10.0) ────────────────────
+	// ── Buyer groups: catalogue and shipping per buyer group (1.10.0) ─────────
 
 	/**
-	 * Register section 9: catalogue visibility, shipping discounts, role mirror.
+	 * Register catalogue visibility, shipping discounts and the role mirror on the
+	 * Buyer groups tab, beside the group codes they key on.
 	 */
 	public function register_group_catalog_settings() {
-		$checkbox = array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) );
+		$checkbox = array( $this, 'sanitize_checkbox' );
 
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Visibility::OPTION_ENABLED, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Visibility::OPTION_HIDE_WHEN_UNKNOWN, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Catalog_Visibility::OPTION_MAP, array( 'sanitize_callback' => array( $this, 'sanitize_catalog_visibility_map' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, $checkbox );
-		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, array( 'sanitize_callback' => array( $this, 'sanitize_shipping_discount_map' ) ) );
-		register_setting( self::OPTION_GROUP, Tack_Role_Mirror::OPTION_ENABLED, $checkbox );
+		$this->setting( 'groups', Tack_Catalog_Visibility::OPTION_ENABLED, $checkbox );
+		$this->setting( 'groups', Tack_Catalog_Visibility::OPTION_HIDE_WHEN_UNKNOWN, $checkbox );
+		$this->setting( 'groups', Tack_Catalog_Visibility::OPTION_MAP, array( $this, 'sanitize_catalog_visibility_map' ) );
+		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, $checkbox );
+		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, array( $this, 'sanitize_shipping_discount_map' ) );
+		$this->setting( 'groups', Tack_Role_Mirror::OPTION_ENABLED, $checkbox );
 
-		add_settings_section(
-			'tack_quotes_group_catalog',
-			__( '9. Catalogue and shipping per buyer group', 'tackquote' ),
-			array( $this, 'section_group_catalog' ),
-			self::PAGE_SLUG
-		);
-		add_settings_field( Tack_Catalog_Visibility::OPTION_ENABLED, __( 'Hide categories by group', 'tackquote' ), array( $this, 'field_enable_catalog_visibility' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
-		add_settings_field( Tack_Catalog_Visibility::OPTION_MAP, __( 'Product categories', 'tackquote' ), array( $this, 'field_catalog_visibility_map' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
-		add_settings_field( Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, __( 'Shipping discounts by group', 'tackquote' ), array( $this, 'field_enable_shipping_discounts' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
-		add_settings_field( Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, __( 'Discount per group', 'tackquote' ), array( $this, 'field_shipping_discount_map' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
-		add_settings_field( Tack_Role_Mirror::OPTION_ENABLED, __( 'WordPress role per group', 'tackquote' ), array( $this, 'field_enable_role_mirror' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
+		$this->section( 'groups', 'tack_quotes_group_catalog', __( 'Catalogue and shipping per buyer group', 'tackquote' ), array( $this, 'section_group_catalog' ) );
+		$this->field( 'groups', 'tack_quotes_group_catalog', Tack_Catalog_Visibility::OPTION_ENABLED, __( 'Hide categories by group', 'tackquote' ), array( $this, 'field_enable_catalog_visibility' ) );
+		$this->field( 'groups', 'tack_quotes_group_catalog', Tack_Catalog_Visibility::OPTION_MAP, __( 'Product categories', 'tackquote' ), array( $this, 'field_catalog_visibility_map' ) );
+		$this->field( 'groups', 'tack_quotes_group_catalog', Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, __( 'Shipping discounts by group', 'tackquote' ), array( $this, 'field_enable_shipping_discounts' ) );
+		$this->field( 'groups', 'tack_quotes_group_catalog', Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, __( 'Discount per group', 'tackquote' ), array( $this, 'field_shipping_discount_map' ) );
+		$this->field( 'groups', 'tack_quotes_group_catalog', Tack_Role_Mirror::OPTION_ENABLED, __( 'WordPress role per group', 'tackquote' ), array( $this, 'field_enable_role_mirror' ) );
 	}
 
 	/**
-	 * Intro copy for section 9.
+	 * Intro copy for the catalogue section.
 	 */
 	public function section_group_catalog() {
-		echo '<p>' . esc_html__(
-			'Everything here is off by default and keys on the buyer group TackQuote reports, using the group codes from step 6. These rules are plugin settings; TackQuote does not send them.',
-			'tackquote'
-		) . '</p>';
+		echo '<p>' . esc_html__( 'Off by default. Uses the group codes above; these rules live in this plugin, not in TackQuote.', 'tackquote' ) . '</p>';
+		$this->learn_more( __( 'Everything here is off by default and keys on the buyer group TackQuote reports, using the group codes on this tab. These rules are plugin settings; TackQuote does not send them.', 'tackquote' ) );
 		$this->prerequisite_notice();
 	}
 
@@ -2046,19 +2816,20 @@ class Tack_Settings {
 	 * Catalogue visibility switches.
 	 */
 	public function field_enable_catalog_visibility() {
+		echo '<fieldset class="tack-stack"><legend class="screen-reader-text">' . esc_html__( 'Hide categories by group', 'tackquote' ) . '</legend>';
 		$this->checkbox_default_off(
 			Tack_Catalog_Visibility::OPTION_ENABLED,
 			__( 'Hide the ticked product categories from the ticked buyer groups.', 'tackquote' )
 		);
-		echo '<br />';
 		$this->checkbox_default_off(
 			Tack_Catalog_Visibility::OPTION_HIDE_WHEN_UNKNOWN,
 			__( 'Also hide them when the buyer group is unknown (TackQuote cannot be reached).', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'Hidden products leave the shop, category and search pages, product blocks, related products, up-sells and cross-sells; their own page answers "not found", they cannot be bought, and a hidden product already in a cart is removed with a notice. Store managers always see everything.',
-			'tackquote'
-		) . '</p>';
+		echo '</fieldset>';
+		$this->help(
+			__( 'Store managers always see everything.', 'tackquote' ),
+			__( 'Hidden products leave the shop, category and search pages, product blocks, related products, up-sells and cross-sells; their own page answers "not found", they cannot be bought, and a hidden product already in a cart is removed with a notice. Store managers always see everything.', 'tackquote' )
+		);
 	}
 
 	/**
@@ -2097,6 +2868,7 @@ class Tack_Settings {
 	 * The visibility grid: one row per category, a "Guests" box plus the groups.
 	 */
 	public function field_catalog_visibility_map() {
+		$this->show_row_when( Tack_Catalog_Visibility::OPTION_ENABLED, 'yes' );
 		$this->render_group_map_field(
 			Tack_Catalog_Visibility::OPTION_MAP,
 			$this->product_category_rows(),
@@ -2130,16 +2902,17 @@ class Tack_Settings {
 			Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED,
 			__( 'Give buyer groups free or discounted shipping.', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'Applied after the shipping restrictions in step 6. Only buyers TackQuote places in the group get it; guests and unknown buyers pay the normal rate. Shipping tax is reduced in proportion. "Only free methods" keeps the rates that already cost nothing, and changes nothing when there are none.',
-			'tackquote'
-		) . '</p>';
+		$this->help(
+			__( 'Only buyers TackQuote places in the group get it.', 'tackquote' ),
+			__( 'Applied after the payment and shipping restrictions above. Only buyers TackQuote places in the group get it; guests and unknown buyers pay the normal rate. Shipping tax is reduced in proportion. "Only free methods" keeps the rates that already cost nothing, and changes nothing when there are none.', 'tackquote' )
+		);
 	}
 
 	/**
 	 * Per-group discount rows: mode, percentage, methods.
 	 */
 	public function field_shipping_discount_map() {
+		$this->show_row_when( Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, 'yes' );
 		$option       = Tack_Group_Restrictions::OPTION_DISCOUNT_MAP;
 		$restrictions = new Tack_Group_Restrictions();
 		$rules        = $restrictions->parse_discount_map( (string) get_option( $option, '' ) );
@@ -2148,12 +2921,12 @@ class Tack_Settings {
 
 		if ( empty( $known ) ) {
 			// Nothing to draw: say so, and post nothing, so stored rules are kept.
-			echo '<p class="description">' . esc_html__( 'Add your buyer group codes in step 6 to set a shipping discount.', 'tackquote' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Add your buyer group codes at the top of this tab to set a shipping discount.', 'tackquote' ) . '</p>';
 			return;
 		}
 
 		printf( '<input type="hidden" name="%s[mode]" value="matrix" />', esc_attr( $option ) );
-		echo '<table class="widefat striped" style="max-width:52em;"><thead><tr><th scope="col">'
+		echo '<div class="tack-table-wrap"><table class="widefat striped tack-grid"><thead><tr><th scope="col">'
 			. esc_html__( 'Buyer group', 'tackquote' ) . '</th><th scope="col">'
 			. esc_html__( 'Shipping', 'tackquote' ) . '</th><th scope="col">'
 			. esc_html__( 'Methods (none ticked: all)', 'tackquote' ) . '</th></tr></thead><tbody>';
@@ -2174,7 +2947,13 @@ class Tack_Settings {
 			echo '<tr><td><code>' . esc_html( $code ) . '</code>';
 			printf( '<input type="hidden" name="%1$s[rendered][]" value="%2$s" />', esc_attr( $option ), esc_attr( $code ) );
 			echo '</td><td>';
-			printf( '<select name="%1$s[rules][%2$s][mode]">', esc_attr( $option ), esc_attr( $code ) );
+			printf(
+				'<select name="%1$s[rules][%2$s][mode]" aria-label="%3$s">',
+				esc_attr( $option ),
+				esc_attr( $code ),
+				/* translators: %s: buyer group code. */
+				esc_attr( sprintf( __( 'Shipping for %s', 'tackquote' ), $code ) )
+			);
 			foreach ( $modes as $value => $label ) {
 				printf(
 					'<option value="%1$s" %2$s>%3$s</option>',
@@ -2185,7 +2964,7 @@ class Tack_Settings {
 			}
 			echo '</select> ';
 			printf(
-				'<input type="number" min="0" max="100" step="0.01" name="%1$s[rules][%2$s][percent]" value="%3$s" style="width:6em;" aria-label="%4$s" /> %%',
+				'<input type="number" min="0" max="100" step="0.01" name="%1$s[rules][%2$s][percent]" value="%3$s" class="small-text" aria-label="%4$s" /> %%',
 				esc_attr( $option ),
 				esc_attr( $code ),
 				esc_attr( 'percent' === $rule['mode'] ? (string) $rule['percent'] : '' ),
@@ -2196,7 +2975,7 @@ class Tack_Settings {
 			foreach ( $methods as $method ) {
 				$offered[] = $method['id'];
 				printf(
-					'<label style="display:inline-block;margin:0 1em .35em 0;"><input type="checkbox" name="%1$s[rules][%2$s][methods][]" value="%3$s" %4$s /> %5$s</label>',
+					'<label class="tack-chip"><input type="checkbox" name="%1$s[rules][%2$s][methods][]" value="%3$s" %4$s /> %5$s</label>',
 					esc_attr( $option ),
 					esc_attr( $code ),
 					esc_attr( $method['id'] ),
@@ -2217,7 +2996,7 @@ class Tack_Settings {
 			}
 			echo '</td></tr>';
 		}
-		echo '</tbody></table>';
+		echo '</tbody></table></div>';
 	}
 
 	/**
@@ -2304,9 +3083,9 @@ class Tack_Settings {
 			Tack_Role_Mirror::OPTION_ENABLED,
 			__( 'Give signed-in buyers the extra WordPress role "tackquote_<group code>".', 'tackquote' )
 		);
-		echo '<p class="description">' . esc_html__(
-			'For themes and plugins that check roles. The role has only the "read" capability, is removed when the group changes, and never affects prices. Roles you assign yourself are never removed.',
-			'tackquote'
-		) . '</p>';
+		$this->help(
+			__( 'For themes and plugins that check roles. Never affects prices.', 'tackquote' ),
+			__( 'For themes and plugins that check roles. The role has only the "read" capability, is removed when the group changes, and never affects prices. Roles you assign yourself are never removed.', 'tackquote' )
+		);
 	}
 }

@@ -107,6 +107,10 @@ require __DIR__ . '/storefront-forms-test.php';
 echo "\n-- settings page structure + rule editing --\n";
 require __DIR__ . '/settings-page-test.php';
 
+// 1.10.0: one form and one option group per tab; a save never resets another tab.
+echo "\n-- settings tabs: per-tab option groups, overview --\n";
+require __DIR__ . '/settings-tabs-test.php';
+
 // Order sync stops on a TERMINAL refusal (401/403 from TackQuote) and backs off on 429.
 echo "\n-- order-sync gate: terminal 401/403, 429 back-off, admin notice --\n";
 require __DIR__ . '/sync-gate-test.php';

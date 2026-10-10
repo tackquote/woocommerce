@@ -105,6 +105,8 @@ $tack_quotes_transients = array(
 	'tack_quotes_wholesale_form_cache',
 	// "The server has no /storefront/v1 routes" memory (Tack_Api_Client::V1_MISSING_TRANSIENT) — 1.9.0.
 	'tack_quotes_storefront_v1_missing',
+	// Outcome of the settings page's last "Test connection" (Tack_Settings::CONNECTION_CHECK) — 1.10.0.
+	'tack_quotes_connection_check',
 );
 
 /**

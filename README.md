@@ -12,6 +12,7 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 📦 **Order limits** — minimum/maximum order quantities shown on the product page and enforced at the cart and checkout
 - 🏷️ **Buyer group badge** — tells a customer which pricing group they are on, so a discounted price does not read as an error
 - 👥 **Per buyer group** (1.10.0, each off by default) — hide product categories (loops, search, blocks, Store API, related/up-sells; direct URL 404; not purchasable; removed from carts), free or percentage-off shipping applied after the group restrictions, and an optional `tackquote_<code>` WordPress role (read only, never drives pricing)
+- 🧭 **Tabbed settings page** (1.10.0) — Overview dashboard plus Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync tabs; each tab saves only its own settings
 - 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: paste your TackQuote API key
@@ -27,7 +28,7 @@ TackQuote's [Terms of Service](https://tackquote.com/terms) and
 1. Download the latest `tackquote.zip` from the [Releases page](https://github.com/tackquote/woocommerce/releases) (direct link: [`tackquote.zip`](https://github.com/tackquote/woocommerce/releases/latest/download/tackquote.zip)), or build locally with `bash bin/build.sh`.
 2. In WP Admin go to **Plugins → Add New → Upload Plugin** and upload the ZIP.
 3. Activate the plugin.
-4. Go to **TackQuote** in the admin menu and paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**). Click **Test TackQuote connection** to verify.
+4. Go to **TackQuote** in the admin menu, open the **Connection** tab and paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**). Save, then click **Test TackQuote connection** to verify. The **Overview** tab then shows the connection, storefront, order sync and B2B switches at a glance.
 
    > **The key must carry the `quotes:write` scope.** *Test connection* uses the unscoped `ping` route, so a key without it passes the test and then fails every real quote submission with a 403. Order sync additionally needs `orders:write`.
 
