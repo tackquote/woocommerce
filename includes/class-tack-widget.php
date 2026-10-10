@@ -597,6 +597,20 @@ class Tack_Widget {
 	 * @return string
 	 */
 	public function current_customer_name( $part ) {
+		return self::customer_name( $part );
+	}
+
+	/**
+	 * The signed-in customer's first or last name: WooCommerce billing first, then
+	 * the WordPress profile. '' for guests. Shared by the quote modal and the
+	 * wholesale application form, so both prefill the same name.
+	 *
+	 * @since 1.10.2
+	 *
+	 * @param string $part `first` or `last`.
+	 * @return string
+	 */
+	public static function customer_name( $part ) {
 		if ( ! is_user_logged_in() || ! in_array( $part, array( 'first', 'last' ), true ) ) {
 			return '';
 		}

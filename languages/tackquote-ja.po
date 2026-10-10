@@ -94,6 +94,11 @@ msgstr "買い物を続ける"
 msgid "Country"
 msgstr "国"
 
+#. catalogue: tackquote.widget.credit_limit
+#, php-format
+msgid "Credit limit: %s"
+msgstr "与信限度額：%s"
+
 #. catalogue: tackquote.quote.email
 msgid "Email address"
 msgstr "メールアドレス"
@@ -223,6 +228,10 @@ msgstr "数量別価格"
 #. catalogue: tackquote.quote.cart_empty
 msgid "Your cart is empty."
 msgstr "カートは空です。"
+
+#. catalogue: tackquote.widget.terms_pending
+msgid "Your net-terms application is being reviewed."
+msgstr "掛け払いの申請は審査中です。"
 
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"

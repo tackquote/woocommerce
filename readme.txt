@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.10.1
+Stable tag: 1.10.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -122,9 +122,13 @@ accounts", and only for a signed-in customer, at most once every five minutes pe
 WordPress user ID (`buyerEmail`, `buyerExternalId`). TackQuote answers whether that buyer's
 wholesale application is approved. Nothing is sent for a signed-out visitor.
 
-9. **Net terms at checkout** — `GET /storefront/v1/net-terms`. Off by default; only while the
-"Net terms (TackQuote)" payment method is enabled, for a signed-in customer at checkout. Sends
-the account email and WordPress user ID. Fails closed.
+9. **Net terms** — `GET /storefront/v1/net-terms`. Sent for a signed-in customer at checkout
+while the "Net terms (TackQuote)" payment method is enabled (off by default), and when a
+signed-in customer views the "Net terms" My Account tab or the `[tackquote_net_terms_application]`
+shortcode (the tab is off by default), to show their terms or a pending application instead of
+the form. Sends the account email and WordPress user ID. One answer per customer is reused for
+up to a minute. Fails closed: without an answer, checkout hides the method and the tab shows
+the application form.
 
 10. **Accepted quote checkout** — `GET /integrations/woocommerce/quote-checkout/<token>`, when a
 buyer opens a TackQuote checkout link (`?tackquote_checkout=`) on your store. Sends only the
@@ -191,7 +195,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits (also for guests, by SKU), the buyer group and its tax exemption. Only when the matching feature is switched on.
 * `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
 * `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
-* `GET /storefront/v1/net-terms` — net terms at checkout (off by default).
+* `GET /storefront/v1/net-terms` — a signed-in customer's net terms, at checkout and on the "Net terms" My Account tab (both off by default).
 * `GET /integrations/woocommerce/quote-checkout/<token>` — opens an accepted quote's checkout link. Sends only the token.
 * `POST /storefront/v1/quote-upload`, `POST /storefront/v1/wholesale-upload`, `POST /storefront/v1/wholesale-signup/<slug>` — files a shopper attaches to a quote request (only when "Allow attachments on quote requests" is on; off by default) or to a wholesale application (signed-in customers only), and an application that carries files. Sends the file's bytes and name, and the signed-in customer's account email address and WordPress user ID; a guest's quote files carry only a single-use upload token. Unattached files are deleted by TackQuote after 24 hours (quote) or 7 days (application).
 * `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
@@ -382,6 +386,11 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= 1.10.2 =
+* **Fixed: after a quote request the shopper is no longer sent to a sign-in page.** The quote form used to show its confirmation for under a second and then load the buyer portal, which asks a shopper without a portal account to sign in. The form now stays open on "Your quote request was received. The seller will reply to you by email." and offers "Open your buyer portal" as a link when TackQuote sends one. Same for "Checkout as Quote".
+* **My Account › Net terms shows the customer's terms.** A customer whose net terms are active sees their payment terms, credit limit and, when TackQuote reports it, the credit still available, instead of the application form. A customer whose application is under review sees "Your net-terms application is being reviewed." Anyone else, or anyone when TackQuote cannot be reached, gets the form as before. The answer is the one the "Net terms (TackQuote)" checkout method reads, shared for up to a minute. New template `tackquote/myaccount/net-terms-account.php`.
+* **My Account › Wholesale account prefills the customer's name.** First name, last name, company name and phone are filled in from the customer's WooCommerce billing details, then their WordPress profile, like the quote form.
 
 = 1.10.1 =
 * No functional change: source comments and packaging cleaned for release; release audit added to the build.

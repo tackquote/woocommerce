@@ -24,6 +24,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-b2b-notices.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-catalog-visibility.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-role-mirror.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-net-terms-standing.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-forms.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-attachments.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';

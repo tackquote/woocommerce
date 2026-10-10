@@ -37,7 +37,7 @@
     // Neutral on purpose (1.8.1): TackQuote answers awaitingApproval for EVERY company
     // request, so this must not say whether a company name matched an existing account.
     awaitingApproval: __("Request received. If your company account needs approval, we'll email you when it is ready.", 'tackquote'),
-    portalLink: __('Go to your buyer portal', 'tackquote'),
+    portalLink: __('Open your buyer portal', 'tackquote'),
     emailPlaceholder: __('you@example.com', 'tackquote'),
     // Just "Note": the form builder appends the optional marker itself.
     noteLabel: __('Note', 'tackquote'),
@@ -49,7 +49,7 @@
     error: __('Could not create the quote. Please try again.', 'tackquote'),
     reload: __('Reload page', 'tackquote'),
     emailRequired: __('Please enter a valid email address.', 'tackquote'),
-    success: __('Quote requested! Redirecting you to it now…', 'tackquote'),
+    success: __('Your quote request was received. The seller will reply to you by email.', 'tackquote'),
     added: __('Added ✓', 'tackquote'),
     remove: __('Remove', 'tackquote'),
     cartEmpty: __('Your cart is empty.', 'tackquote'),
@@ -783,6 +783,33 @@
     document.body.classList.remove('tack-quote-modal-open');
   }
 
+  /**
+   * The modal's confirmation after a successful request. The dialog stays open on
+   * this message: the page never navigates on its own. TackQuote's `portalUrl` can
+   * lead to a sign-in page the shopper has no account for yet, so the buyer portal
+   * is offered only as a link they may choose to follow.
+   *
+   * @param {jQuery} $success The status paragraph (`.tack-quote-modal-success`).
+   * @param {Object} data     The `wp_send_json_success()` payload.
+   */
+  function showSubmitted($success, data) {
+    var d = data || {};
+    // When a company account may still need approval, say so instead of implying
+    // the portal is ready to use.
+    $success
+      .text(d.awaitingApproval ? TackQuotes.i18n.awaitingApproval : TackQuotes.i18n.success)
+      .show();
+    var portalUrl = typeof d.portalUrl === 'string' ? d.portalUrl : '';
+    if (/^https?:\/\//i.test(portalUrl)) {
+      $success.append(
+        ' ',
+        $('<a class="tack-quote-portal-link"></a>')
+          .attr('href', portalUrl)
+          .text(TackQuotes.i18n.portalLink || portalUrl)
+      );
+    }
+  }
+
   function submitRequest(context, $overlay) {
     var $error = $overlay.find('.tack-quote-modal-error');
     var $success = $overlay.find('.tack-quote-modal-success');
@@ -952,31 +979,9 @@
       .done(function (res) {
         if (res && res.success) {
           $form.hide();
-          // When the seller's policy requires company approval, the quote IS created but the
-          // account is not usable yet. Saying "redirecting you to it now" and then dropping
-          // the shopper on a login they cannot pass is worse than telling them the truth.
-          var awaiting = res.data && res.data.awaitingApproval;
-          $success
-            .text(awaiting ? TackQuotes.i18n.awaitingApproval : TackQuotes.i18n.success)
-            .show();
+          showSubmitted($success, res.data);
           if (context.items) {
             clearList();
-          }
-          var portalUrl = res.data && res.data.portalUrl;
-          if (portalUrl && !awaiting) {
-            window.setTimeout(function () {
-              window.location.href = portalUrl;
-            }, 900);
-          } else if (portalUrl && awaiting) {
-            // A company request may or may not need approval (TackQuote no longer
-            // says which), so the portal is offered as a LINK, never an automatic
-            // redirect onto a login the shopper may not be able to pass yet.
-            $success.append(
-              ' ',
-              $('<a class="tack-quote-portal-link"></a>')
-                .attr('href', portalUrl)
-                .text(TackQuotes.i18n.portalLink || portalUrl)
-            );
           }
           // The submit button that had focus is hidden with the form; move focus to the
           // message so keyboard and screen-reader users land on it. Escape and the close
@@ -1475,4 +1480,9 @@
       scheduleReprice();
     }
   });
+
+  // Node tests (tests/js/) load this file with a stand-in jQuery; browsers have no `module`.
+  if (typeof module === 'object' && module && module.exports) {
+    module.exports = { showSubmitted: showSubmitted };
+  }
 })(jQuery);

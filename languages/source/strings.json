@@ -245,6 +245,17 @@
     {
       "msgid": "Your quote list",
       "key": "tackquote.widget.drawer_title"
+    },
+    {
+      "msgid": "Your net-terms application is being reviewed.",
+      "key": "tackquote.widget.terms_pending"
+    },
+    {
+      "msgid": "Credit limit: %s",
+      "key": "tackquote.widget.credit_limit",
+      "placeholders": {
+        "amount": "%s"
+      }
     }
   ]
 }
