@@ -525,6 +525,28 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * Has TackQuote approved the signed-in buyer's wholesale application?
+	 *
+	 * `GET /storefront/v1/price-access?buyerEmail=&buyerExternalId=` answers
+	 * `PriceAccessResult`: `{status: anonymous}`, `{status: unlinked}` or
+	 * `{status: linked, wholesaleApproved}` (tack `storefront-b2b.core.ts`). There is
+	 * no legacy route to fall back to, so a server without v1 routes is an error here:
+	 * the price gate that calls this fails CLOSED on any error.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $buyer_email Signed-in buyer's (trusted) email.
+	 * @return array|WP_Error
+	 */
+	public function get_price_access( $buyer_email ) {
+		$result = $this->storefront_v1_get( 'price-access', array(), $buyer_email );
+		if ( null === $result ) {
+			return new WP_Error( 'tack_v1_missing', __( 'This TackQuote server has no storefront price-access route.', 'tackquote' ), array( 'status' => 404 ) );
+		}
+		return $result;
+	}
+
+	/**
 	 * The HTTP status a WP_Error from request() carries, or 0 for a transport failure.
 	 *
 	 * @param WP_Error $error The failure.

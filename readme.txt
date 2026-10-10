@@ -22,6 +22,9 @@ Request a quote from WooCommerce for B2B wholesale quoting — sync orders to yo
 * **Add to Quote** and **Request a Quote** buttons on product pages. Show either, both, or neither.
 * A floating **quote list** with **Checkout as Quote** — several products, one request. It is separate from the WooCommerce cart, so stock and checkout are untouched.
 * **Quote only (B2B catalogue) mode** — switch Add to Cart off across the whole store and take quotes instead. Your products, categories and search keep working; only checkout goes away. Apply it to everyone, to signed-out visitors only, or to chosen roles.
+* **More places to start a quote** (all off by default, so an update changes nothing a shopper sees): "Add to Quote" on product cards in the shop, category and search lists; "Request a quote for your cart" on the cart page (classic cart and the Cart block); and a **quote page** of your own via the `[tackquote_quote_page]` shortcode, where shoppers change quantities, add an optional target price per line and a message.
+* **Floating launcher settings** — side, offsets, label, icon only, item count, size, which pages, and hide on mobile. The defaults are the launcher the plugin always had.
+* **Quote only, per product** — a "Quote only" checkbox in the product data panel hides Add to Cart for that product (its variations follow), and a fourth store-wide scope keeps the cart only for **approved wholesale accounts**.
 * Optional one-way **order sync** to TackQuote — off by default, and queued through Action Scheduler so it never runs inside checkout.
 * Works with WooCommerce **High-Performance Order Storage (HPOS)**.
 
@@ -103,6 +106,17 @@ WordPress user ID (in the query, v1 route only), and what the customer typed: le
 name, contact phone, tax/VAT ID, billing address, requested credit limit, requested payment
 terms, up to three trade references (company, contact name, email, phone) and notes.
 
+8. **Wholesale price gate** — `GET /storefront/v1/price-access`. **Off by default.**
+Sent only when the merchant chose the quote-only scope "Everyone except approved wholesale
+accounts", and only for a signed-in customer, at most once every five minutes per customer
+(one minute after a failure). Sends that customer's account email address and their
+WordPress user ID (`buyerEmail`, `buyerExternalId`). TackQuote answers whether that buyer's
+wholesale application is approved. Nothing is sent for a signed-out visitor.
+
+The quote-list re-pricing for signed-in buyers uses the B2B pricing call the plugin already
+makes for the cart (`POST /storefront-pricing/resolve`, SKU and quantity per line plus the
+buyer's email), and only when the merchant has switched TackQuote pricing on.
+
 This plugin sends data to no other external service.
 
 The TackQuote service is provided by TackQuote. By using this plugin you agree to their
@@ -150,6 +164,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits, the buyer group and its tax exemption for a signed-in customer. Only when the matching feature is switched on.
 * `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
 * `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
+* `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
 
 Every request carries an `X-TackQuote-Plugin-Version` header with the plugin's version number. It identifies the software, not a person.
 
@@ -167,7 +182,7 @@ Sent when a shopper submits the quote form, using only what they typed into it:
 * First name, last name
 * Phone number (if provided)
 * Company name, and any company fields the seller's registration policy requires (for example legal name, tax/VAT ID, registration number, address, city, state, postal code, country, company phone, industry, employee count)
-* The free-text note, if written (capped at 2,000 characters)
+* The free-text note, if written (capped at 2,000 characters). From the quote page, any target prices the shopper typed are added to the note, one line per product
 * The requested products: name, SKU, quantity, unit price excluding tax, and the WooCommerce product ID
 * The store's currency code
 
@@ -271,6 +286,22 @@ No, and no. "Add to Quote" adds the product to a separate, browser-side quote li
 
 So shoppers can add multiple products before requesting one combined quote. Use the floating "Quote list" button (bottom-right) once you've added everything you want quoted, then click "Checkout as Quote".
 
+= Can shoppers start a quote from the shop page or the cart? =
+
+Yes, since 1.9.0, and both are off until you switch them on under **TackQuote → 8. Quote buttons and launcher**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart; on the Cart block it appears as a fixed button at the bottom of the cart page. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+
+= How do I make a single product quote-only? =
+
+Edit the product and tick **Quote only** in the General tab of the product data panel. Add to Cart disappears for that product (and for every variation of a variable product), a hand-made `?add-to-cart=` link and the Cart/Checkout blocks refuse it too, and a cart that already held it loses that line with a notice. Unlike the store-wide mode, this applies to shop managers as well, so your own test sees what customers see.
+
+= Can I keep the cart for approved wholesale customers only? =
+
+Yes. Turn on quote-only mode and choose "Everyone except approved wholesale accounts". The plugin asks TackQuote whether the signed-in customer's wholesale application is approved, and only then shows the cart. If TackQuote cannot be reached, the customer sees the quote-only catalogue (this one check fails closed, because it is a price gate). It needs the API key.
+
+= Where do target prices on the quote page go? =
+
+Into the request's note, one line per product ("Target prices: …"), after the shopper's own message. The quote itself keeps your store price for each line.
+
 == Screenshots ==
 
 1. Quote buttons sit beside Add to Cart on the product page, so a shopper can buy or ask for a price without leaving the page.
@@ -288,6 +319,15 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 * **Fixed: order limits were never applied.** The plugin read `minQuantity`/`maxQuantity`, which TackQuote has never sent (it sends `min`/`max`), so no minimum or maximum was shown or enforced. Only quantity rules are now read as quantities; an order-total rule's money amount is no longer mistaken for one.
 * Every request now carries an `X-TackQuote-Plugin-Version` header, and buyer lookups send the WordPress user ID beside the email (`buyerExternalId`) so TackQuote can link the account.
 * A customer whose email was self-changed and not re-confirmed cannot apply for net terms or receive a tax exemption in another buyer's name (same rule as B2B pricing since 1.7.1).
+* **Add to Quote on product cards** (`woocommerce_after_shop_loop_item`, priority 11), off by default. Simple products go straight to the quote list; variable, grouped and external products link to their page.
+* **Request a quote for your cart** on the cart page, off by default: under Proceed to checkout on the classic cart (`woocommerce_proceed_to_checkout`), and as a fixed button on the Cart block (printed on `wp_footer` on the cart page when the cart has lines). It re-reads the live cart from WooCommerce's Store API before copying it into the quote list.
+* **Floating launcher settings**, mirroring the Shopify launcher: position, side and bottom offsets, show on (all pages, product pages, cart page, nowhere), label, icon only, item count, size, hide on mobile. On phones narrower than 480 px it is always compact, 48 px tall, and lifted above the home indicator. Defaults reproduce the 1.8 launcher.
+* **Quote page** shortcode `[tackquote_quote_page]` sharing the drawer's list: edit quantities, an optional target price per line (sent in the request note) and a message. New setting "Quote button opens: drawer or page", drawer by default.
+* **Signed-in buyers see their price at the line quantity** in the quote list and on the quote page, re-priced (debounced) through TackQuote pricing when the merchant uses it.
+* **Per-product Quote only** checkbox (`woocommerce_product_options_general_product_data`, saved on `woocommerce_admin_process_product_object`, meta `_tackquote_quote_only`; variations inherit), enforced in `woocommerce_is_purchasable` and in the Store API through `woocommerce_store_api_validate_add_to_cart`. Off by default.
+* **Quote-only scope "approved wholesale accounts"** through `GET /storefront/v1/price-access` (sends the customer's email and WordPress user ID; fails closed). Off by default.
+* **Order limits now also stop the Cart and Checkout blocks** through `woocommerce_store_api_cart_errors`, beside `woocommerce_check_cart_items`, with the same message and the error code `tackquote_order_limit`.
+* The plugin's buttons use WooCommerce's own button classes (`button`, plus `wp-element-button` on a block theme), so they match the theme.
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.

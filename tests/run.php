@@ -106,5 +106,10 @@ require __DIR__ . '/settings-page-test.php';
 echo "\n-- order-sync gate: terminal 401/403, 429 back-off, admin notice --\n";
 require __DIR__ . '/sync-gate-test.php';
 
+// 1.9.0 storefront parity: card/cart buttons, launcher settings, quote page,
+// per-product quote-only + Store API hooks, approved-wholesale price gate.
+echo "\n-- 1.9.0 storefront parity --\n";
+require __DIR__ . '/storefront-parity-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

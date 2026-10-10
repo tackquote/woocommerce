@@ -63,6 +63,139 @@
     saveList([]);
   }
 
+  // ─── 1.9.0: quantities, target prices, re-pricing, where "open the quote" goes ───
+
+  function sameRow(row, productId, variationId) {
+    return row.productId === productId && (row.variationId || 0) === (variationId || 0);
+  }
+
+  function setQuantity(productId, variationId, quantity) {
+    var list = getList();
+    for (var i = 0; i < list.length; i++) {
+      if (sameRow(list[i], productId, variationId)) {
+        list[i].quantity = Math.max(1, Math.floor(Number(quantity) || 1));
+        // A price resolved for the OLD quantity is not this line's price any more.
+        delete list[i].yourPrice;
+        delete list[i].yourPriceQty;
+      }
+    }
+    saveList(list);
+    scheduleReprice();
+  }
+
+  // Optional, numeric, >= 0. Stored on the row; the server writes it into the request
+  // note (the plugin's request contract has no per-line field for it yet).
+  function setTargetPrice(productId, variationId, value) {
+    var list = getList();
+    var n = String(value == null ? '' : value).trim();
+    for (var i = 0; i < list.length; i++) {
+      if (sameRow(list[i], productId, variationId)) {
+        if (n === '' || !/^\d+(\.\d+)?$/.test(n)) {
+          delete list[i].targetPrice;
+        } else {
+          list[i].targetPrice = Number(n);
+        }
+      }
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    } catch (e) {
+      // Ignore — see saveList.
+    }
+  }
+
+  // The store's own price format (symbol, decimals, separators, position), as
+  // WooCommerce reports it. Display only: every quoted amount is re-derived server-side.
+  function formatPrice(amount) {
+    var p = TackQuotes.price || {};
+    var n = Number(amount);
+    if (!isFinite(n)) {
+      return '';
+    }
+    var decimals = typeof p.decimals === 'number' ? p.decimals : 2;
+    var fixed = n.toFixed(decimals);
+    var parts = fixed.split('.');
+    var whole = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, p.thousandSep == null ? ',' : p.thousandSep);
+    var body = whole + (parts[1] ? (p.decimalSep == null ? '.' : p.decimalSep) + parts[1] : '');
+    var symbol = p.symbol || '';
+    switch (p.position) {
+      case 'right':
+        return body + symbol;
+      case 'left_space':
+        return symbol + ' ' + body;
+      case 'right_space':
+        return body + ' ' + symbol;
+      default:
+        return symbol + body;
+    }
+  }
+
+  function onQuotePage() {
+    return document.getElementById('tack-quote-page') !== null;
+  }
+
+  // Where "open the quote" goes: the drawer, or the merchant's quote page when the
+  // setting says so and we are not already on it.
+  function openQuote() {
+    if (TackQuotes.opens === 'page' && TackQuotes.pageUrl && !onQuotePage()) {
+      window.location.href = TackQuotes.pageUrl;
+      return;
+    }
+    if (onQuotePage()) {
+      return;
+    }
+    $('#tack-quote-list-drawer').prop('hidden', false);
+  }
+
+  // Re-price the list at the line quantities for a signed-in buyer: one batched call,
+  // debounced, through the same TackQuote pricing read that prices the cart. Guests
+  // (TackQuotes.repriceEnabled false) are never asked for. A line TackQuote does not
+  // price answers null and keeps the store price it was added at.
+  var repriceTimer = null;
+  function scheduleReprice() {
+    if (!TackQuotes.repriceEnabled) {
+      return;
+    }
+    window.clearTimeout(repriceTimer);
+    repriceTimer = window.setTimeout(reprice, 400);
+  }
+
+  function reprice() {
+    var list = getList();
+    if (!list.length) {
+      return;
+    }
+    $.post(TackQuotes.ajaxUrl, {
+      action: 'tack_quote_reprice',
+      nonce: TackQuotes.nonce,
+      items: JSON.stringify(
+        list.map(function (row) {
+          return { product_id: row.productId, variation_id: row.variationId || 0, quantity: row.quantity };
+        }),
+      ),
+    }).done(function (res) {
+      var items = res && res.success && res.data && res.data.items;
+      if (!Array.isArray(items)) {
+        return;
+      }
+      var fresh = getList();
+      items.forEach(function (it) {
+        for (var i = 0; i < fresh.length; i++) {
+          if (
+            sameRow(fresh[i], it.product_id, it.variation_id) &&
+            fresh[i].quantity === it.quantity &&
+            it.unitPrice !== null &&
+            it.unitPrice !== undefined
+          ) {
+            fresh[i].yourPrice = it.formatted || formatPrice(it.unitPrice);
+            fresh[i].yourPriceQty = it.quantity;
+          }
+        }
+      });
+      saveList(fresh);
+    });
+  }
+
   // ─── Floating quote-list widget (button + drawer) ────────────────────────
 
   function renderList(list) {
@@ -78,7 +211,24 @@
     list.forEach(function (row) {
       var $li = $('<li class="tack-quote-list-item"></li>');
       $li.append($('<span class="tack-quote-list-item-name"></span>').text(row.name));
-      $li.append($('<span class="tack-quote-list-item-qty"></span>').text('×' + row.quantity));
+      // Editable quantity (1.9.0). A change re-prices the line for a signed-in buyer.
+      var $qty = $('<span class="tack-quote-list-item-qty"></span>');
+      $qty.append(document.createTextNode('×'));
+      var $input = $('<input type="number" min="1" step="1" class="tack-quote-list-item-qty-input" />')
+        .attr('aria-label', TackQuotes.i18n.quantity || 'Quantity')
+        .val(row.quantity);
+      $input.on('change', function () {
+        setQuantity(row.productId, row.variationId, $input.val());
+      });
+      $qty.append($input);
+      $li.append($qty);
+      if (row.yourPrice && row.yourPriceQty === row.quantity) {
+        $li.append(
+          $('<span class="tack-quote-list-item-price"></span>')
+            .attr('title', TackQuotes.i18n.yourPrice || '')
+            .text(row.yourPrice),
+        );
+      }
       var $remove = $(
         '<button type="button" class="tack-quote-list-item-remove" aria-label="' +
           escapeHtml(TackQuotes.i18n.remove) +
@@ -92,6 +242,67 @@
     });
 
     $('#tack-quote-list-checkout').prop('disabled', list.length === 0);
+    renderQuotePage(list);
+  }
+
+  // ─── 1.9.0: the quote page ([tackquote_quote_page]) ─────────────────────────
+  //
+  // Same list as the drawer, on a page of the merchant's. Quantities, an optional
+  // target price per line, and a message that becomes the request note.
+  function renderQuotePage(list) {
+    var $page = $('#tack-quote-page');
+    if (!$page.length) {
+      return;
+    }
+    var withTarget = $page.data('target-price') !== 'no';
+    var $table = $page.find('.tack-quote-page-table');
+    var $empty = $page.find('.tack-quote-page-empty');
+    var $body = $('#tack-quote-page-items').empty();
+
+    $empty.prop('hidden', list.length > 0);
+    $table.prop('hidden', list.length === 0);
+    $('#tack-quote-page-submit').prop('disabled', list.length === 0);
+
+    list.forEach(function (row) {
+      var $tr = $('<tr class="tack-quote-page-item"></tr>');
+      var $name = $('<td class="tack-quote-page-col-product"></td>').text(row.name);
+      if (row.sku) {
+        $name.append($('<small class="tack-quote-page-item-sku"></small>').text(row.sku));
+      }
+      $tr.append($name);
+
+      var $qty = $('<input type="number" min="1" step="1" class="tack-quote-page-qty" />')
+        .attr('aria-label', TackQuotes.i18n.quantity || 'Quantity')
+        .val(row.quantity);
+      $qty.on('change', function () {
+        setQuantity(row.productId, row.variationId, $qty.val());
+      });
+      $tr.append($('<td class="tack-quote-page-col-qty"></td>').append($qty));
+
+      var priceText = row.yourPrice && row.yourPriceQty === row.quantity ? row.yourPrice : row.price ? formatPrice(row.price) : '';
+      $tr.append($('<td class="tack-quote-page-col-price"></td>').text(priceText));
+
+      if (withTarget) {
+        var $target = $('<input type="number" min="0" step="any" class="tack-quote-page-target" />')
+          .attr('aria-label', TackQuotes.i18n.targetPrice || 'Target price')
+          .attr('placeholder', TackQuotes.i18n.targetPricePlaceholder || '')
+          .val(row.targetPrice == null ? '' : row.targetPrice);
+        $target.on('change', function () {
+          setTargetPrice(row.productId, row.variationId, $target.val());
+        });
+        $tr.append($('<td class="tack-quote-page-col-target"></td>').append($target));
+      }
+
+      var $remove = $('<button type="button" class="tack-quote-page-remove">&times;</button>').attr(
+        'aria-label',
+        TackQuotes.i18n.remove,
+      );
+      $remove.on('click', function () {
+        removeFromList(row.productId, row.variationId);
+      });
+      $tr.append($('<td class="tack-quote-page-col-remove"></td>').append($remove));
+      $body.append($tr);
+    });
   }
 
   function escapeHtml(str) {
@@ -299,7 +510,8 @@
 
     $form[0].reset();
     $email.val(TackQuotes.customerEmail || '');
-    $note.val('');
+    // The quote page's message, when the request comes from there (1.9.0).
+    $note.val(context.message || '');
     $error.hide().text('');
     $success.hide().text('');
     $submit.off('click.tackReload').prop('disabled', false).text(TackQuotes.i18n.submit);
@@ -413,11 +625,15 @@
       // only other value trusted from the client.
       payload.items = JSON.stringify(
         context.items.map(function (row) {
-          return {
+          var out = {
             product_id: row.productId,
             variation_id: row.variationId || 0,
             quantity: row.quantity,
           };
+          if (typeof row.targetPrice === 'number' && isFinite(row.targetPrice) && row.targetPrice >= 0) {
+            out.target_price = row.targetPrice;
+          }
+          return out;
         }),
       );
     } else {
@@ -638,6 +854,7 @@
       price: Number($btn.data('product-price')) || 0,
       quantity: quantity,
     });
+    scheduleReprice();
 
     var original = $btn.text();
     $btn.text(TackQuotes.i18n.added);
@@ -646,9 +863,142 @@
     }, 1200);
   });
 
-  // Floating quote-list widget.
+  // Floating quote-list launcher: the drawer, or the merchant's quote page (1.9.0).
   $(document).on('click', '#tack-quote-list-toggle', function () {
+    var href = $(this).data('href');
+    if (href && !onQuotePage()) {
+      window.location.href = href;
+      return;
+    }
     $('#tack-quote-list-drawer').prop('hidden', false);
+  });
+
+  // "Add to Quote" on a product card (1.9.0): simple products only, quantity 1. The
+  // server re-derives name/SKU/price from the id; the attributes are what the drawer shows.
+  $(document).on('click', '.tack-card-quote-btn', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var $btn = $(this);
+    addToList({
+      productId: $btn.data('product-id') || 0,
+      variationId: 0,
+      name: String($btn.data('product-name') || ''),
+      sku: String($btn.data('product-sku') || ''),
+      price: Number($btn.data('product-price')) || 0,
+      quantity: 1,
+    });
+    scheduleReprice();
+    var original = $btn.text();
+    $btn.text(TackQuotes.i18n.added);
+    window.setTimeout(function () {
+      $btn.text(original);
+    }, 1200);
+    openQuote();
+  });
+
+  // "Request a quote for your cart" (1.9.0). The lines were read from the cart when the
+  // page rendered; on the Cart block the cart changes without a page load, so the live
+  // cart is re-read from WooCommerce's own Store API first (same site, the shopper's own
+  // session) and the snapshot is the fallback. Quantities and membership come from the
+  // live read; name, SKU and the tax-exclusive price from the matching snapshot line.
+  $(document).on('click', '.tack-quote-cart-btn', function (e) {
+    e.preventDefault();
+    var $btn = $(this);
+    var snapshot = [];
+    try {
+      snapshot = JSON.parse($btn.attr('data-lines') || '[]');
+    } catch (err) {
+      snapshot = [];
+    }
+    if (!Array.isArray(snapshot)) {
+      snapshot = [];
+    }
+    $btn.prop('disabled', true);
+
+    function finish(lines) {
+      $btn.prop('disabled', false);
+      if (!lines.length) {
+        window.alert(TackQuotes.i18n.cartEmpty);
+        return;
+      }
+      lines.forEach(function (line) {
+        addToList({
+          productId: Number(line.product_id) || 0,
+          variationId: Number(line.variation_id) || 0,
+          name: String(line.name || ''),
+          sku: String(line.sku || ''),
+          price: Number(line.price) || 0,
+          quantity: Math.max(1, Number(line.quantity) || 1),
+        });
+      });
+      scheduleReprice();
+      openQuote();
+    }
+
+    if (!TackQuotes.storeCartUrl || typeof window.fetch !== 'function') {
+      finish(snapshot);
+      return;
+    }
+    window
+      .fetch(TackQuotes.storeCartUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.ok ? r.json() : null;
+      })
+      .then(function (cart) {
+        var items = cart && Array.isArray(cart.items) ? cart.items : null;
+        if (!items) {
+          finish(snapshot);
+          return;
+        }
+        var lines = [];
+        items.forEach(function (it) {
+          var id = Number(it.id) || 0;
+          var match = null;
+          for (var i = 0; i < snapshot.length; i++) {
+            if ((Number(snapshot[i].variation_id) || Number(snapshot[i].product_id)) === id) {
+              match = snapshot[i];
+              break;
+            }
+          }
+          if (match) {
+            lines.push({
+              product_id: match.product_id,
+              variation_id: match.variation_id,
+              name: match.name,
+              sku: match.sku,
+              price: match.price,
+              quantity: it.quantity,
+            });
+          } else if (id) {
+            // Added since the page rendered: the id is a product or variation id, which
+            // the server resolves either way; the display price is the Store API's, in
+            // the store's cart tax display mode.
+            var minor = it.prices && Number(it.prices.currency_minor_unit);
+            var raw = it.prices && Number(it.prices.price);
+            lines.push({
+              product_id: id,
+              variation_id: 0,
+              name: String(it.name || ''),
+              sku: String(it.sku || ''),
+              price: isFinite(raw) && isFinite(minor) ? raw / Math.pow(10, minor) : 0,
+              quantity: it.quantity,
+            });
+          }
+        });
+        finish(lines);
+      })
+      .catch(function () {
+        finish(snapshot);
+      });
+  });
+
+  // The quote page's submit: the whole list plus the page's message (1.9.0).
+  $(document).on('click', '#tack-quote-page-submit', function () {
+    var list = getList();
+    if (!list.length) {
+      return;
+    }
+    openModal({ items: list, message: $('#tack-quote-page-message').val() || '' });
   });
 
   $(document).on('click', '#tack-quote-list-close', function () {
@@ -684,5 +1034,13 @@
   // Initial render on page load (in case the list was populated earlier).
   $(function () {
     renderList(getList());
+    // A signed-in buyer's list may hold lines added as a guest, or priced for a
+    // quantity since changed: ask once on load. No-op for guests.
+    var needs = getList().some(function (row) {
+      return !row.yourPrice || row.yourPriceQty !== row.quantity;
+    });
+    if (needs) {
+      scheduleReprice();
+    }
   });
 })(jQuery);

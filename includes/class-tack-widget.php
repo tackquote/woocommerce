@@ -9,7 +9,14 @@
  *    product immediately.
  *  - "Checkout as Quote" (floating quote-list drawer, shown site-wide) —
  *    submits every item currently in the quote list as one TackQuote request.
- * Plus the AJAX handler that creates the quote request either way.
+ *  - Since 1.9.0, all OFF by default: "Add to Quote" on product cards in the
+ *    shop/category/search loops, "Request a quote for your cart" on the cart
+ *    page (classic template and Cart block), the launcher's position, size,
+ *    label, pages and mobile behaviour, and a quote PAGE rendered by the
+ *    `[tackquote_quote_page]` shortcode that shares the drawer's list and adds
+ *    quantity editing, an optional target price per line and a message.
+ * Plus the AJAX handlers that create the quote request either way and re-price
+ * the list for a signed-in buyer.
  *
  * @package TackQuotes
  */
@@ -56,6 +63,52 @@ class Tack_Widget {
 	 */
 	const ITEMS_MAX_BYTES = 65536;
 
+	// ── 1.9.0 storefront layout options. Every default reproduces the 1.8.x storefront. ──
+
+	/** "Add to Quote" on product cards in the shop, category and search loops. */
+	const OPT_CARD_BUTTONS = 'tack_quotes_card_buttons';
+
+	/** "Request a quote for your cart" on the cart page. */
+	const OPT_CART_BUTTON = 'tack_quotes_cart_quote_button';
+
+	/** Label of the cart-page button. */
+	const OPT_CART_BUTTON_LABEL = 'tack_quotes_cart_button_label';
+
+	/** What the launcher and the card/cart buttons open: `drawer` or `page`. */
+	const OPT_OPENS = 'tack_quotes_quote_button_opens';
+
+	/** URL of the merchant page carrying `[tackquote_quote_page]`. */
+	const OPT_PAGE_URL = 'tack_quotes_quote_page_url';
+
+	const OPT_FAB_POSITION    = 'tack_quotes_fab_position';
+	const OPT_FAB_OFFSET_X    = 'tack_quotes_fab_offset_x';
+	const OPT_FAB_OFFSET_Y    = 'tack_quotes_fab_offset_y';
+	const OPT_FAB_PAGES       = 'tack_quotes_fab_pages';
+	const OPT_FAB_LABEL       = 'tack_quotes_fab_label';
+	const OPT_FAB_ICON_ONLY   = 'tack_quotes_fab_icon_only';
+	const OPT_FAB_SHOW_COUNT  = 'tack_quotes_fab_show_count';
+	const OPT_FAB_SIZE        = 'tack_quotes_fab_size';
+	const OPT_FAB_HIDE_MOBILE = 'tack_quotes_fab_hide_mobile';
+
+	/** Largest launcher offset accepted, in px (the shared widget's bound). */
+	const FAB_OFFSET_MAX = 200;
+
+	/**
+	 * Set once the classic cart template rendered the cart-page button, so the
+	 * `wp_footer` fallback for the Cart block does not render a second one.
+	 *
+	 * @var bool
+	 */
+	private $cart_button_rendered = false;
+
+	/**
+	 * Target prices collected while building the quote-list line items, so they can
+	 * be written into the request note (the plugin DTO has no per-line field).
+	 *
+	 * @var array<int, array{name:string,sku:string,quantity:int,target:float}>
+	 */
+	private $target_prices = array();
+
 	/**
 	 * Hook registration.
 	 */
@@ -80,9 +133,37 @@ class Tack_Widget {
 		add_action( 'wp_footer', array( $this, 'render_quote_list_drawer' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
+		/*
+		 * Product cards (1.9.0, off by default). `woocommerce_after_shop_loop_item`
+		 * is the hook WooCommerce's own loop button uses, at priority 10
+		 * (templates/content-product.php: "@hooked woocommerce_template_loop_add_to_cart
+		 * - 10"); 11 puts the quote control directly after it. The callback checks the
+		 * option itself, so a cached decision cannot outlive a settings change.
+		 */
+		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_card_button' ), 11 );
+
+		/*
+		 * Cart page (1.9.0, off by default). The classic cart fires
+		 * `woocommerce_proceed_to_checkout` inside `.wc-proceed-to-checkout`
+		 * (templates/cart/cart-totals.php) with the Proceed button at priority 20
+		 * (includes/wc-template-hooks.php); 25 places the quote control under it. The
+		 * Cart BLOCK renders no PHP hook at that spot — UNVERIFIED: no Cart block
+		 * extensibility slot for a server-rendered control was confirmed — so a
+		 * `wp_footer` fallback renders a fixed control on `is_cart()` when the classic
+		 * hook did not fire. The fallback does not depend on such a slot existing.
+		 */
+		add_action( 'woocommerce_proceed_to_checkout', array( $this, 'render_cart_quote_button' ), 25 );
+		add_action( 'wp_footer', array( $this, 'render_cart_quote_button_footer' ), 5 );
+
+		// The quote page (1.9.0): a shortcode the merchant places on a page of their own.
+		add_shortcode( 'tackquote_quote_page', array( $this, 'render_quote_page' ) );
+
 		// AJAX (logged-in and guest).
 		add_action( 'wp_ajax_tack_request_quote', array( $this, 'handle_request' ) );
 		add_action( 'wp_ajax_nopriv_tack_request_quote', array( $this, 'handle_request' ) );
+
+		// Re-pricing the list at the line quantity: signed-in buyers only, so no nopriv route.
+		add_action( 'wp_ajax_tack_quote_reprice', array( $this, 'handle_reprice' ) );
 
 		/*
 		 * Nonce refresh, on WooCommerce's own `?wc-ajax=` endpoint rather than
@@ -186,29 +267,42 @@ class Tack_Widget {
 				// name+email form rather than rendering nothing — a shopper must still be able
 				// to ask for a quote when our own API is having a bad day.
 				'registration'        => $this->registration_config(),
+				// 1.9.0 storefront layout. Defaults reproduce the 1.8.x launcher exactly.
+				'fab'                 => self::fab_settings(),
+				'opens'               => self::opens(),
+				'pageUrl'             => self::quote_page_url(),
+				// The list is re-priced at the line quantity only for a signed-in buyer whose
+				// store uses TackQuote prices; guests keep the store price (nothing to resolve).
+				'repriceEnabled'      => $this->reprice_enabled(),
+				// The Cart block changes the cart client-side without a page load, so the
+				// cart-page button re-reads the live cart from WooCommerce's Store API before
+				// falling back to the server-rendered snapshot. Same site, shopper's own
+				// session cookie: nothing leaves the store.
+				'storeCartUrl'        => function_exists( 'rest_url' ) ? rest_url( 'wc/store/v1/cart' ) : '',
+				'price'               => $this->price_format(),
 				'i18n'                => array(
-					'modalTitle'         => __( 'Request a Quote', 'tackquote' ),
-					'firstNameLabel'     => __( 'First name', 'tackquote' ),
-					'lastNameLabel'      => __( 'Last name', 'tackquote' ),
-					'emailLabel'         => __( 'Email address', 'tackquote' ),
-					'phoneLabel'         => __( 'Phone', 'tackquote' ),
-					'companyHeading'     => __( 'Company details', 'tackquote' ),
-					'companyNameLabel'   => __( 'Company name', 'tackquote' ),
-					'buyingAsLabel'      => __( 'I am buying as', 'tackquote' ),
-					'buyingAsIndividual' => __( 'An individual', 'tackquote' ),
-					'buyingAsCompany'    => __( 'A company', 'tackquote' ),
-					'optional'           => __( '(optional)', 'tackquote' ),
-					'firstNameRequired'  => __( 'Please enter your first name.', 'tackquote' ),
-					'companyRequired'    => __( 'Please complete the required company details.', 'tackquote' ),
+					'modalTitle'             => __( 'Request a Quote', 'tackquote' ),
+					'firstNameLabel'         => __( 'First name', 'tackquote' ),
+					'lastNameLabel'          => __( 'Last name', 'tackquote' ),
+					'emailLabel'             => __( 'Email address', 'tackquote' ),
+					'phoneLabel'             => __( 'Phone', 'tackquote' ),
+					'companyHeading'         => __( 'Company details', 'tackquote' ),
+					'companyNameLabel'       => __( 'Company name', 'tackquote' ),
+					'buyingAsLabel'          => __( 'I am buying as', 'tackquote' ),
+					'buyingAsIndividual'     => __( 'An individual', 'tackquote' ),
+					'buyingAsCompany'        => __( 'A company', 'tackquote' ),
+					'optional'               => __( '(optional)', 'tackquote' ),
+					'firstNameRequired'      => __( 'Please enter your first name.', 'tackquote' ),
+					'companyRequired'        => __( 'Please complete the required company details.', 'tackquote' ),
 					// Neutral on purpose (1.8.1): TackQuote answers awaitingApproval for EVERY
 					// company request, so it no longer says whether a company name matched an
 					// existing account. This text must not claim more than that answer does.
-					'awaitingApproval'   => __( "Request received. If your company account needs approval, we'll email you when it is ready.", 'tackquote' ),
-					'portalLink'         => __( 'Go to your buyer portal', 'tackquote' ),
+					'awaitingApproval'       => __( "Request received. If your company account needs approval, we'll email you when it is ready.", 'tackquote' ),
+					'portalLink'             => __( 'Go to your buyer portal', 'tackquote' ),
 					// Company field labels, keyed by the field names the API's
 					// requiredCompanyFields returns. Anything not listed here falls back to a
 					// humanised version of the key, so a new policy field still renders.
-					'companyFields'      => array(
+					'companyFields'          => array(
 						'legalName'          => __( 'Legal name', 'tackquote' ),
 						'taxId'              => __( 'Tax / VAT ID', 'tackquote' ),
 						'registrationNumber' => __( 'Registration number', 'tackquote' ),
@@ -223,24 +317,36 @@ class Tack_Widget {
 						'industry'           => __( 'Industry', 'tackquote' ),
 						'employeeCount'      => __( 'Number of employees', 'tackquote' ),
 					),
-					'emailPlaceholder'   => __( 'you@example.com', 'tackquote' ),
+					'emailPlaceholder'       => __( 'you@example.com', 'tackquote' ),
 					// Just "Note": the optional marker is appended generically by the form
 					// builder now, and leaving it in the string rendered "Note (optional) (optional)".
-					'noteLabel'          => __( 'Note', 'tackquote' ),
-					'notePlaceholder'    => __( 'Anything the seller should know about this request…', 'tackquote' ),
-					'submit'             => __( 'Send request', 'tackquote' ),
-					'sending'            => __( 'Sending…', 'tackquote' ),
-					'cancel'             => __( 'Cancel', 'tackquote' ),
-					'close'              => __( 'Close', 'tackquote' ),
-					'error'              => __( 'Could not create the quote. Please try again.', 'tackquote' ),
-					'reload'             => __( 'Reload page', 'tackquote' ),
-					'emailRequired'      => __( 'Please enter a valid email address.', 'tackquote' ),
-					'success'            => __( 'Quote requested! Redirecting you to it now…', 'tackquote' ),
-					'added'              => __( 'Added ✓', 'tackquote' ),
-					'quoteListTitle'     => __( 'Your quote list', 'tackquote' ),
-					'quoteListEmpty'     => __( 'No products added yet.', 'tackquote' ),
-					'quoteListCount'     => __( 'Quote list', 'tackquote' ),
-					'remove'             => __( 'Remove', 'tackquote' ),
+					'noteLabel'              => __( 'Note', 'tackquote' ),
+					'notePlaceholder'        => __( 'Anything the seller should know about this request…', 'tackquote' ),
+					'submit'                 => __( 'Send request', 'tackquote' ),
+					'sending'                => __( 'Sending…', 'tackquote' ),
+					'cancel'                 => __( 'Cancel', 'tackquote' ),
+					'close'                  => __( 'Close', 'tackquote' ),
+					'error'                  => __( 'Could not create the quote. Please try again.', 'tackquote' ),
+					'reload'                 => __( 'Reload page', 'tackquote' ),
+					'emailRequired'          => __( 'Please enter a valid email address.', 'tackquote' ),
+					'success'                => __( 'Quote requested! Redirecting you to it now…', 'tackquote' ),
+					'added'                  => __( 'Added ✓', 'tackquote' ),
+					'quoteListTitle'         => __( 'Your quote list', 'tackquote' ),
+					'quoteListEmpty'         => __( 'No products added yet.', 'tackquote' ),
+					'quoteListCount'         => __( 'Quote list', 'tackquote' ),
+					'remove'                 => __( 'Remove', 'tackquote' ),
+					// 1.9.0
+					'cartAddedOne'           => __( '1 item added to your quote list.', 'tackquote' ),
+					/* translators: %d: number of cart lines added to the quote list. */
+					'cartAddedMany'          => __( '%d items added to your quote list.', 'tackquote' ),
+					'cartEmpty'              => __( 'Your cart is empty.', 'tackquote' ),
+					'quantity'               => __( 'Quantity', 'tackquote' ),
+					'unitPrice'              => __( 'Unit price (excl. tax)', 'tackquote' ),
+					'targetPrice'            => __( 'Target price', 'tackquote' ),
+					'targetPricePlaceholder' => __( 'Optional', 'tackquote' ),
+					'product'                => __( 'Product', 'tackquote' ),
+					'yourPrice'              => __( 'Your price', 'tackquote' ),
+					'quoteListOpen'          => __( 'Open your quote list', 'tackquote' ),
 				),
 			)
 		);
@@ -340,20 +446,49 @@ class Tack_Widget {
 	}
 
 	/**
-	 * Floating "quote list" button + drawer, printed once in the footer of
-	 * every front-end page. Empty/hidden by JS until at least one product has
-	 * been added. This — not the WooCommerce cart page — is where shoppers
-	 * review what they've added and submit "Checkout as Quote".
+	 * Floating "quote list" launcher + drawer, printed once in the footer of
+	 * every front-end page the merchant chose. Empty/hidden by JS until at least
+	 * one product has been added. This — not the WooCommerce cart page — is where
+	 * shoppers review what they've added and submit "Checkout as Quote".
+	 *
+	 * Since 1.9.0 the launcher's side, offsets, label, size, pages and mobile
+	 * behaviour are settings (see `fab_settings()`); every default reproduces the
+	 * 1.8.x launcher. The markup carries the choices as classes, data attributes
+	 * and two CSS custom properties; nothing is positioned inline.
 	 */
 	public function render_quote_list_drawer() {
 		if ( is_admin() ) {
 			return;
 		}
+		$fab = self::fab_settings();
+		if ( ! $this->fab_shows_here( $fab['pages'] ) ) {
+			return;
+		}
+
+		$classes = array( 'tack-quote-list-widget' );
+		if ( 'bottom-left' === $fab['position'] ) {
+			$classes[] = 'tack-fab-left';
+		}
+		if ( 'compact' === $fab['size'] ) {
+			$classes[] = 'tack-fab-compact';
+		}
+		if ( $fab['iconOnly'] ) {
+			$classes[] = 'tack-fab-icon-only';
+		}
+		if ( ! $fab['showCount'] ) {
+			$classes[] = 'tack-fab-no-count';
+		}
+		if ( $fab['hideMobile'] ) {
+			$classes[] = 'tack-fab-hide-mobile';
+		}
+		$style = sprintf( '--tack-fab-x:%dpx;--tack-fab-y:%dpx', $fab['offsetX'], $fab['offsetY'] );
+		$opens = self::opens();
 		?>
-		<div id="tack-quote-list-widget" class="tack-quote-list-widget" hidden>
-			<button type="button" id="tack-quote-list-toggle" class="tack-quote-list-toggle">
-				<?php esc_html_e( 'Quote list', 'tackquote' ); ?>
-				(<span id="tack-quote-list-count">0</span>)
+		<div id="tack-quote-list-widget" class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>" data-position="<?php echo esc_attr( $fab['position'] ); ?>" data-size="<?php echo esc_attr( $fab['size'] ); ?>" data-pages="<?php echo esc_attr( $fab['pages'] ); ?>" data-opens="<?php echo esc_attr( $opens ); ?>" style="<?php echo esc_attr( $style ); ?>" hidden>
+			<button type="button" id="tack-quote-list-toggle" class="tack-quote-list-toggle" aria-label="<?php echo esc_attr( $fab['label'] ); ?>"<?php echo 'page' === $opens ? ' data-href="' . esc_url( self::quote_page_url() ) . '"' : ''; ?>>
+				<svg class="tack-fab-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M9 2a2 2 0 0 0-2 2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1a2 2 0 0 0-2-2H9zm0 2h6v2H9V4zM8 11h8v2H8v-2zm0 4h5v2H8v-2z"/></svg>
+				<span class="tack-fab-label"><?php echo esc_html( $fab['label'] ); ?></span>
+				<span class="tack-fab-count">(<span id="tack-quote-list-count">0</span>)</span>
 			</button>
 			<div id="tack-quote-list-drawer" class="tack-quote-list-drawer" hidden>
 				<div class="tack-quote-list-drawer-header">
@@ -361,12 +496,423 @@ class Tack_Widget {
 					<button type="button" id="tack-quote-list-close" aria-label="<?php esc_attr_e( 'Close', 'tackquote' ); ?>">&times;</button>
 				</div>
 				<ul id="tack-quote-list-items" class="tack-quote-list-items"></ul>
-				<button type="button" id="tack-quote-list-checkout" class="button tack-quote-btn tack-quote-list-checkout">
+				<button type="button" id="tack-quote-list-checkout" class="<?php echo esc_attr( self::button_class( 'tack-quote-btn tack-quote-list-checkout' ) ); ?>">
 					<?php echo esc_html( (string) get_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) ) ); ?>
 				</button>
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Does the launcher belong on THIS page, per the "Show on" setting?
+	 *
+	 * @param string $pages One of all|product|cart|none.
+	 * @return bool
+	 */
+	private function fab_shows_here( $pages ) {
+		switch ( $pages ) {
+			case 'none':
+				return false;
+			case 'product':
+				return function_exists( 'is_product' ) && is_product();
+			case 'cart':
+				return function_exists( 'is_cart' ) && is_cart();
+			default:
+				return true;
+		}
+	}
+
+	/**
+	 * The launcher defaults — the 1.8.x launcher, exactly: bottom right, 20 px in
+	 * from each edge, "Quote list (n)", regular size, every page, shown on mobile.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return array
+	 */
+	public static function fab_defaults() {
+		return array(
+			'position'   => 'bottom-right',
+			'offsetX'    => 20,
+			'offsetY'    => 20,
+			'pages'      => 'all',
+			'label'      => __( 'Quote list', 'tackquote' ),
+			'iconOnly'   => false,
+			'showCount'  => true,
+			'size'       => 'regular',
+			'hideMobile' => false,
+		);
+	}
+
+	/**
+	 * The launcher settings as saved, each checked against its allowed values;
+	 * anything unrecognised is the default. The ids mirror the Shopify quote
+	 * launcher block (`quote-fab.liquid`: position, offset_x, offset_y, pages,
+	 * label, icon_only, show_count, size, hide_on_mobile) so a merchant moving
+	 * between platforms meets the same choices.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return array{position:string,offsetX:int,offsetY:int,pages:string,label:string,iconOnly:bool,showCount:bool,size:string,hideMobile:bool}
+	 */
+	public static function fab_settings() {
+		$d        = self::fab_defaults();
+		$position = (string) get_option( self::OPT_FAB_POSITION, $d['position'] );
+		$pages    = (string) get_option( self::OPT_FAB_PAGES, $d['pages'] );
+		$size     = (string) get_option( self::OPT_FAB_SIZE, $d['size'] );
+		$label    = trim( (string) get_option( self::OPT_FAB_LABEL, '' ) );
+
+		return array(
+			'position'   => in_array( $position, array( 'bottom-right', 'bottom-left' ), true ) ? $position : $d['position'],
+			'offsetX'    => self::offset_px( get_option( self::OPT_FAB_OFFSET_X, $d['offsetX'] ), $d['offsetX'] ),
+			'offsetY'    => self::offset_px( get_option( self::OPT_FAB_OFFSET_Y, $d['offsetY'] ), $d['offsetY'] ),
+			'pages'      => in_array( $pages, array( 'all', 'product', 'cart', 'none' ), true ) ? $pages : $d['pages'],
+			'label'      => '' === $label ? $d['label'] : $label,
+			'iconOnly'   => 'yes' === get_option( self::OPT_FAB_ICON_ONLY, 'no' ),
+			'showCount'  => 'yes' === get_option( self::OPT_FAB_SHOW_COUNT, 'yes' ),
+			'size'       => in_array( $size, array( 'compact', 'regular' ), true ) ? $size : $d['size'],
+			'hideMobile' => 'yes' === get_option( self::OPT_FAB_HIDE_MOBILE, 'no' ),
+		);
+	}
+
+	/**
+	 * A launcher offset in whole pixels within [0, FAB_OFFSET_MAX], else the default.
+	 *
+	 * @param mixed $value    Stored value.
+	 * @param int   $fallback Default.
+	 * @return int
+	 */
+	private static function offset_px( $value, $fallback ) {
+		if ( ! is_numeric( $value ) ) {
+			return (int) $fallback;
+		}
+		$n = (int) $value;
+		return ( $n >= 0 && $n <= self::FAB_OFFSET_MAX ) ? $n : (int) $fallback;
+	}
+
+	/**
+	 * What the launcher and the card/cart buttons open: `drawer` (default) or
+	 * `page`. `page` needs a URL; without one the drawer is used so a saved
+	 * setting with a blank URL cannot make the launcher do nothing.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return string
+	 */
+	public static function opens() {
+		return 'page' === get_option( self::OPT_OPENS, 'drawer' ) && '' !== self::quote_page_url() ? 'page' : 'drawer';
+	}
+
+	/**
+	 * URL of the merchant page carrying `[tackquote_quote_page]`, or ''.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return string
+	 */
+	public static function quote_page_url() {
+		return trim( (string) get_option( self::OPT_PAGE_URL, '' ) );
+	}
+
+	/**
+	 * Is the quote list re-priced at the line quantity for this visitor?
+	 *
+	 * Only a signed-in buyer on a store that uses TackQuote prices: the resolve
+	 * call needs a buyer email and the merchant's switch, and a guest's list keeps
+	 * the store price it was added at (there is nothing to resolve for them).
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return bool
+	 */
+	public function reprice_enabled() {
+		return class_exists( 'Tack_Wholesale_Pricing' )
+			&& Tack_Wholesale_Pricing::is_enabled()
+			&& is_user_logged_in()
+			&& '' !== (string) get_option( 'tack_quotes_api_key', '' );
+	}
+
+	/**
+	 * The store's price format, so the storefront script can print a unit price
+	 * the way the store does (symbol, decimals, separators, position). Read from
+	 * WooCommerce's own settings helpers; nothing here is invented.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return array{symbol:string,decimals:int,decimalSep:string,thousandSep:string,position:string}
+	 */
+	private function price_format() {
+		return array(
+			'symbol'      => function_exists( 'get_woocommerce_currency_symbol' )
+				? html_entity_decode( (string) get_woocommerce_currency_symbol(), ENT_QUOTES, 'UTF-8' )
+				: '',
+			'decimals'    => function_exists( 'wc_get_price_decimals' ) ? (int) wc_get_price_decimals() : 2,
+			'decimalSep'  => function_exists( 'wc_get_price_decimal_separator' ) ? (string) wc_get_price_decimal_separator() : '.',
+			'thousandSep' => function_exists( 'wc_get_price_thousand_separator' ) ? (string) wc_get_price_thousand_separator() : ',',
+			'position'    => (string) get_option( 'woocommerce_currency_pos', 'left' ),
+		);
+	}
+
+	/**
+	 * The class list for an injected control: WooCommerce's own button classes,
+	 * so the theme paints it like its own buttons.
+	 *
+	 * Block themes style `.wp-element-button` (the class WooCommerce adds to its
+	 * own loop and cart buttons through `wc_wp_theme_get_element_class_name( 'button' )`,
+	 * includes/wc-conditional-functions.php); classic themes style `.button`.
+	 * No colour is set by the plugin for the 1.9.0 controls.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $extra Plugin classes to append (space-separated).
+	 * @return string
+	 */
+	public static function button_class( $extra = '' ) {
+		$classes = array( 'button' );
+		$element = '';
+		if ( function_exists( 'wc_wp_theme_get_element_class_name' ) ) {
+			$element = (string) wc_wp_theme_get_element_class_name( 'button' );
+		} elseif ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
+			$element = 'wp-element-button';
+		}
+		if ( '' !== $element ) {
+			$classes[] = $element;
+		}
+		if ( '' !== (string) $extra ) {
+			$classes[] = (string) $extra;
+		}
+		return implode( ' ', $classes );
+	}
+
+	/**
+	 * "Add to Quote" on a product card in the shop, category and search loops
+	 * (off by default; `OPT_CARD_BUTTONS`).
+	 *
+	 * A simple product is added to the quote list directly, quantity 1. A product
+	 * whose card cannot name what would be quoted — variable (which size?),
+	 * grouped (which child?), external (not sold here) — links to its page
+	 * instead, where the product-page buttons take over. That is what the
+	 * BigCommerce widget does on its cards too, and the alternative — quoting a
+	 * variable parent — records the wrong SKU at the cheapest variation's price.
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_card_button() {
+		if ( 'yes' !== get_option( self::OPT_CARD_BUTTONS, 'no' ) ) {
+			return;
+		}
+		global $product;
+		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+		$name = (string) $product->get_name();
+
+		if ( $product->is_type( 'simple' ) ) {
+			printf(
+				'<button type="button" class="%1$s" data-product-id="%2$d" data-product-name="%3$s" data-product-sku="%4$s" data-product-price="%5$s" aria-label="%6$s">%7$s</button>',
+				esc_attr( self::button_class( 'tack-card-quote-btn' ) ),
+				(int) $product->get_id(),
+				esc_attr( $name ),
+				esc_attr( (string) $product->get_sku() ),
+				esc_attr( (string) wc_get_price_excluding_tax( $product ) ),
+				esc_attr(
+					sprintf(
+						/* translators: %s: product name. */
+						__( 'Add %s to quote', 'tackquote' ),
+						$name
+					)
+				),
+				esc_html( (string) get_option( 'tack_quotes_button_label', __( 'Add to Quote', 'tackquote' ) ) )
+			);
+			return;
+		}
+
+		$url = get_permalink( $product->get_id() );
+		if ( ! $url ) {
+			return;
+		}
+		/**
+		 * Filters the card label for a product that must be configured before quoting.
+		 *
+		 * @since 1.9.0
+		 *
+		 * @param string     $label   Default "Choose options to quote".
+		 * @param WC_Product $product The product.
+		 */
+		$label = (string) apply_filters( 'tack_quotes_card_options_label', __( 'Choose options to quote', 'tackquote' ), $product );
+		printf(
+			'<a href="%1$s" class="%2$s" data-product-id="%3$d" aria-label="%4$s">%5$s</a>',
+			esc_url( $url ),
+			esc_attr( self::button_class( 'tack-card-quote-link' ) ),
+			(int) $product->get_id(),
+			esc_attr(
+				sprintf(
+					/* translators: %s: product name. */
+					__( 'Choose options for %s to quote', 'tackquote' ),
+					$name
+				)
+			),
+			esc_html( $label )
+		);
+	}
+
+	/**
+	 * The shopper's cart as quote-list lines: product and variation ids, SKU,
+	 * name, quantity and the unit price excluding tax. Read from `WC()->cart`
+	 * (`get_cart()` rows carry `product_id`, `variation_id`, `quantity` and the
+	 * product under `data`; includes/class-wc-cart.php).
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return array<int, array{product_id:int,variation_id:int,quantity:int,sku:string,name:string,price:float}>
+	 */
+	public function cart_lines() {
+		if ( ! function_exists( 'WC' ) || ! is_object( WC()->cart ) || ! method_exists( WC()->cart, 'get_cart' ) ) {
+			return array();
+		}
+		$lines = array();
+		foreach ( WC()->cart->get_cart() as $item ) {
+			$data = isset( $item['data'] ) ? $item['data'] : null;
+			if ( ! is_object( $data ) || empty( $item['product_id'] ) ) {
+				continue;
+			}
+			$lines[] = array(
+				'product_id'   => (int) $item['product_id'],
+				'variation_id' => isset( $item['variation_id'] ) ? (int) $item['variation_id'] : 0,
+				'quantity'     => isset( $item['quantity'] ) ? max( 1, (int) $item['quantity'] ) : 1,
+				'sku'          => method_exists( $data, 'get_sku' ) ? (string) $data->get_sku() : '',
+				'name'         => method_exists( $data, 'get_name' ) ? (string) $data->get_name() : '',
+				'price'        => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $data ) : 0.0,
+			);
+		}
+		return $lines;
+	}
+
+	/**
+	 * "Request a quote for your cart" under the classic cart's Proceed button
+	 * (off by default; `OPT_CART_BUTTON`).
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_cart_quote_button() {
+		if ( 'yes' !== get_option( self::OPT_CART_BUTTON, 'no' ) ) {
+			return;
+		}
+		$lines = $this->cart_lines();
+		if ( empty( $lines ) ) {
+			return;
+		}
+		$this->cart_button_rendered = true;
+		$this->print_cart_quote_button( $lines );
+	}
+
+	/**
+	 * The same control for the Cart BLOCK, which renders no PHP hook beside its
+	 * Proceed button: a fixed control printed in the footer of the cart page when
+	 * the classic hook did not fire and the cart has lines.
+	 *
+	 * @since 1.9.0
+	 */
+	public function render_cart_quote_button_footer() {
+		if ( is_admin() || $this->cart_button_rendered || 'yes' !== get_option( self::OPT_CART_BUTTON, 'no' ) ) {
+			return;
+		}
+		if ( ! function_exists( 'is_cart' ) || ! is_cart() ) {
+			return;
+		}
+		$lines = $this->cart_lines();
+		if ( empty( $lines ) ) {
+			return;
+		}
+		$this->cart_button_rendered = true;
+		echo '<div class="tack-quote-cart-fixed">';
+		$this->print_cart_quote_button( $lines );
+		echo '</div>';
+	}
+
+	/**
+	 * The cart-page control. The lines travel on the element as JSON; the
+	 * server re-derives every value from the ids on submit, as it does for the
+	 * drawer, so the snapshot is only what the shopper sees added.
+	 *
+	 * @param array $lines Cart lines from `cart_lines()`.
+	 */
+	private function print_cart_quote_button( $lines ) {
+		$label = trim( (string) get_option( self::OPT_CART_BUTTON_LABEL, '' ) );
+		if ( '' === $label ) {
+			$label = __( 'Request a quote for your cart', 'tackquote' );
+		}
+		printf(
+			'<button type="button" class="%1$s" data-lines="%2$s">%3$s</button>',
+			esc_attr( self::button_class( 'tack-quote-cart-btn' ) ),
+			esc_attr( (string) wp_json_encode( $lines ) ),
+			esc_html( $label )
+		);
+	}
+
+	/**
+	 * `[tackquote_quote_page target_price="yes" message="yes"]` — the quote page.
+	 *
+	 * Renders the shell; the storefront script fills it from the same
+	 * `localStorage` list the drawer uses, so a product added anywhere on the
+	 * store is on this page too. Quantities are editable, a target price per line
+	 * is optional, and the message becomes the request note. Submit goes through
+	 * the same `tack_request_quote` handler as the drawer.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param array $atts Shortcode attributes.
+	 * @return string
+	 */
+	public function render_quote_page( $atts = array() ) {
+		$atts    = shortcode_atts(
+			array(
+				'target_price' => 'yes',
+				'message'      => 'yes',
+			),
+			is_array( $atts ) ? $atts : array(),
+			'tackquote_quote_page'
+		);
+		$target  = 'no' !== strtolower( (string) $atts['target_price'] );
+		$message = 'no' !== strtolower( (string) $atts['message'] );
+		$shop    = function_exists( 'wc_get_page_permalink' ) ? (string) wc_get_page_permalink( 'shop' ) : '';
+
+		ob_start();
+		?>
+		<div id="tack-quote-page" class="tack-quote-page" data-target-price="<?php echo $target ? 'yes' : 'no'; ?>" data-message="<?php echo $message ? 'yes' : 'no'; ?>">
+			<p class="tack-quote-page-empty"><?php esc_html_e( 'No products added yet.', 'tackquote' ); ?></p>
+			<table class="shop_table tack-quote-page-table" hidden>
+				<thead>
+					<tr>
+						<th class="tack-quote-page-col-product"><?php esc_html_e( 'Product', 'tackquote' ); ?></th>
+						<th class="tack-quote-page-col-qty"><?php esc_html_e( 'Quantity', 'tackquote' ); ?></th>
+						<th class="tack-quote-page-col-price"><?php esc_html_e( 'Unit price (excl. tax)', 'tackquote' ); ?></th>
+						<?php if ( $target ) : ?>
+						<th class="tack-quote-page-col-target"><?php esc_html_e( 'Target price', 'tackquote' ); ?></th>
+						<?php endif; ?>
+						<th class="tack-quote-page-col-remove"><span class="screen-reader-text"><?php esc_html_e( 'Remove', 'tackquote' ); ?></span></th>
+					</tr>
+				</thead>
+				<tbody id="tack-quote-page-items"></tbody>
+			</table>
+			<?php if ( $message ) : ?>
+			<div class="tack-quote-field tack-quote-page-message">
+				<label for="tack-quote-page-message"><?php esc_html_e( 'Message', 'tackquote' ); ?> <span class="tack-quote-optional"><?php esc_html_e( '(optional)', 'tackquote' ); ?></span></label>
+				<textarea id="tack-quote-page-message" rows="3" maxlength="<?php echo (int) self::NOTE_MAX_LENGTH; ?>"></textarea>
+			</div>
+			<?php endif; ?>
+			<p class="tack-quote-page-actions">
+				<?php if ( '' !== $shop ) : ?>
+				<a class="<?php echo esc_attr( self::button_class( 'tack-quote-page-continue' ) ); ?>" href="<?php echo esc_url( $shop ); ?>"><?php esc_html_e( 'Continue shopping', 'tackquote' ); ?></a>
+				<?php endif; ?>
+				<button type="button" id="tack-quote-page-submit" class="<?php echo esc_attr( self::button_class( 'alt tack-quote-page-submit' ) ); ?>" disabled>
+					<?php echo esc_html( (string) get_option( 'tack_quotes_checkout_button_label', __( 'Checkout as Quote', 'tackquote' ) ) ); ?>
+				</button>
+			</p>
+		</div>
+		<?php
+		return (string) ob_get_clean();
 	}
 
 	/**
@@ -382,8 +928,8 @@ class Tack_Widget {
 			$attrs .= sprintf( ' data-%s="%s"', esc_attr( $k ), esc_attr( $v ) );
 		}
 		printf(
-			'<button type="button" class="button %s"%s>%s</button>',
-			esc_attr( $css_class ),
+			'<button type="button" class="%s"%s>%s</button>',
+			esc_attr( self::button_class( $css_class ) ),
 			$attrs, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_attr above.
 			esc_html( $label )
 		);
@@ -645,6 +1191,17 @@ class Tack_Widget {
 			}
 		}
 
+		/*
+		 * Target prices (1.9.0, quote page). The plugin's request DTO
+		 * (`StorefrontPluginLineItemDto` in tack) has no per-line field for them and no
+		 * per-line note either, so they travel INSIDE THE REQUEST NOTE, one line per
+		 * product, after the shopper's own message. Two-repo follow-up recorded in the
+		 * 1.9.0 PR: add an optional `targetPrice` to that DTO and move these there.
+		 */
+		if ( ! empty( $this->target_prices ) ) {
+			$payload['note'] = $this->note_with_target_prices( $note, isset( $payload['currency'] ) ? $payload['currency'] : '' );
+		}
+
 		$this->record_rate_limit_hit();
 
 		$client = new Tack_Api_Client();
@@ -762,57 +1319,201 @@ class Tack_Widget {
 
 	/**
 	 * Build line items from the browser-submitted quote list. Only
-	 * `product_id` + `quantity` are trusted from the client — name/SKU/price
-	 * are always re-derived from the live product record here, the same way
-	 * `product_line_items()` already does, so a tampered client payload can't
-	 * misstate what's actually being quoted.
+	 * `product_id` + `quantity` (and, since 1.9.0, an optional `target_price`)
+	 * are trusted from the client — name/SKU/price are always re-derived from the
+	 * live product record here, the same way `product_line_items()` already does,
+	 * so a tampered client payload can't misstate what's actually being quoted.
 	 *
-	 * @param string $items_json JSON-encoded array of {product_id, quantity}.
+	 * @param string $items_json JSON-encoded array of {product_id, quantity, variation_id, target_price}.
 	 * @return array
 	 */
 	private function quote_list_line_items( $items_json ) {
-		// Bounded before decoding, because json_decode() on an unbounded string from an
-		// unauthenticated endpoint is the cheap half of the attack; the expensive half is the
-		// wc_get_product() call this does per row.
-		if ( strlen( (string) $items_json ) > self::ITEMS_MAX_BYTES ) {
-			return array();
-		}
-
-		$decoded = json_decode( $items_json, true );
-		if ( ! is_array( $decoded ) ) {
-			return array();
-		}
+		$this->target_prices = array();
 
 		$items = array();
-		foreach ( $decoded as $row ) {
-			if ( count( $items ) >= self::ITEMS_MAX ) {
-				break;
-			}
-			if ( ! is_array( $row ) || empty( $row['product_id'] ) ) {
-				continue;
-			}
-			$product_id   = absint( $row['product_id'] );
-			$quantity     = isset( $row['quantity'] ) ? max( 1, absint( $row['quantity'] ) ) : 1;
-			$variation_id = isset( $row['variation_id'] ) ? absint( $row['variation_id'] ) : 0;
-			$product      = wc_get_product( $product_id );
+		foreach ( $this->decode_rows( $items_json ) as $row ) {
+			$product = wc_get_product( $row['product_id'] );
 			if ( ! $product instanceof WC_Product ) {
 				continue;
 			}
 			// Same rule as the single-product path: quote the chosen variation, and skip a
 			// variable product whose variation is missing or does not belong to it rather
 			// than silently quoting the parent.
-			$product = $this->resolve_purchasable( $product, $variation_id );
+			$product = $this->resolve_purchasable( $product, $row['variation_id'] );
 			if ( ! $product ) {
 				continue;
 			}
 			$items[] = array(
 				'sku'               => $product->get_sku(),
 				'name'              => $product->get_name(),
-				'quantity'          => $quantity,
+				'quantity'          => $row['quantity'],
 				'unitPrice'         => (float) wc_get_price_excluding_tax( $product ),
 				'externalProductId' => (string) $product->get_id(),
 			);
+			if ( null !== $row['target_price'] ) {
+				$this->target_prices[] = array(
+					'name'     => (string) $product->get_name(),
+					'sku'      => (string) $product->get_sku(),
+					'quantity' => (int) $row['quantity'],
+					'target'   => (float) $row['target_price'],
+				);
+			}
 		}
 		return $items;
+	}
+
+	/**
+	 * Decode and bound the browser-submitted rows. Shared by the quote-list
+	 * submission and the re-pricing call so the two accept exactly the same shape.
+	 *
+	 * Bounded before decoding, because json_decode() on an unbounded string from an
+	 * unauthenticated endpoint is the cheap half of the attack; the expensive half is
+	 * the wc_get_product() call the callers do per row.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $items_json Raw JSON.
+	 * @return array<int, array{product_id:int,quantity:int,variation_id:int,target_price:float|null}>
+	 */
+	private function decode_rows( $items_json ) {
+		if ( strlen( (string) $items_json ) > self::ITEMS_MAX_BYTES ) {
+			return array();
+		}
+		$decoded = json_decode( (string) $items_json, true );
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+
+		$rows = array();
+		foreach ( $decoded as $row ) {
+			if ( count( $rows ) >= self::ITEMS_MAX ) {
+				break;
+			}
+			if ( ! is_array( $row ) || empty( $row['product_id'] ) ) {
+				continue;
+			}
+			$target = null;
+			if ( isset( $row['target_price'] ) && is_numeric( $row['target_price'] ) && (float) $row['target_price'] >= 0 ) {
+				$target = round( (float) $row['target_price'], 4 );
+			}
+			$rows[] = array(
+				'product_id'   => absint( $row['product_id'] ),
+				'quantity'     => isset( $row['quantity'] ) ? max( 1, absint( $row['quantity'] ) ) : 1,
+				'variation_id' => isset( $row['variation_id'] ) ? absint( $row['variation_id'] ) : 0,
+				'target_price' => $target,
+			);
+		}
+		return $rows;
+	}
+
+	/**
+	 * The request note with the shopper's target prices appended, one line per
+	 * product, bounded so the whole note stays under the API's 10,000-character limit.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $note     The shopper's note (already capped at NOTE_MAX_LENGTH).
+	 * @param string $currency ISO 4217 code, or ''.
+	 * @return string
+	 */
+	public function note_with_target_prices( $note, $currency ) {
+		if ( empty( $this->target_prices ) ) {
+			return $note;
+		}
+		$decimals = function_exists( 'wc_get_price_decimals' ) ? (int) wc_get_price_decimals() : 2;
+		$lines    = array( __( 'Target prices:', 'tackquote' ) );
+		foreach ( $this->target_prices as $t ) {
+			$lines[] = sprintf(
+				/* translators: 1: product name, 2: SKU, 3: quantity, 4: target unit price, 5: currency code. */
+				__( '- %1$s (%2$s) x%3$d: %4$s %5$s', 'tackquote' ),
+				$t['name'],
+				'' === $t['sku'] ? '-' : $t['sku'],
+				$t['quantity'],
+				number_format( $t['target'], $decimals, '.', '' ),
+				$currency
+			);
+		}
+		$appendix = implode( "\n", $lines );
+		$out      = '' === trim( $note ) ? $appendix : $note . "\n\n" . $appendix;
+		// 2000 (note) + 100 lines of ~70 characters stays well inside the API's 10,000; the
+		// cap below is a guard for a hostile payload, never a path a real shopper reaches.
+		return mb_substr( $out, 0, 9000 );
+	}
+
+	/**
+	 * AJAX: re-price the quote list for a signed-in buyer at the line quantities.
+	 *
+	 * One batched `POST /storefront-pricing/resolve` through `Tack_Wholesale_Pricing`
+	 * — the same read that prices the cart, so the drawer and the cart cannot
+	 * disagree. Signed-in only (no `nopriv` route), and a no-op when the merchant
+	 * has not switched TackQuote prices on. A line TackQuote does not price answers
+	 * `null`, which the script shows as the store price it already had.
+	 *
+	 * @since 1.9.0
+	 */
+	public function handle_reprice() {
+		if ( ! check_ajax_referer( 'tack_request_quote', 'nonce', false ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'tack_nonce_expired',
+					'message' => __( 'This page has been open too long, or was served from a cache. Reload it and try again.', 'tackquote' ),
+				),
+				403
+			);
+		}
+		if ( ! $this->reprice_enabled() ) {
+			wp_send_json_success( array( 'items' => array() ) );
+		}
+
+		$items_json = isset( $_POST['items'] ) ? sanitize_textarea_field( wp_unslash( $_POST['items'] ) ) : '';
+		$asks       = array();
+		$resolved   = array();
+		foreach ( $this->decode_rows( $items_json ) as $row ) {
+			$product = wc_get_product( $row['product_id'] );
+			if ( ! $product instanceof WC_Product ) {
+				continue;
+			}
+			$product = $this->resolve_purchasable( $product, $row['variation_id'] );
+			if ( ! $product ) {
+				continue;
+			}
+			$sku = (string) $product->get_sku();
+			if ( '' === $sku ) {
+				continue;
+			}
+			$asks[]     = array(
+				'sku'      => $sku,
+				'quantity' => $row['quantity'],
+			);
+			$resolved[] = array(
+				'product_id'   => $row['product_id'],
+				'variation_id' => $row['variation_id'],
+				'quantity'     => $row['quantity'],
+				'sku'          => $sku,
+			);
+		}
+		if ( empty( $asks ) ) {
+			wp_send_json_success( array( 'items' => array() ) );
+		}
+
+		$pricing = new Tack_Wholesale_Pricing();
+		$prices  = $pricing->resolve( $asks );
+
+		$out = array();
+		foreach ( $resolved as $line ) {
+			$key   = $line['sku'] . '|' . (int) $line['quantity'];
+			$unit  = array_key_exists( $key, $prices ) ? $prices[ $key ] : null;
+			$out[] = array(
+				'product_id'   => $line['product_id'],
+				'variation_id' => $line['variation_id'],
+				'quantity'     => $line['quantity'],
+				'unitPrice'    => $unit,
+				'formatted'    => null === $unit || ! function_exists( 'wc_price' )
+					? ''
+					: html_entity_decode( wp_strip_all_tags( wc_price( $unit ) ), ENT_QUOTES, 'UTF-8' ),
+			);
+		}
+
+		wp_send_json_success( array( 'items' => $out ) );
 	}
 }

@@ -122,8 +122,20 @@ class Tack_B2B_Notices {
 		if ( 'yes' === get_option( self::OPTION_ORDER_LIMITS, 'no' ) ) {
 			// The courtesy.
 			add_action( 'woocommerce_single_product_summary', array( $this, 'render_order_limit_notice' ), 24 );
-			// The enforcement. Runs on the cart page AND on checkout.
+			// The enforcement. Runs on the cart page AND on checkout (classic templates).
 			add_action( 'woocommerce_check_cart_items', array( $this, 'enforce_order_limits' ) );
+
+			/*
+			 * The same enforcement for the Cart and Checkout BLOCKS. The Store API still
+			 * fires `woocommerce_check_cart_items` but marks it deprecated there, because
+			 * it has to capture `wc_add_notice()` output and convert it: "prefer
+			 * `woocommerce_store_api_cart_errors`, which passes a WP_Error to callbacks
+			 * directly" (WooCommerce Blocks `hooks/actions.md`; fired from
+			 * `src/StoreApi/Utilities/CartController.php` with `( WP_Error $errors, WC_Cart $cart )`).
+			 * Both are registered so a store on either checkout is covered, and the
+			 * Blocks one does not depend on the deprecated bridge surviving an update.
+			 */
+			add_action( 'woocommerce_store_api_cart_errors', array( $this, 'add_store_api_cart_errors' ), 10, 2 );
 		}
 
 		if ( 'yes' === get_option( self::OPTION_BUYER_GROUP, 'no' ) ) {
@@ -228,9 +240,48 @@ class Tack_B2B_Notices {
 		if ( ! function_exists( 'WC' ) ) {
 			return;
 		}
-		$cart = WC()->cart;
-		if ( ! is_object( $cart ) || ! method_exists( $cart, 'get_cart' ) ) {
+		foreach ( $this->order_limit_violations( WC()->cart ) as $message ) {
+			wc_add_notice( $message, 'error' );
+		}
+	}
+
+	/**
+	 * The same check for the Cart and Checkout blocks.
+	 *
+	 * Fired by the Store API with its own error collector. Every violation is
+	 * added under ONE code, `tackquote_order_limit`, so a block or a theme can
+	 * recognise the plugin's refusals without parsing the sentence.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param WP_Error $errors Error collector the Store API passes.
+	 * @param WC_Cart  $cart   The cart being validated.
+	 */
+	public function add_store_api_cart_errors( $errors, $cart ) {
+		if ( ! is_object( $errors ) || ! method_exists( $errors, 'add' ) ) {
 			return;
+		}
+		foreach ( $this->order_limit_violations( $cart ) as $message ) {
+			$errors->add( 'tackquote_order_limit', $message );
+		}
+	}
+
+	/**
+	 * Every order-limit violation in a cart, as the sentence the shopper reads.
+	 *
+	 * Shared by the classic and the Store API enforcement so the two cannot drift:
+	 * a limit the classic cart refuses is refused by the blocks too, in the same
+	 * words. Returns an empty array when nothing is wrong, when TackQuote has no
+	 * answer (fail open; see the file header), or when there is no cart to check.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param object|null $cart WC_Cart, or anything exposing `get_cart()`.
+	 * @return string[]
+	 */
+	public function order_limit_violations( $cart ) {
+		if ( ! is_object( $cart ) || ! method_exists( $cart, 'get_cart' ) ) {
+			return array();
 		}
 
 		/*
@@ -253,6 +304,7 @@ class Tack_B2B_Notices {
 			$totals[ $sku ] = ( isset( $totals[ $sku ] ) ? $totals[ $sku ] : 0 ) + $qty;
 		}
 
+		$messages = array();
 		foreach ( $totals as $sku => $qty ) {
 			$limits = $this->limits_for( $sku );
 			if ( null === $limits ) {
@@ -263,31 +315,27 @@ class Tack_B2B_Notices {
 			$name = $this->product_name_for( $cart, $sku );
 
 			if ( null !== $limits['min'] && $qty < $limits['min'] ) {
-				wc_add_notice(
-					sprintf(
-						/* translators: 1: product name, 2: minimum quantity, 3: quantity currently in the cart. */
-						__( '%1$s has a minimum order quantity of %2$d. You have %3$d in your cart.', 'tackquote' ),
-						$name,
-						$limits['min'],
-						$qty
-					),
-					'error'
+				$messages[] = sprintf(
+					/* translators: 1: product name, 2: minimum quantity, 3: quantity currently in the cart. */
+					__( '%1$s has a minimum order quantity of %2$d. You have %3$d in your cart.', 'tackquote' ),
+					$name,
+					$limits['min'],
+					$qty
 				);
 			}
 
 			if ( null !== $limits['max'] && $qty > $limits['max'] ) {
-				wc_add_notice(
-					sprintf(
-						/* translators: 1: product name, 2: maximum quantity, 3: quantity currently in the cart. */
-						__( '%1$s has a maximum order quantity of %2$d. You have %3$d in your cart.', 'tackquote' ),
-						$name,
-						$limits['max'],
-						$qty
-					),
-					'error'
+				$messages[] = sprintf(
+					/* translators: 1: product name, 2: maximum quantity, 3: quantity currently in the cart. */
+					__( '%1$s has a maximum order quantity of %2$d. You have %3$d in your cart.', 'tackquote' ),
+					$name,
+					$limits['max'],
+					$qty
 				);
 			}
 		}
+
+		return $messages;
 	}
 
 	/**
@@ -508,6 +556,21 @@ class Tack_B2B_Notices {
 	 * @return string
 	 */
 	private function buyer_email() {
+		return self::trusted_buyer_email();
+	}
+
+	/**
+	 * Email of the signed-in customer that TackQuote may be told about, or ''.
+	 *
+	 * Public and static since 1.9.0 so the price gate in `Tack_Catalog_Mode` applies
+	 * the SAME trust rule as pricing, limits and restrictions: one definition of
+	 * "whose email is this", not a second one that forgets the self-changed case.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @return string
+	 */
+	public static function trusted_buyer_email() {
 		if ( ! is_user_logged_in() ) {
 			return '';
 		}
