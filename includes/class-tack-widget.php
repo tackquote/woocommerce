@@ -142,6 +142,13 @@ class Tack_Widget {
 		foreach ( Tack_Block_Product::ADD_TO_CART_BLOCKS as $block_name ) {
 			add_filter( 'render_block_' . $block_name, array( $this, 'append_to_add_to_cart_block' ), 10, 3 );
 		}
+
+		/*
+		 * Variable product on quote (1.9.0): `Tack_Catalog_Mode` replaces the
+		 * variation form's cart controls and fires this where the buttons go, inside
+		 * the form, beside the quantity, so the JS reads the chosen variation.
+		 */
+		add_action( 'tackquote_variation_quote_controls', array( $this, 'render_product_button' ) );
 		add_action( 'wp_footer', array( $this, 'render_quote_list_drawer' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
