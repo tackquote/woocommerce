@@ -64,6 +64,9 @@ rsync -a --delete \
 	`# Translation SOURCES: the vendored widget catalogue and strings.json are`\
 	`# build inputs. Only the generated .po/.mo/.json in languages/ ship.`\
 	--exclude '/languages/source' \
+	`# Repository documentation (docs/CUSTOMISATION.md, 1.10.0). Its .md files are`\
+	`# excluded below anyway; this keeps an empty docs/ folder out of the zip too.`\
+	--exclude '/docs' \
 	--exclude '.DS_Store' \
 	--exclude '*.md' \
 	"$SRC/" "$STAGE/"
