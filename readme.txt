@@ -59,16 +59,16 @@ until you enter an API key.
 All requests go to the API base URL set under **TackQuote → TackQuote API URL**, which is
 `https://api.tackquote.com/v1` unless your TackQuote support contact gave you a different
 one. Every request carries your TackQuote API key so the service can identify your account,
-and (since 1.10.0) an `X-TackQuote-Plugin-Version` header naming this plugin's version, so
-TackQuote can tell which build your store runs. The API key needs the `buyers:write` scope for
+and (since 1.10.0) headers naming this plugin's version (`X-TackQuote-Plugin-Version`) and the
+store's address (`X-TackQuote-Site-Url`), so TackQuote can tell which build and store sent it. The API key needs the `buyers:write` scope for
 the two application forms below; the read-only storefront lookups need no extra scope.
 
 1. **Connection test** — `GET /integrations/woocommerce/ping`; on 404, `GET /health` (key unverified).
 Sent when an administrator clicks "Test TackQuote connection", and at most daily from the
-storefront for item 11. Sends your API key only: no store, order or customer data.
+storefront for item 11. Sends your API key and the store's address only: no order or customer data.
 
 2. **Quote form field policy** — `GET /integrations/woocommerce/registration-config`.
-Sent on storefront page views while quote buttons are on, at most every 15 minutes. Sends your API key only: no store, order or customer data.
+Sent on storefront page views while quote buttons are on, at most every 15 minutes. Same data as item 1.
 
 3. **Quote request** — `POST /integrations/woocommerce/quote-requests`.
 Sent when a shopper submits the quote form. Sends what that shopper typed
@@ -184,8 +184,8 @@ This plugin sends data to TackQuote, a third-party service, over HTTPS. It sends
 
 To the TackQuote API base URL configured under **TackQuote → TackQuote API URL** — `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. Endpoints used:
 
-* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test and server features. Sends no store or customer data.
-* `GET /integrations/woocommerce/registration-config` — fetches which fields the quote form should ask for. Sends no store or customer data.
+* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test and server features. Sends only the store's address.
+* `GET /integrations/woocommerce/registration-config` — fetches which fields the quote form should ask for. Sends only the store's address.
 * `POST /integrations/woocommerce/quote-requests` — a shopper's quote request.
 * `POST /integrations/woocommerce/order-sync` — order sync. **Only when the merchant has switched order sync on. It is off by default.**
 * `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits (also for guests, by SKU), the buyer group and its tax exemption. Only when the matching feature is switched on.
@@ -196,7 +196,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `POST /storefront/v1/quote-upload`, `POST /storefront/v1/wholesale-upload`, `POST /storefront/v1/wholesale-signup/<slug>` — files a shopper attaches to a quote request (only when "Allow attachments on quote requests" is on; off by default) or to a wholesale application (signed-in customers only), and an application that carries files. Sends the file's bytes and name, and the signed-in customer's account email address and WordPress user ID; a guest's quote files carry only a single-use upload token. Unattached files are deleted by TackQuote after 24 hours (quote) or 7 days (application).
 * `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
 
-Every request carries an `X-TackQuote-Plugin-Version` header naming the plugin's version: the software, not a person.
+Every request carries `X-TackQuote-Plugin-Version` (the plugin's version) and `X-TackQuote-Site-Url` (your store's address, `home_url()`).
 
 = The full lists =
 
@@ -429,6 +429,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * The quote form now also prefills a signed-in customer's first and last name (billing name, else profile name), as it already did the email. Guests get nothing prefilled.
 * More of the quote form, drawer and launcher is translated: Email address, Note, Company name, Send request, Sending…, Legal name, Address, State / Province, the drawer title and the launcher label. Strings with no identical entry in TackQuote's shared catalogue (for example First name, Last name, Cancel and the order-limit messages) stay English until translate.wordpress.org has them.
 * **When the wholesale form slug matches no form**, shoppers now read "This form isn't available right now" instead of "try again later", administrators see which slug failed with a link to the Forms tab, and the log gets one line a day per slug. A cached failure keeps its HTTP status, so this holds for the minute it is cached.
+* Every request to TackQuote now also carries `X-TackQuote-Site-Url` with your store's address (`home_url()`), beside `X-TackQuote-Plugin-Version`, so TackQuote can tell which store a key is used from.
 
 = 1.8.2 =
 * **Repeated "slow down" answers back off further each time.** The first HTTP 429 from TackQuote holds order sync for the time TackQuote names (or one minute); if it happens again before any order got through, the wait doubles each time, with a random spread so held orders do not all reappear in the same second, up to one hour. The wait and the attempt count are stored as a site option, so every PHP worker and every scheduled run honours the same pause. A successful push resets it.

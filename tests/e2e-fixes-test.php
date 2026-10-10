@@ -240,3 +240,27 @@ $e2e_html  = $e2e_forms->render_wholesale_form( 'default', 'https://shop.example
 check( 'D10: any other failure keeps "not available right now. Please try again later."', false !== strpos( $e2e_html, 'Please try again later.' ) && false === strpos( $e2e_html, 'tackquote-admin-hint' ), $e2e_html );
 check( 'D10: uninstall removes the once-a-day log marker', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' ), "'" . Tack_Storefront_Forms::MISSING_FORM_LOGGED . "'" ) );
 tack_test_reset_transients();
+
+// ── W10: X-TackQuote-Site-Url on every request ───────────────────────────────
+
+tack_test_reset_transients();
+tack_test_set_option( 'tack_quotes_api_key', 'tq_live_secret_key' );
+tack_test_attach_routes( array( '/' => array( 200, array( 'ok' => true ) ) ) );
+$e2e_real = new Tack_Api_Client();
+$e2e_real->request( 'GET', '/integrations/woocommerce/ping' );
+$e2e_real->request( 'POST', '/integrations/woocommerce/quote-requests', array( 'buyerEmail' => 'a@example.com' ) );
+$e2e_real->request( 'POST', '/integrations/woocommerce/order-sync', array( 'orderId' => 1 ), null, array( 'Idempotency-Key' => 'k' ) );
+$e2e_real->request( 'GET', '/storefront/v1/buyer-group?buyerEmail=a%40example.com', null, null, array( 'Authorization' => null ) );
+$e2e_real->request( 'POST', '/storefront/v1/quote-upload?name=a.pdf', '%PDF-1.4', null, array( 'Content-Type' => 'application/octet-stream', 'Authorization' => null ) );
+$e2e_missing = array();
+foreach ( $GLOBALS['TACK_HTTP_REQUESTS'] as $e2e_r ) {
+	$e2e_h = isset( $e2e_r['args']['headers'] ) ? $e2e_r['args']['headers'] : array();
+	if ( ! isset( $e2e_h['X-TackQuote-Site-Url'] ) || home_url() !== $e2e_h['X-TackQuote-Site-Url'] ) {
+		$e2e_missing[] = $e2e_r['url'];
+	}
+}
+check( 'W10: every request (GET, POST, raw upload, v1 with Authorization removed, extra headers) carries X-TackQuote-Site-Url = home_url()', 5 === count( $GLOBALS['TACK_HTTP_REQUESTS'] ) && array() === $e2e_missing, 'missing on: ' . implode( ', ', $e2e_missing ) );
+check( 'W10: ...beside the plugin version header, which is unchanged', TACK_QUOTES_VERSION === $GLOBALS['TACK_HTTP_REQUESTS'][0]['args']['headers']['X-TackQuote-Plugin-Version'] );
+check( 'W10: the site URL is never in a body', false === strpos( (string) $GLOBALS['TACK_HTTP_REQUESTS'][1]['args']['body'], 'shop.example' ) );
+unset( $GLOBALS['TACK_HTTP_RESPONDER'] );
+tack_test_reset_transients();

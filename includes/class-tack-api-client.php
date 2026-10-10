@@ -93,6 +93,10 @@ class Tack_Api_Client {
 					// runs and gate newer server features on it. A server that does not know
 					// the header ignores it; the User-Agent above stays because proxies rewrite it.
 					'X-TackQuote-Plugin-Version' => TACK_QUOTES_VERSION,
+					// The store's address (`home_url()`), on EVERY request, so TackQuote can tell
+					// which store a key is used from (tack lane W10). Public information; a
+					// server that does not know the header ignores it.
+					'X-TackQuote-Site-Url'       => home_url(),
 				),
 				is_array( $headers ) ? $headers : array()
 			),
