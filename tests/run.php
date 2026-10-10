@@ -163,6 +163,7 @@ require __DIR__ . '/connection-test-test.php';
 // no redirects with the key, uninstall completeness, privacy exporter/eraser.
 echo "\n-- standards audit (W7) --\n";
 require __DIR__ . '/standards-audit-test.php';
+
 // 1.10.0 theme blend: theme-derived CSS, styling settings, overridable templates, filters.
 echo "\n-- theme blend and customisation --\n";
 require __DIR__ . '/theme-blend-test.php';
