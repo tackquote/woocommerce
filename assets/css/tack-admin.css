@@ -363,6 +363,50 @@
 	min-width: 12em;
 }
 
+/*
+ * The grids sit inside a `.form-table` row, so wp-admin's `.form-table th`
+ * (fixed width, 20px/10px/0 padding, top alignment) and this sheet's own
+ * `.tack-form .form-table th { width: 220px }` leaked into every grid cell:
+ * text flush against the border, oversized rows, and a "Result" header that
+ * did not line up with its column (owner report, Buyer groups tab,
+ * 2026-10-10). Reset the cells at higher specificity.
+ */
+.tack-form .form-table .tack-grid th,
+.tack-form .form-table .tack-grid td {
+	width: auto;
+	padding: 10px 14px;
+	vertical-align: middle;
+	line-height: 1.45;
+}
+
+.tack-form .form-table .tack-grid thead th {
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.tack-form .form-table .tack-grid tbody .tack-grid__row-head {
+	font-weight: 600;
+}
+
+.tack-form .form-table .tack-grid .tack-grid__state {
+	color: #50575e;
+}
+
+.tack-form .form-table .tack-grid .tack-grid__col {
+	width: 1%;
+	text-align: center;
+}
+
+/* The empty-state callout spans the table it belongs to. */
+.tack-form .form-table td .tack-callout {
+	max-width: none;
+	box-sizing: border-box;
+}
+
+.tack-form .form-table td .tack-callout + .tack-table-wrap {
+	margin-top: 8px;
+}
+
 .tack-chip {
 	display: inline-flex;
 	align-items: center;
@@ -590,6 +634,14 @@
 	color: #8a0000;
 }
 
+/* A placeholder must not read as a saved value ("TIER2, TIER3" looked configured). */
+.tack-admin input::placeholder,
+.tack-admin textarea::placeholder {
+	color: #8c8f94;
+	opacity: 1;
+	font-style: italic;
+}
+
 /* ── Sticky save bar ────────────────────────────────────────────────────── */
 
 .tack-savebar {
@@ -600,6 +652,7 @@
 	padding: 12px 0;
 	border-top: 1px solid var(--tack-border);
 	background: #f0f0f1;
+	box-shadow: 0 -6px 12px -10px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Small screens ──────────────────────────────────────────────────────── */
