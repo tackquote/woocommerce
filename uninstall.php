@@ -86,12 +86,15 @@ $tack_quotes_options = array(
 	'tack_quotes_shipping_discount_map',
 	'tack_quotes_enable_role_mirror',
 	'tack_quotes_mirror_roles_created',
+
+	// The quote-request attachments switch (Tack_Attachments::OPTION_ENABLED), 1.10.0.
+	'tack_quotes_enable_attachments',
 );
 
 /**
  * Transients the plugin creates under a fixed name.
  *
- * The per-visitor rate-limit counters (`tack_qr_*`) and the five-minute form-outcome tokens
+ * The per-visitor rate-limit counters (`tack_qr_*`, and `tack_qu_*` for attachment uploads) and the five-minute form-outcome tokens
  * (`tack_sf_*`, Tack_Storefront_Forms::RESULT_PREFIX) are not listed, nor are the one-minute
  * net-terms standing answers (`tack_nt_<user id>`, Tack_Gateway_Net_Terms::CACHE_PREFIX): they
  * are keyed per visitor so there is no fixed name to delete, there is no WordPress API for wildcard transient deletion,
@@ -107,6 +110,8 @@ $tack_quotes_transients = array(
 	'tack_quotes_storefront_v1_missing',
 	// Outcome of the settings page's last "Test connection" (Tack_Settings::CONNECTION_CHECK) — 1.10.0.
 	'tack_quotes_connection_check',
+	// What the server advertised on ping (Tack_Api_Client::CAPABILITIES_TRANSIENT) — 1.10.0.
+	'tack_quotes_server_capabilities',
 );
 
 /**

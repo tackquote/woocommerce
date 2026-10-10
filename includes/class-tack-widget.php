@@ -369,6 +369,10 @@ class Tack_Widget {
 				// session cookie: nothing leaves the store.
 				'storeCartUrl'        => function_exists( 'rest_url' ) ? rest_url( 'wc/store/v1/cart' ) : '',
 				'price'               => $this->price_format(),
+				// 1.10.0: the optional "Attach files" control. Null (no control, no
+				// upload calls, no fields on the request) unless the merchant switched
+				// attachments on AND the TackQuote server advertises `attachments`.
+				'attachments'         => ( new Tack_Attachments() )->script_config(),
 			)
 		);
 	}
@@ -1270,12 +1274,40 @@ class Tack_Widget {
 			$payload['note'] = $this->note_with_target_prices( $note, isset( $payload['currency'] ) ? $payload['currency'] : '' );
 		}
 
+		/*
+		 * Attachments (1.10.0): upload ids the browser got from `tack_quote_upload`,
+		 * and a guest's upload token. Checked before any outbound call, and only ever
+		 * forwarded to a server that advertises `attachments`.
+		 */
+		$client  = new Tack_Api_Client();
+		$payload = $this->attach_uploads(
+			$payload,
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified at the top of this handler.
+			isset( $_POST['upload_ids'] ) ? map_deep( wp_unslash( $_POST['upload_ids'] ), 'sanitize_text_field' ) : array(),
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified at the top of this handler.
+			isset( $_POST['upload_token'] ) ? sanitize_text_field( wp_unslash( $_POST['upload_token'] ) ) : '',
+			new Tack_Attachments( $client )
+		);
+		if ( is_wp_error( $payload ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => $payload->get_error_code(),
+					'message' => $payload->get_error_message(),
+				),
+				400
+			);
+		}
+
 		$this->record_rate_limit_hit();
 
-		$client = new Tack_Api_Client();
 		$result = $client->create_quote_request( $payload );
 
 		if ( is_wp_error( $result ) ) {
+			if ( self::refused_attachment_fields( $result ) ) {
+				// The cache said "attachments" but the server refused the fields: it is
+				// an older server now. Ask it again next time instead of failing every request.
+				$client->forget_capabilities();
+			}
 			wp_send_json_error( array( 'message' => $result->get_error_message() ), 502 );
 		}
 
@@ -1288,6 +1320,8 @@ class Tack_Widget {
 				// the buyer portal is ready to use. Without this the shopper is redirected to a
 				// login they cannot pass yet.
 				'awaitingApproval' => ! empty( $result['awaitingApproval'] ),
+				// How many attached files TackQuote claimed onto the quote (1.10.0).
+				'attachmentCount'  => isset( $result['attachmentCount'] ) ? absint( $result['attachmentCount'] ) : 0,
 				'company'          => isset( $result['company'] ) && is_array( $result['company'] )
 					? array(
 						'name'   => isset( $result['company']['name'] ) ? sanitize_text_field( (string) $result['company']['name'] ) : '',
@@ -1296,6 +1330,47 @@ class Tack_Widget {
 					: null,
 			)
 		);
+	}
+
+	/**
+	 * Add the attachment fields to a quote-request payload, or say why not.
+	 *
+	 * `uploadIds` (and a guest's `uploadToken`) are added only when the browser
+	 * sent ids AND attachments are on AND the server advertised them; with no ids
+	 * the payload is returned unchanged, so a request without files is byte-for-byte
+	 * what it was before 1.10.0.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param array            $payload     The request payload (buyerEmail already set).
+	 * @param mixed            $ids         Posted upload ids.
+	 * @param string           $token       Posted guest upload token.
+	 * @param Tack_Attachments $attachments The attachment service.
+	 * @return array|WP_Error
+	 */
+	public function attach_uploads( array $payload, $ids, $token, $attachments ) {
+		$fields = $attachments->quote_request_fields( $ids, $token, isset( $payload['buyerEmail'] ) ? (string) $payload['buyerEmail'] : '' );
+		if ( is_wp_error( $fields ) ) {
+			return $fields;
+		}
+		return array_merge( $payload, $fields );
+	}
+
+	/**
+	 * Did TackQuote refuse the request BECAUSE of the attachment fields (a 400 naming them)?
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 * @return bool
+	 */
+	public static function refused_attachment_fields( $error ) {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || ! isset( $data['status'] ) || 400 !== (int) $data['status'] ) {
+			return false;
+		}
+		$message = (string) $error->get_error_message();
+		return false !== strpos( $message, 'uploadIds' ) || false !== strpos( $message, 'uploadToken' );
 	}
 
 	/**

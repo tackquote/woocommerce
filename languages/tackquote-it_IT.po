@@ -13,10 +13,21 @@ msgstr ""
 "X-Domain: tackquote\n"
 "X-TackQuote-Catalogue: tack packages/widget/locales@8e8b11b1e4279f1aa764e74f57b354769262b4dd\n"
 
+#. catalogue: tackquote.widget.file_size
+#. machine-translated, pending native review
+msgid "%1$s: files can be at most %2$d MB."
+msgstr "%1$s: i file possono essere al massimo di %2$d MB."
+
 #. catalogue: tackquote.quote.field_required
 #, php-format
 msgid "%s is required."
 msgstr "%s è obbligatorio."
+
+#. catalogue: tackquote.widget.file_type
+#. machine-translated, pending native review
+#, php-format
+msgid "%s: attach a PDF, JPEG or PNG file."
+msgstr "%s: alleghi un file PDF, JPEG o PNG."
 
 #. catalogue: tackquote.widget.add_named_to_quote
 #. machine-translated, pending native review
@@ -36,6 +47,16 @@ msgstr "Indirizzo (riga 2)"
 #. catalogue: tackquote.credit.heading
 msgid "Apply for net terms"
 msgstr "Richiedi il pagamento dilazionato"
+
+#. catalogue: tackquote.widget.files_max
+#. machine-translated, pending native review
+#, php-format
+msgid "Attach at most %d files."
+msgstr "Alleghi al massimo %d file."
+
+#. catalogue: tackquote.quote.files
+msgid "Attach files (optional)"
+msgstr "Allega file (facoltativo)"
 
 #. catalogue: tackquote.widget.choose_options_for
 #. machine-translated, pending native review
@@ -72,6 +93,11 @@ msgstr "Continua lo shopping"
 #. catalogue: tackquote.signup.addr_country
 msgid "Country"
 msgstr "Paese"
+
+#. catalogue: tackquote.widget.files_unsupported
+#. machine-translated, pending native review
+msgid "Files cannot be attached on this store."
+msgstr "In questo negozio non è possibile allegare file."
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
@@ -142,14 +168,40 @@ msgstr "Richiedi un preventivo per il carrello"
 msgid "Requested credit limit"
 msgstr "Fido richiesto"
 
+#. catalogue: tackquote.widget.files_signin
+#. machine-translated, pending native review
+msgid "Sign in to your account to attach files."
+msgstr "Acceda al Suo account per allegare file."
+
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
 msgstr "Invia richiesta"
+
+#. catalogue: tackquote.widget.file_failed
+#. machine-translated, pending native review
+msgid "That file could not be attached. Please try again."
+msgstr "Non è stato possibile allegare il file. Riprovi."
+
+#. catalogue: tackquote.widget.wholesale_signin_required
+#. machine-translated, pending native review
+msgid "This application asks for a document, so you need to be signed in to apply."
+msgstr "Questa richiesta prevede un documento, quindi deve accedere per inviarla."
 
 #. catalogue: tackquote.widget.unit_price
 #. machine-translated, pending native review
 msgid "Unit price"
 msgstr "Prezzo unitario"
+
+#. catalogue: tackquote.widget.files_help
+#. machine-translated, pending native review
+msgid "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them."
+msgstr "Fino a %1$d file PDF, JPEG o PNG, %2$d MB ciascuno. Solo il venditore può aprirli."
+
+#. catalogue: tackquote.widget.uploading
+#. machine-translated, pending native review
+#, php-format
+msgid "Uploading %s…"
+msgstr "Caricamento di %s…"
 
 #. catalogue: tackquote.widget.volume_pricing
 #. machine-translated, pending native review
@@ -163,3 +215,8 @@ msgstr "Il Suo carrello è vuoto."
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "Il Suo prezzo"
+
+#. catalogue: tackquote.widget.file
+#. machine-translated, pending native review
+msgid "file"
+msgstr "file"

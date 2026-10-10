@@ -9,8 +9,20 @@
                 "lang": "nl_NL",
                 "plural-forms": "nplurals=2; plural=n != 1;"
             },
+            "%1$s: files can be at most %2$d MB.": [
+                "%1$s: bestanden mogen maximaal %2$d MB zijn."
+            ],
+            "%s: attach a PDF, JPEG or PNG file.": [
+                "%s: voeg een PDF-, JPEG- of PNG-bestand toe."
+            ],
             "Address line 2": [
                 "Adresregel 2"
+            ],
+            "Attach at most %d files.": [
+                "Voeg maximaal %d bestanden toe."
+            ],
+            "Attach files (optional)": [
+                "Bestanden bijvoegen (optioneel)"
             ],
             "City": [
                 "Plaats"
@@ -38,6 +50,15 @@
             ],
             "Request a Quote": [
                 "Offerte aanvragen"
+            ],
+            "That file could not be attached. Please try again.": [
+                "Dat bestand kon niet worden bijgevoegd. Probeer het opnieuw."
+            ],
+            "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them.": [
+                "Maximaal %1$d PDF-, JPEG- of PNG-bestanden, elk %2$d MB. Alleen de verkoper kan ze openen."
+            ],
+            "Uploading %s…": [
+                "%s wordt geüpload…"
             ],
             "Your cart is empty.": [
                 "Uw winkelwagen is leeg."

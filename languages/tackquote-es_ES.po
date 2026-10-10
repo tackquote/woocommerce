@@ -13,10 +13,19 @@ msgstr ""
 "X-Domain: tackquote\n"
 "X-TackQuote-Catalogue: tack packages/widget/locales@8e8b11b1e4279f1aa764e74f57b354769262b4dd\n"
 
+#. catalogue: tackquote.widget.file_size
+msgid "%1$s: files can be at most %2$d MB."
+msgstr "%1$s: los archivos pueden tener como máximo %2$d MB."
+
 #. catalogue: tackquote.quote.field_required
 #, php-format
 msgid "%s is required."
 msgstr "%s es obligatorio."
+
+#. catalogue: tackquote.widget.file_type
+#, php-format
+msgid "%s: attach a PDF, JPEG or PNG file."
+msgstr "%s: adjunte un archivo PDF, JPEG o PNG."
 
 #. catalogue: tackquote.widget.add_named_to_quote
 #, php-format
@@ -34,6 +43,15 @@ msgstr "Dirección (línea 2)"
 #. catalogue: tackquote.credit.heading
 msgid "Apply for net terms"
 msgstr "Solicitar pago aplazado"
+
+#. catalogue: tackquote.widget.files_max
+#, php-format
+msgid "Attach at most %d files."
+msgstr "Adjunte como máximo %d archivos."
+
+#. catalogue: tackquote.quote.files
+msgid "Attach files (optional)"
+msgstr "Adjuntar archivos (opcional)"
 
 #. catalogue: tackquote.widget.choose_options_for
 #, php-format
@@ -67,6 +85,10 @@ msgstr "Seguir comprando"
 #. catalogue: tackquote.signup.addr_country
 msgid "Country"
 msgstr "País"
+
+#. catalogue: tackquote.widget.files_unsupported
+msgid "Files cannot be attached on this store."
+msgstr "En esta tienda no se pueden adjuntar archivos."
 
 #. catalogue: tackquote.credit.label_business
 msgid "Legal business name"
@@ -129,13 +151,34 @@ msgstr "Solicitar un presupuesto para su carrito"
 msgid "Requested credit limit"
 msgstr "Límite de crédito solicitado"
 
+#. catalogue: tackquote.widget.files_signin
+msgid "Sign in to your account to attach files."
+msgstr "Inicie sesión en su cuenta para adjuntar archivos."
+
 #. catalogue: tackquote.signup.submit
 msgid "Submit application"
 msgstr "Enviar solicitud"
 
+#. catalogue: tackquote.widget.file_failed
+msgid "That file could not be attached. Please try again."
+msgstr "No se ha podido adjuntar ese archivo. Inténtelo de nuevo."
+
+#. catalogue: tackquote.widget.wholesale_signin_required
+msgid "This application asks for a document, so you need to be signed in to apply."
+msgstr "Esta solicitud requiere un documento, así que debe iniciar sesión para presentarla."
+
 #. catalogue: tackquote.widget.unit_price
 msgid "Unit price"
 msgstr "Precio unitario"
+
+#. catalogue: tackquote.widget.files_help
+msgid "Up to %1$d PDF, JPEG or PNG files, %2$d MB each. Only the seller can open them."
+msgstr "Hasta %1$d archivos PDF, JPEG o PNG, de %2$d MB cada uno. Solo el vendedor puede abrirlos."
+
+#. catalogue: tackquote.widget.uploading
+#, php-format
+msgid "Uploading %s…"
+msgstr "Subiendo %s…"
 
 #. catalogue: tackquote.widget.volume_pricing
 msgid "Volume pricing"
@@ -148,3 +191,7 @@ msgstr "Su carrito está vacío."
 #. catalogue: tackquote.quote.your_price
 msgid "Your price"
 msgstr "Su precio"
+
+#. catalogue: tackquote.widget.file
+msgid "file"
+msgstr "archivo"

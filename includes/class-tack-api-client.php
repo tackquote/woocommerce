@@ -49,11 +49,14 @@ class Tack_Api_Client {
 	/**
 	 * Perform a request.
 	 *
-	 * @param string     $method  HTTP method.
-	 * @param string     $path    Path beginning with '/'.
-	 * @param array|null $body    Optional JSON body.
-	 * @param int|null   $timeout Optional timeout override, in seconds.
-	 * @param array      $headers Optional extra request headers.
+	 * A STRING body is sent as-is (1.10.0, the raw bytes of an attachment upload);
+	 * the caller then names its own Content-Type. An array is JSON-encoded.
+	 *
+	 * @param string            $method  HTTP method.
+	 * @param string            $path    Path beginning with '/'.
+	 * @param array|string|null $body    Optional JSON body, or raw bytes.
+	 * @param int|null          $timeout Optional timeout override, in seconds.
+	 * @param array             $headers Optional extra request headers.
 	 * @return array|WP_Error Decoded response array, or WP_Error.
 	 */
 	public function request( $method, $path, $body = null, $timeout = null, $headers = array() ) {
@@ -94,7 +97,9 @@ class Tack_Api_Client {
 				return null !== $value;
 			}
 		);
-		if ( null !== $body ) {
+		if ( is_string( $body ) ) {
+			$args['body'] = $body;
+		} elseif ( null !== $body ) {
 			$args['body'] = wp_json_encode( $body );
 		}
 
@@ -152,8 +157,239 @@ class Tack_Api_Client {
 		if ( is_wp_error( $result ) ) {
 			// Fall back to a generic authenticated endpoint if /ping is unavailable.
 			$result = $this->request( 'GET', '/health' );
+			if ( ! is_wp_error( $result ) ) {
+				// Reachable, but no ping answer to read capabilities from: none.
+				$this->remember_capabilities( array(), DAY_IN_SECONDS );
+			}
+			return is_wp_error( $result ) ? $result : true;
 		}
-		return is_wp_error( $result ) ? $result : true;
+		$this->remember_capabilities( self::capabilities_of( $result ), DAY_IN_SECONDS );
+		return true;
+	}
+
+	/**
+	 * Transient caching what the TackQuote server said it supports.
+	 *
+	 * `{key: <16-char SHA-256 prefix of the API key>, caps: string[], until: int}`.
+	 * Written by the connection test and re-read at most once a day (ten minutes
+	 * after a failed ping), so a storefront page view costs at most one ping a day.
+	 *
+	 * @since 1.10.0
+	 */
+	const CAPABILITIES_TRANSIENT = 'tack_quotes_server_capabilities';
+
+	/**
+	 * Timeout, in seconds, for streaming one attachment (at most 5 MB) to TackQuote.
+	 *
+	 * Longer than INTERACTIVE_TIMEOUT because the request carries the file, still
+	 * bounded because a shopper is waiting and the call holds a PHP worker.
+	 *
+	 * @since 1.10.0
+	 */
+	const UPLOAD_TIMEOUT = 15;
+
+	/**
+	 * The `capabilities` list from a ping answer: strings only.
+	 *
+	 * @param mixed $answer Decoded ping answer.
+	 * @return string[]
+	 */
+	private static function capabilities_of( $answer ) {
+		if ( ! is_array( $answer ) || ! isset( $answer['capabilities'] ) || ! is_array( $answer['capabilities'] ) ) {
+			return array();
+		}
+		return array_values( array_filter( $answer['capabilities'], 'is_string' ) );
+	}
+
+	/**
+	 * A short fingerprint of the saved key, so a cached answer never outlives a key change.
+	 *
+	 * @return string
+	 */
+	private function key_fingerprint() {
+		return substr( hash( 'sha256', $this->api_key() ), 0, 16 );
+	}
+
+	/**
+	 * Cache the server's capability list for the saved key.
+	 *
+	 * @param string[] $caps Capability names.
+	 * @param int      $ttl  Seconds to keep it.
+	 */
+	private function remember_capabilities( array $caps, $ttl ) {
+		set_transient(
+			self::CAPABILITIES_TRANSIENT,
+			array(
+				'key'   => $this->key_fingerprint(),
+				'caps'  => $caps,
+				'until' => time() + (int) $ttl,
+			),
+			(int) $ttl
+		);
+	}
+
+	/**
+	 * What the TackQuote server says it supports (`GET /integrations/woocommerce/ping`
+	 * answers `capabilities`, tack `WOOCOMMERCE_PLUGIN_CAPABILITIES`).
+	 *
+	 * An older server answers no list, which is "nothing new": the plugin then sends
+	 * none of the fields a newer server added, because an older server's
+	 * `forbidNonWhitelisted` refuses the WHOLE request over one unknown field.
+	 *
+	 * Cached for a day per API key; a failed ping is remembered for ten minutes as
+	 * "nothing", so an outage does not turn every page view into a timeout. The ping
+	 * uses the interactive timeout because it can run while a page renders.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param bool $refresh Ignore the cache.
+	 * @return string[]
+	 */
+	public function server_capabilities( $refresh = false ) {
+		if ( '' === $this->api_key() ) {
+			return array();
+		}
+		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
+		if ( ! $refresh && is_array( $cached ) && isset( $cached['key'], $cached['caps'], $cached['until'] )
+			&& $cached['key'] === $this->key_fingerprint() && (int) $cached['until'] > time() && is_array( $cached['caps'] ) ) {
+			return array_values( array_filter( $cached['caps'], 'is_string' ) );
+		}
+		$result = $this->request( 'GET', '/integrations/woocommerce/ping', null, self::INTERACTIVE_TIMEOUT );
+		if ( is_wp_error( $result ) ) {
+			$this->remember_capabilities( array(), 10 * MINUTE_IN_SECONDS );
+			return array();
+		}
+		$caps = self::capabilities_of( $result );
+		$this->remember_capabilities( $caps, DAY_IN_SECONDS );
+		return $caps;
+	}
+
+	/**
+	 * Does the server take quote-request attachments and wholesale-form files?
+	 *
+	 * @since 1.10.0
+	 *
+	 * @return bool
+	 */
+	public function supports_attachments() {
+		return in_array( 'attachments', $this->server_capabilities(), true );
+	}
+
+	/**
+	 * Forget the cached capability list, so the next check pings again.
+	 *
+	 * Called when the server refused a field the cache said it supports (a 400
+	 * naming `uploadIds`): the store was pointed at an older server, or one was
+	 * rolled back.
+	 *
+	 * @since 1.10.0
+	 */
+	public function forget_capabilities() {
+		delete_transient( self::CAPABILITIES_TRANSIENT );
+	}
+
+	/**
+	 * Stream one quote-request file to TackQuote.
+	 *
+	 * `POST /storefront/v1/quote-upload?name=<file name>` with the raw bytes as
+	 * `application/octet-stream` and the key in `X-Api-Key` ONLY (v1 refuses a second
+	 * credential). A signed-in buyer is asserted with `buyerEmail` (+ the WordPress
+	 * user id); a guest sends neither, and the first upload answers an `uploadToken`
+	 * that later uploads of the same request send back as `upload_token`.
+	 * Answers `{uploadId, filename, size, mimeType[, uploadToken]}`.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $bytes        File contents.
+	 * @param string $name         Sanitised file name.
+	 * @param string $buyer_email  Trusted account email, or '' for a guest.
+	 * @param string $upload_token Guest token from an earlier upload of this request, or ''.
+	 * @return array|WP_Error
+	 */
+	public function upload_quote_file( $bytes, $name, $buyer_email = '', $upload_token = '' ) {
+		$query = array_merge( array( 'name' => (string) $name ), $this->buyer_query( $buyer_email ) );
+		if ( '' === (string) $buyer_email && '' !== (string) $upload_token ) {
+			$query['upload_token'] = (string) $upload_token;
+		}
+		return $this->upload( '/storefront/v1/quote-upload', $query, $bytes );
+	}
+
+	/**
+	 * Stream one wholesale-application file to TackQuote.
+	 *
+	 * `POST /storefront/v1/wholesale-upload?form=<slug>&field=<key>&name=<file name>
+	 * &buyerEmail=<email>&buyerExternalId=<WP user id>`: signed-in applicants only
+	 * (the server answers 401 otherwise). Answers `{uploadId, filename, size, mimeType}`;
+	 * the application then sends `{uploadId}` as that field's value.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $bytes       File contents.
+	 * @param string $name        Sanitised file name.
+	 * @param string $slug        Form slug.
+	 * @param string $field_key   The file field's key.
+	 * @param string $buyer_email Trusted account email.
+	 * @return array|WP_Error
+	 */
+	public function upload_wholesale_file( $bytes, $name, $slug, $field_key, $buyer_email ) {
+		$query = array_merge(
+			array(
+				'form'  => (string) $slug,
+				'field' => (string) $field_key,
+				'name'  => (string) $name,
+			),
+			$this->buyer_query( $buyer_email )
+		);
+		return $this->upload( '/storefront/v1/wholesale-upload', $query, $bytes );
+	}
+
+	/**
+	 * Submit a wholesale application through the shared storefront route, which
+	 * CLAIMS the files its values name.
+	 *
+	 * `POST /storefront/v1/wholesale-signup/<slug>?buyerEmail=&buyerExternalId=`
+	 * with `{values}`; a file field's value is `{uploadId}`. Used only when the
+	 * application carries files: the legacy route records the same applicant but
+	 * cannot claim uploads.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $slug        Form slug.
+	 * @param array  $values      Answers keyed by field key.
+	 * @param string $buyer_email Trusted account email.
+	 * @return array|WP_Error `{id, status, message}`.
+	 */
+	public function submit_wholesale_signup( $slug, array $values, $buyer_email ) {
+		$query = $this->buyer_query( $buyer_email );
+		return $this->request(
+			'POST',
+			'/storefront/v1/wholesale-signup/' . rawurlencode( (string) $slug ) . '?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 ),
+			array( 'values' => (object) $values ),
+			self::INTERACTIVE_TIMEOUT,
+			array( 'Authorization' => null )
+		);
+	}
+
+	/**
+	 * POST raw bytes to an upload route.
+	 *
+	 * @param string $route Route path.
+	 * @param array  $query Query parameters.
+	 * @param string $bytes File contents.
+	 * @return array|WP_Error
+	 */
+	private function upload( $route, array $query, $bytes ) {
+		return $this->request(
+			'POST',
+			$route . '?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 ),
+			(string) $bytes,
+			self::UPLOAD_TIMEOUT,
+			array(
+				// The key in X-Api-Key ONLY: v1 refuses a second credential.
+				'Authorization' => null,
+				'Content-Type'  => 'application/octet-stream',
+			)
+		);
 	}
 
 	/**

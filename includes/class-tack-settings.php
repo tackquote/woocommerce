@@ -2457,6 +2457,7 @@ class Tack_Settings {
 		$this->setting( 'storefront', Tack_Widget::OPT_FAB_SHOW_COUNT, $checkbox );
 		$this->setting( 'storefront', Tack_Widget::OPT_FAB_SIZE, array( $this, 'sanitize_fab_size' ) );
 		$this->setting( 'storefront', Tack_Widget::OPT_FAB_HIDE_MOBILE, $checkbox );
+		$this->setting( 'storefront', Tack_Attachments::OPTION_ENABLED, $checkbox );
 
 		// Product cards and the cart page belong with the other buttons.
 		$this->field( 'storefront', 'tack_quotes_storefront', Tack_Widget::OPT_CARD_BUTTONS, __( 'Product cards', 'tackquote' ), array( $this, 'field_card_buttons' ) );
@@ -2473,6 +2474,51 @@ class Tack_Settings {
 
 		$this->section( 'storefront', 'tack_quotes_quote_page', __( 'Quote page', 'tackquote' ), array( $this, 'section_quote_page' ) );
 		$this->field( 'storefront', 'tack_quotes_quote_page', Tack_Widget::OPT_OPENS, __( 'Quote button opens', 'tackquote' ), array( $this, 'field_quote_opens' ) );
+
+		// 1.10.0: files on quote requests.
+		$this->section( 'storefront', 'tack_quotes_attachments', __( 'Attachments', 'tackquote' ), array( $this, 'section_attachments' ) );
+		$this->field( 'storefront', 'tack_quotes_attachments', Tack_Attachments::OPTION_ENABLED, __( 'Quote requests', 'tackquote' ), array( $this, 'field_enable_attachments' ) );
+	}
+
+	/**
+	 * Intro copy for the attachments section.
+	 *
+	 * @since 1.10.0
+	 */
+	public function section_attachments() {
+		echo '<p>' . esc_html__( 'Let shoppers add drawings, specifications or purchase orders to a quote request.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * "Allow attachments on quote requests", with what the server said about it.
+	 *
+	 * Reads the cached capability answer only: rendering this page never calls TackQuote.
+	 *
+	 * @since 1.10.0
+	 */
+	public function field_enable_attachments() {
+		$this->show_row_when( 'tack_quotes_enable_widget', 'yes' );
+		$this->checkbox_default_off(
+			Tack_Attachments::OPTION_ENABLED,
+			__( 'Allow attachments on quote requests', 'tackquote' )
+		);
+		$cached = get_transient( Tack_Api_Client::CAPABILITIES_TRANSIENT );
+		if ( is_array( $cached ) && isset( $cached['caps'] ) && is_array( $cached['caps'] ) ) {
+			$state = in_array( 'attachments', $cached['caps'], true )
+				? __( 'Your TackQuote server accepts attachments.', 'tackquote' )
+				: __( 'Your TackQuote server does not accept attachments yet, so the control stays hidden even when this is on.', 'tackquote' );
+		} else {
+			$state = __( 'Run "Test connection" on the Connection tab to check that your TackQuote server accepts attachments.', 'tackquote' );
+		}
+		echo '<p class="description">' . esc_html( $state ) . '</p>';
+		$this->help(
+			__( 'Up to 3 PDF, JPEG or PNG files of 5 MB each. Files go straight to TackQuote and are never stored on this site.', 'tackquote' ),
+			array(
+				__( 'An optional "Attach files" control appears in the quote form (drawer and quote page). Each file is checked here first (type by extension and by content, size, count), then streamed from this server to TackQuote; nothing is saved in your media library or uploads folder. The seller sees the files on the quote.', 'tackquote' ),
+				__( 'Signed-in customers\' files are linked to their account email; a guest\'s files to a one-time token, so nobody else can attach them to a request. Files never attached to a request are deleted by TackQuote after 24 hours. The API key needs the quotes:write scope.', 'tackquote' ),
+				__( 'Wholesale application forms with file fields accept files from signed-in customers whenever the server supports attachments; this switch is about quote requests only.', 'tackquote' ),
+			)
+		);
 	}
 
 	/**
