@@ -19,12 +19,13 @@ Request a quote from WooCommerce for B2B wholesale quoting — sync orders to yo
 
 = What you get =
 
-* **Add to Quote** and **Request a Quote** buttons on product pages. Show either, both, or neither.
+* **Add to Quote** and **Request a Quote** buttons on product pages.
 * A floating **quote list** with **Checkout as Quote** — several products, one request. It is separate from the WooCommerce cart, so stock and checkout are untouched.
 * **Quote only (B2B catalogue) mode** — switch Add to Cart off across the whole store and take quotes instead. Your products, categories and search keep working; only checkout goes away. Apply it to everyone, to signed-out visitors only, or to chosen roles.
 * **More places to start a quote** (all off by default, so an update changes nothing a shopper sees): "Add to Quote" on product cards in the shop, category and search lists; "Request a quote for your cart" on the cart page (classic cart and the Cart block); and a **quote page** of your own via the `[tackquote_quote_page]` shortcode, where shoppers change quantities, add an optional target price per line and a message.
-* **Floating launcher settings** — side, offsets, label, icon only, item count, size, which pages, and hide on mobile. The defaults are the launcher the plugin always had.
+* **Floating launcher settings** — side, offsets, label, icon, count, size, pages, mobile; defaults unchanged.
 * **Quote only, per product** — a "Quote only" checkbox in the product data panel hides Add to Cart for that product (its variations follow), and a fourth store-wide scope keeps the cart only for **approved wholesale accounts**.
+* **Per buyer group** (off by default): hide product categories, free or discounted shipping, and an optional WordPress role.
 * Optional one-way **order sync** to TackQuote — off by default, and queued through Action Scheduler so it never runs inside checkout.
 * Works with WooCommerce **High-Performance Order Storage (HPOS)**.
 
@@ -87,8 +88,8 @@ prices), `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-brea
 `GET /storefront/v1/order-limits` and `GET /storefront/v1/buyer-group`, falling back to the
 older `GET /storefront-b2b/order-limits` and `GET /storefront-b2b/buyer-group` on a TackQuote
 server without the `/storefront/v1` routes. Only when the merchant has switched on B2B pricing,
-order limits, the buyer-group badge, group restrictions or tax-exempt buyers. Sent while a
-signed-in customer views a product, the cart or checkout. Sends the product SKU and quantity,
+order limits, the buyer-group badge, any buyer-group rule or tax-exempt buyers. Sent while a
+signed-in customer browses the store. Sends the product SKU and quantity,
 the signed-in customer's email address and, since 1.9.0, their WordPress user ID (digits only;
 never for a guest).
 
@@ -320,6 +321,12 @@ English, plus German, Spanish, French, Italian, Japanese, Dutch and Brazilian Po
 4. Quote-only mode on the storefront. Add to Cart is withdrawn and the quote buttons remain, so the catalogue still works and only checkout goes away.
 
 == Changelog ==
+
+= 1.10.0 =
+* **Hide product categories per buyer group** (off by default; TackQuote → 9. Catalogue and shipping per buyer group). A grid of your product categories against your group codes plus "Guests and customers in no group"; sub-categories follow their parent. Hidden products leave the shop, category, tag and search loops and product blocks (`pre_get_posts`, `tax_query` NOT IN, front end and Store API only), related products, up-sells and cross-sells (`woocommerce_product_is_visible`, `woocommerce_related_products`); their own URL answers 404 (`template_redirect`); they cannot be bought (`woocommerce_is_purchasable`, `woocommerce_variation_is_purchasable`); a line already in a cart is removed with a notice. Store managers, wp-admin and the `/wc/v3` REST API are not affected. If TackQuote cannot be reached the catalogue is shown, unless you tick "Also hide them when the buyer group is unknown".
+* **Free or discounted shipping per buyer group** (off by default): free on chosen methods, a percentage off chosen methods, or only the methods that already cost nothing. Applied in the same `woocommerce_package_rates` callback as the group restrictions, after them; shipping tax is scaled with the cost. Only buyers TackQuote places in the group get it. These are plugin settings; shipping rules sent by TackQuote come later.
+* The buyer group is now part of each shipping package, so WooCommerce recalculates cached rates when a buyer's group changes (this also applies to the 1.8 shipping restrictions).
+* **Optional WordPress role per buyer group** (off by default): a signed-in buyer in group `TIER2` gets the extra role `tackquote_tier2` (capability `read` only), removed when the group changes. Roles the plugin did not add are never removed, an outage changes nothing, and roles never affect prices. Uninstall removes the roles the plugin created.
 
 = 1.9.0 =
 * **Wholesale application form on your store.** New shortcode `[tackquote_wholesale_application slug="…"]` (slug defaults to the one under TackQuote → Storefront forms) renders the form you design in TackQuote under Settings → Wholesale forms, with every field kind (text, email, phone, number, select, multi-select, checkbox, textarea, date, address, tax ID; conditional fields shown and hidden as the server decides). File fields show a notice: attachments arrive in a later release. Submissions are nonce-protected and sent server to server; a signed-in customer's details are prefilled and their WordPress user ID travels as `wooCustomerId` so approval links the account. Shoppers see a friendly success, pending or error message, never a raw server answer.

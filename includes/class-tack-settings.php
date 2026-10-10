@@ -221,8 +221,11 @@ class Tack_Settings {
 		add_settings_field( Tack_Group_Restrictions::OPTION_PAYMENT_MAP, __( 'Payment methods', 'tackquote' ), array( $this, 'field_payment_group_map' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
 		add_settings_field( Tack_Group_Restrictions::OPTION_SHIPPING_MAP, __( 'Shipping methods', 'tackquote' ), array( $this, 'field_shipping_group_map' ), self::PAGE_SLUG, 'tack_quotes_group_rules' );
 
-		// 8. Quote buttons and launcher (1.9.0) — registered last, so it renders last.
+		// 8. Quote buttons and launcher (1.9.0).
 		$this->register_storefront_layout_settings();
+
+		// 9. Catalogue and shipping per buyer group (1.10.0) — registered last, so it renders last.
+		$this->register_group_catalog_settings();
 	}
 
 	// ── Sanitizers ────────────────────────────────────────────────────────────
@@ -1127,17 +1130,27 @@ class Tack_Settings {
 		$codes = $this->sanitize_group_codes( get_option( self::OPTION_GROUP_CODES, array() ) );
 
 		$restrictions = new Tack_Group_Restrictions();
-		foreach ( array( Tack_Group_Restrictions::OPTION_PAYMENT_MAP, Tack_Group_Restrictions::OPTION_SHIPPING_MAP ) as $option ) {
+		$harvest      = array();
+		foreach ( array( Tack_Group_Restrictions::OPTION_PAYMENT_MAP, Tack_Group_Restrictions::OPTION_SHIPPING_MAP, Tack_Catalog_Visibility::OPTION_MAP ) as $option ) {
 			foreach ( $restrictions->parse_map( (string) get_option( $option, '' ) ) as $rule_codes ) {
-				foreach ( $rule_codes as $code ) {
-					// Harvested verbatim, NOT through the typed-input
-					// allow-list: a code that came back altered would not
-					// match the rule it came from, so its checkbox would
-					// render unticked and saving would delete the rule.
-					$code = self::clean_stored_group_code( $code );
-					if ( '' !== $code && ! in_array( $code, $codes, true ) ) {
-						$codes[] = $code;
-					}
+				$harvest[] = $rule_codes;
+			}
+		}
+		// 1.10.0: a shipping discount's code is the line's KEY, not its value.
+		$harvest[] = array_keys( $restrictions->parse_discount_map( (string) get_option( Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, '' ) ) );
+		foreach ( $harvest as $rule_codes ) {
+			foreach ( $rule_codes as $code ) {
+				if ( Tack_Catalog_Visibility::GUESTS === strtoupper( (string) $code ) ) {
+					// The "guests" pseudo code is its own checkbox, never a group.
+					continue;
+				}
+				// Harvested verbatim, NOT through the typed-input
+				// allow-list: a code that came back altered would not
+				// match the rule it came from, so its checkbox would
+				// render unticked and saving would delete the rule.
+				$code = self::clean_stored_group_code( $code );
+				if ( '' !== $code && ! in_array( $code, $codes, true ) ) {
+					$codes[] = $code;
 				}
 			}
 		}
@@ -1329,8 +1342,19 @@ class Tack_Settings {
 	 * @param array  $rows        array{id:string,title:string}[].
 	 * @param string $column      Heading for the first column.
 	 * @param string $placeholder Fallback textarea example. Not translatable.
+	 * @param array  $copy        Optional wording (1.10.0): heading, untouched, ticked, no_codes.
+	 * @param array  $extra       Optional pseudo codes drawn before the groups, code => label.
 	 */
-	private function render_group_map_field( $option, $rows, $column, $placeholder ) {
+	private function render_group_map_field( $option, $rows, $column, $placeholder, $copy = array(), $extra = array() ) {
+		$copy         = array_merge(
+			array(
+				'heading'   => __( 'Allowed buyer groups', 'tackquote' ),
+				'untouched' => __( 'Available to everyone.', 'tackquote' ),
+				'ticked'    => __( 'Hidden from everyone except the ticked groups.', 'tackquote' ),
+				'no_codes'  => __( 'Add your buyer group codes above to restrict this method.', 'tackquote' ),
+			),
+			$copy
+		);
 		$restrictions = new Tack_Group_Restrictions();
 		$stored_raw   = (string) get_option( $option, '' );
 		$stored       = $restrictions->parse_map( $stored_raw );
@@ -1346,7 +1370,7 @@ class Tack_Settings {
 
 		echo '<table class="widefat striped" style="max-width:44em;">';
 		echo '<thead><tr><th scope="col">' . esc_html( $column ) . '</th><th scope="col">'
-			. esc_html__( 'Allowed buyer groups', 'tackquote' ) . '</th></tr></thead><tbody>';
+			. esc_html( $copy['heading'] ) . '</th></tr></thead><tbody>';
 
 		foreach ( $rows as $row ) {
 			$id      = (string) $row['id'];
@@ -1358,9 +1382,19 @@ class Tack_Settings {
 			printf( '<input type="hidden" name="%1$s[rendered][]" value="%2$s" />', esc_attr( $option ), esc_attr( $id ) );
 			echo '</td><td>';
 
-			if ( empty( $known ) ) {
-				echo '<span class="description">' . esc_html__( 'Add your buyer group codes above to restrict this method.', 'tackquote' ) . '</span>';
+			if ( empty( $known ) && empty( $extra ) ) {
+				echo '<span class="description">' . esc_html( $copy['no_codes'] ) . '</span>';
 			} else {
+				foreach ( $extra as $code => $label ) {
+					printf(
+						'<label style="display:inline-block;margin:0 1em .35em 0;"><input type="checkbox" name="%1$s[groups][%2$s][]" value="%3$s" %4$s /> %5$s</label>',
+						esc_attr( $option ),
+						esc_attr( $id ),
+						esc_attr( $code ),
+						checked( in_array( $code, $allowed, true ), true, false ),
+						esc_html( $label )
+					);
+				}
 				foreach ( $known as $code ) {
 					/*
 					 * Escaped INLINE, one value at a time.
@@ -1385,8 +1419,8 @@ class Tack_Settings {
 				}
 				echo '<br /><span class="description">';
 				echo empty( $allowed )
-					? esc_html__( 'Available to everyone.', 'tackquote' )
-					: esc_html__( 'Hidden from everyone except the ticked groups.', 'tackquote' );
+					? esc_html( $copy['untouched'] )
+					: esc_html( $copy['ticked'] );
 				echo '</span>';
 			}
 
@@ -1967,5 +2001,312 @@ class Tack_Settings {
 	 */
 	public function sanitize_fab_size( $value ) {
 		return in_array( $value, array( 'regular', 'compact' ), true ) ? (string) $value : 'regular';
+	}
+
+	// ── 9. Catalogue and shipping per buyer group (1.10.0) ────────────────────
+
+	/**
+	 * Register section 9: catalogue visibility, shipping discounts, role mirror.
+	 */
+	public function register_group_catalog_settings() {
+		$checkbox = array( 'sanitize_callback' => array( $this, 'sanitize_checkbox' ) );
+
+		register_setting( self::OPTION_GROUP, Tack_Catalog_Visibility::OPTION_ENABLED, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Catalog_Visibility::OPTION_HIDE_WHEN_UNKNOWN, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Catalog_Visibility::OPTION_MAP, array( 'sanitize_callback' => array( $this, 'sanitize_catalog_visibility_map' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, $checkbox );
+		register_setting( self::OPTION_GROUP, Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, array( 'sanitize_callback' => array( $this, 'sanitize_shipping_discount_map' ) ) );
+		register_setting( self::OPTION_GROUP, Tack_Role_Mirror::OPTION_ENABLED, $checkbox );
+
+		add_settings_section(
+			'tack_quotes_group_catalog',
+			__( '9. Catalogue and shipping per buyer group', 'tackquote' ),
+			array( $this, 'section_group_catalog' ),
+			self::PAGE_SLUG
+		);
+		add_settings_field( Tack_Catalog_Visibility::OPTION_ENABLED, __( 'Hide categories by group', 'tackquote' ), array( $this, 'field_enable_catalog_visibility' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
+		add_settings_field( Tack_Catalog_Visibility::OPTION_MAP, __( 'Product categories', 'tackquote' ), array( $this, 'field_catalog_visibility_map' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
+		add_settings_field( Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, __( 'Shipping discounts by group', 'tackquote' ), array( $this, 'field_enable_shipping_discounts' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
+		add_settings_field( Tack_Group_Restrictions::OPTION_DISCOUNT_MAP, __( 'Discount per group', 'tackquote' ), array( $this, 'field_shipping_discount_map' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
+		add_settings_field( Tack_Role_Mirror::OPTION_ENABLED, __( 'WordPress role per group', 'tackquote' ), array( $this, 'field_enable_role_mirror' ), self::PAGE_SLUG, 'tack_quotes_group_catalog' );
+	}
+
+	/**
+	 * Intro copy for section 9.
+	 */
+	public function section_group_catalog() {
+		echo '<p>' . esc_html__(
+			'Everything here is off by default and keys on the buyer group TackQuote reports, using the group codes from step 6. These rules are plugin settings; TackQuote does not send them.',
+			'tackquote'
+		) . '</p>';
+		$this->prerequisite_notice();
+	}
+
+	/**
+	 * Catalogue visibility switches.
+	 */
+	public function field_enable_catalog_visibility() {
+		$this->checkbox_default_off(
+			Tack_Catalog_Visibility::OPTION_ENABLED,
+			__( 'Hide the ticked product categories from the ticked buyer groups.', 'tackquote' )
+		);
+		echo '<br />';
+		$this->checkbox_default_off(
+			Tack_Catalog_Visibility::OPTION_HIDE_WHEN_UNKNOWN,
+			__( 'Also hide them when the buyer group is unknown (TackQuote cannot be reached).', 'tackquote' )
+		);
+		echo '<p class="description">' . esc_html__(
+			'Hidden products leave the shop, category and search pages, product blocks, related products, up-sells and cross-sells; their own page answers "not found", they cannot be bought, and a hidden product already in a cart is removed with a notice. Store managers always see everything.',
+			'tackquote'
+		) . '</p>';
+	}
+
+	/**
+	 * Product categories as rows of the shared grid.
+	 *
+	 * @return array<int, array{id:string,title:string}>
+	 */
+	private function product_category_rows() {
+		if ( ! function_exists( 'get_terms' ) ) {
+			return array();
+		}
+		$terms = get_terms(
+			array(
+				'taxonomy'   => Tack_Catalog_Visibility::TAXONOMY,
+				'hide_empty' => false,
+				'orderby'    => 'name',
+			)
+		);
+		if ( ! is_array( $terms ) ) {
+			return array();
+		}
+		$rows = array();
+		foreach ( $terms as $term ) {
+			if ( ! is_object( $term ) || empty( $term->term_id ) ) {
+				continue;
+			}
+			$rows[] = array(
+				'id'    => (string) (int) $term->term_id,
+				'title' => (string) $term->name,
+			);
+		}
+		return $rows;
+	}
+
+	/**
+	 * The visibility grid: one row per category, a "Guests" box plus the groups.
+	 */
+	public function field_catalog_visibility_map() {
+		$this->render_group_map_field(
+			Tack_Catalog_Visibility::OPTION_MAP,
+			$this->product_category_rows(),
+			__( 'Product category', 'tackquote' ),
+			// NOT translatable: syntax typed verbatim (category id: codes).
+			"15: @GUESTS, TIER2\n22: @GUESTS",
+			array(
+				'heading'   => __( 'Hidden from', 'tackquote' ),
+				'untouched' => __( 'Visible to everyone.', 'tackquote' ),
+				'ticked'    => __( 'Hidden from the ticked buyers. Sub-categories follow.', 'tackquote' ),
+			),
+			array( Tack_Catalog_Visibility::GUESTS => __( 'Guests and customers in no group', 'tackquote' ) )
+		);
+	}
+
+	/**
+	 * Sanitize the visibility map with the same merge rules as the 1.8.0 grid.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_catalog_visibility_map( $value ) {
+		return $this->sanitize_group_map_for( Tack_Catalog_Visibility::OPTION_MAP, $value );
+	}
+
+	/**
+	 * Shipping discount switch.
+	 */
+	public function field_enable_shipping_discounts() {
+		$this->checkbox_default_off(
+			Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED,
+			__( 'Give buyer groups free or discounted shipping.', 'tackquote' )
+		);
+		echo '<p class="description">' . esc_html__(
+			'Applied after the shipping restrictions in step 6. Only buyers TackQuote places in the group get it; guests and unknown buyers pay the normal rate. Shipping tax is reduced in proportion. "Only free methods" keeps the rates that already cost nothing, and changes nothing when there are none.',
+			'tackquote'
+		) . '</p>';
+	}
+
+	/**
+	 * Per-group discount rows: mode, percentage, methods.
+	 */
+	public function field_shipping_discount_map() {
+		$option       = Tack_Group_Restrictions::OPTION_DISCOUNT_MAP;
+		$restrictions = new Tack_Group_Restrictions();
+		$rules        = $restrictions->parse_discount_map( (string) get_option( $option, '' ) );
+		$known        = $this->known_group_codes();
+		$methods      = $this->shipping_method_rows();
+
+		if ( empty( $known ) ) {
+			// Nothing to draw: say so, and post nothing, so stored rules are kept.
+			echo '<p class="description">' . esc_html__( 'Add your buyer group codes in step 6 to set a shipping discount.', 'tackquote' ) . '</p>';
+			return;
+		}
+
+		printf( '<input type="hidden" name="%s[mode]" value="matrix" />', esc_attr( $option ) );
+		echo '<table class="widefat striped" style="max-width:52em;"><thead><tr><th scope="col">'
+			. esc_html__( 'Buyer group', 'tackquote' ) . '</th><th scope="col">'
+			. esc_html__( 'Shipping', 'tackquote' ) . '</th><th scope="col">'
+			. esc_html__( 'Methods (none ticked: all)', 'tackquote' ) . '</th></tr></thead><tbody>';
+
+		$modes = array(
+			''          => __( 'Normal rates', 'tackquote' ),
+			'free'      => __( 'Free', 'tackquote' ),
+			'percent'   => __( 'Percentage off', 'tackquote' ),
+			'free_only' => __( 'Only free methods', 'tackquote' ),
+		);
+
+		foreach ( $known as $code ) {
+			$rule = isset( $rules[ $code ] ) ? $rules[ $code ] : array(
+				'mode'    => '',
+				'percent' => 0,
+				'methods' => array(),
+			);
+			echo '<tr><td><code>' . esc_html( $code ) . '</code>';
+			printf( '<input type="hidden" name="%1$s[rendered][]" value="%2$s" />', esc_attr( $option ), esc_attr( $code ) );
+			echo '</td><td>';
+			printf( '<select name="%1$s[rules][%2$s][mode]">', esc_attr( $option ), esc_attr( $code ) );
+			foreach ( $modes as $value => $label ) {
+				printf(
+					'<option value="%1$s" %2$s>%3$s</option>',
+					esc_attr( $value ),
+					selected( $rule['mode'], $value, false ),
+					esc_html( $label )
+				);
+			}
+			echo '</select> ';
+			printf(
+				'<input type="number" min="0" max="100" step="0.01" name="%1$s[rules][%2$s][percent]" value="%3$s" style="width:6em;" aria-label="%4$s" /> %%',
+				esc_attr( $option ),
+				esc_attr( $code ),
+				esc_attr( 'percent' === $rule['mode'] ? (string) $rule['percent'] : '' ),
+				esc_attr__( 'Percentage off', 'tackquote' )
+			);
+			echo '</td><td>';
+			$offered = array();
+			foreach ( $methods as $method ) {
+				$offered[] = $method['id'];
+				printf(
+					'<label style="display:inline-block;margin:0 1em .35em 0;"><input type="checkbox" name="%1$s[rules][%2$s][methods][]" value="%3$s" %4$s /> %5$s</label>',
+					esc_attr( $option ),
+					esc_attr( $code ),
+					esc_attr( $method['id'] ),
+					checked( in_array( $method['id'], $rule['methods'], true ), true, false ),
+					esc_html( $method['title'] )
+				);
+			}
+			// A method id this store no longer lists (or a full rate id typed by
+			// hand) is carried through as a hidden field so a save never drops it.
+			foreach ( array_diff( $rule['methods'], $offered ) as $kept ) {
+				printf(
+					'<input type="hidden" name="%1$s[rules][%2$s][methods][]" value="%3$s" /><code>%4$s</code> ',
+					esc_attr( $option ),
+					esc_attr( $code ),
+					esc_attr( $kept ),
+					esc_html( $kept )
+				);
+			}
+			echo '</td></tr>';
+		}
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * Sanitize the discount rows back into the stored line format.
+	 *
+	 * Same safety rules as the restriction grid: a string is raw rules; null or
+	 * a form that rendered no rows keeps what is stored; only the codes the form
+	 * drew are rewritten, every other line (comments, other codes) is kept.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_shipping_discount_map( $value ) {
+		$option = Tack_Group_Restrictions::OPTION_DISCOUNT_MAP;
+		$stored = (string) get_option( $option, '' );
+		if ( is_string( $value ) ) {
+			return $this->sanitize_group_map( $value );
+		}
+		if ( ! is_array( $value ) ) {
+			return $stored;
+		}
+
+		$rendered = array();
+		foreach ( (array) ( isset( $value['rendered'] ) ? $value['rendered'] : array() ) as $code ) {
+			$code = self::clean_stored_group_code( $code );
+			if ( '' !== $code && ! in_array( $code, $rendered, true ) ) {
+				$rendered[] = $code;
+			}
+		}
+		if ( empty( $rendered ) ) {
+			return $stored;
+		}
+
+		$lines = array();
+		$rules = isset( $value['rules'] ) && is_array( $value['rules'] ) ? $value['rules'] : array();
+		foreach ( $rendered as $code ) {
+			$row  = isset( $rules[ $code ] ) && is_array( $rules[ $code ] ) ? $rules[ $code ] : array();
+			$mode = isset( $row['mode'] ) ? (string) $row['mode'] : '';
+			if ( ! in_array( $mode, array( 'free', 'percent', 'free_only' ), true ) ) {
+				continue;
+			}
+			$pct = isset( $row['percent'] ) ? (float) $row['percent'] : 0.0;
+			if ( 'percent' === $mode && ( $pct <= 0 || $pct > 100 ) ) {
+				// A percentage outside 0-100 is not a discount; nothing is saved for it.
+				continue;
+			}
+			$methods = array();
+			foreach ( (array) ( isset( $row['methods'] ) ? $row['methods'] : array() ) as $method ) {
+				$method = $this->clean_method_id( $method );
+				if ( '' !== $method && ! in_array( $method, $methods, true ) ) {
+					$methods[] = $method;
+				}
+			}
+			$lines[ $code ] = Tack_Group_Restrictions::format_discount_line(
+				$code,
+				array(
+					'mode'    => $mode,
+					'percent' => $pct,
+					'methods' => $methods,
+				)
+			);
+		}
+
+		$out = array();
+		foreach ( '' === trim( $stored ) ? array() : preg_split( '/\r\n|\r|\n/', $stored ) as $line ) {
+			$parts = explode( ':', trim( $line ), 2 );
+			$code  = 2 === count( $parts ) && 0 !== strpos( trim( $line ), '#' ) ? strtoupper( trim( $parts[0] ) ) : '';
+			if ( '' !== $code && in_array( $code, $rendered, true ) ) {
+				continue; // Rewritten below from the form.
+			}
+			$out[] = $line;
+		}
+		foreach ( $lines as $line ) {
+			$out[] = $line;
+		}
+		return trim( implode( "\n", $out ) );
+	}
+
+	/**
+	 * Role mirror switch.
+	 */
+	public function field_enable_role_mirror() {
+		$this->checkbox_default_off(
+			Tack_Role_Mirror::OPTION_ENABLED,
+			__( 'Give signed-in buyers the extra WordPress role "tackquote_<group code>".', 'tackquote' )
+		);
+		echo '<p class="description">' . esc_html__(
+			'For themes and plugins that check roles. The role has only the "read" capability, is removed when the group changes, and never affects prices. Roles you assign yourself are never removed.',
+			'tackquote'
+		) . '</p>';
 	}
 }

@@ -92,11 +92,304 @@ class Tack_Group_Restrictions {
 	}
 
 	/**
+	 * Shipping discounts per buyer group (1.10.0) master switch, default off.
+	 */
+	const OPTION_DISCOUNTS_ENABLED = 'tack_quotes_enable_shipping_discounts';
+
+	/**
+	 * Group code => shipping discount, one rule per line:
+	 *
+	 *     TIER3: free_only                 keep only the rates that already cost 0
+	 *     TIER2: free | flat_rate          set these methods to 0 (no list = every method)
+	 *     GOLD: percent=15 | flat_rate     take 15% off these methods (no list = every method)
+	 *
+	 * Plugin settings for now. Server-driven shipping rules from TackQuote are a
+	 * later change; when they arrive they feed the same apply step.
+	 */
+	const OPTION_DISCOUNT_MAP = 'tack_quotes_shipping_discount_map';
+
+	/** Package key that carries the buyer group into WooCommerce's rate-cache hash. */
+	const PACKAGE_KEY = 'tackquote_buyer_group';
+
+	/**
+	 * Are shipping discounts switched on?
+	 *
+	 * @return bool
+	 */
+	public static function discounts_enabled() {
+		return 'yes' === get_option( self::OPTION_DISCOUNTS_ENABLED, 'no' );
+	}
+
+	/**
+	 * Does either half of this class have work to do?
+	 *
+	 * @return bool
+	 */
+	public static function needs_hooks() {
+		return self::is_enabled() || self::discounts_enabled();
+	}
+
+	/**
 	 * Register hooks.
+	 *
+	 * ONE `woocommerce_package_rates` callback runs both halves, in a fixed
+	 * order: restrictions first (which methods this group may use at all), then
+	 * discounts (what the remaining ones cost). Two independent filters would
+	 * leave the order to priorities, and a discount computed on a rate the
+	 * restriction then removes is harmless, but a restriction that runs after a
+	 * "keep only the free rates" discount judges a list it never saw.
 	 */
 	public function init() {
-		add_filter( 'woocommerce_available_payment_gateways', array( $this, 'filter_gateways' ), 20 );
-		add_filter( 'woocommerce_package_rates', array( $this, 'filter_shipping_rates' ), 20, 2 );
+		if ( self::is_enabled() ) {
+			add_filter( 'woocommerce_available_payment_gateways', array( $this, 'filter_gateways' ), 20 );
+		}
+		add_filter( 'woocommerce_package_rates', array( $this, 'filter_package_rates' ), 20, 2 );
+		add_filter( 'woocommerce_cart_shipping_packages', array( $this, 'tag_packages' ), 20 );
+	}
+
+	/**
+	 * `woocommerce_package_rates`: restrictions, then discounts.
+	 *
+	 * @param array $rates   rate id => WC_Shipping_Rate.
+	 * @param array $package Shipping package.
+	 * @return array
+	 */
+	public function filter_package_rates( $rates, $package = array() ) {
+		if ( self::is_enabled() ) {
+			$rates = $this->filter_shipping_rates( $rates, $package );
+		}
+		if ( self::discounts_enabled() ) {
+			$rates = $this->apply_shipping_discounts( $rates );
+		}
+		return $rates;
+	}
+
+	/**
+	 * `woocommerce_cart_shipping_packages`: put the buyer group into each package.
+	 *
+	 * WooCommerce caches calculated rates in the session per package, keyed by
+	 * `md5( wp_json_encode( $package ) . shipping transient version )` with only
+	 * subtotal/total/package_id/package_name/rates/package_index ignored (read in
+	 * `WC_Shipping::get_package_hash()`, WooCommerce 11.2.1). The package already
+	 * carries the user id, so signing in recalculates; a group CHANGE for the same
+	 * user would not, and the buyer would keep the previous group's rates. A key
+	 * holding the group makes the hash change exactly when the answer changes.
+	 * Added only when a group-dependent shipping rule exists.
+	 *
+	 * @param array $packages Packages.
+	 * @return array
+	 */
+	public function tag_packages( $packages ) {
+		if ( ! is_array( $packages ) || ! $this->has_shipping_rules() ) {
+			return $packages;
+		}
+		$code  = $this->group_code();
+		$value = null !== $code ? 'grouped:' . strtoupper( $code ) : $this->notices->buyer_group_status();
+		foreach ( $packages as $i => $package ) {
+			if ( is_array( $package ) ) {
+				$packages[ $i ][ self::PACKAGE_KEY ] = $value;
+			}
+		}
+		return $packages;
+	}
+
+	/**
+	 * Is any rule configured whose outcome depends on the buyer group?
+	 *
+	 * @return bool
+	 */
+	private function has_shipping_rules() {
+		if ( self::is_enabled() && '' !== trim( (string) get_option( self::OPTION_SHIPPING_MAP, '' ) ) ) {
+			return true;
+		}
+		return self::discounts_enabled() && '' !== trim( (string) get_option( self::OPTION_DISCOUNT_MAP, '' ) );
+	}
+
+	/**
+	 * Apply this buyer group's shipping discount.
+	 *
+	 * Only a buyer TackQuote places in a group gets one: a discount is a grant,
+	 * so an unknown group, no group and guests all pay the normal rate.
+	 *
+	 * @param array $rates rate id => WC_Shipping_Rate.
+	 * @return array
+	 */
+	public function apply_shipping_discounts( $rates ) {
+		if ( ! is_array( $rates ) || empty( $rates ) ) {
+			return $rates;
+		}
+		$rules = $this->parse_discount_map( (string) get_option( self::OPTION_DISCOUNT_MAP, '' ) );
+		if ( empty( $rules ) ) {
+			return $rates;
+		}
+		$code = $this->group_code();
+		if ( null === $code || ! isset( $rules[ strtoupper( $code ) ] ) ) {
+			return $rates;
+		}
+		$rule = $rules[ strtoupper( $code ) ];
+
+		if ( 'free_only' === $rule['mode'] ) {
+			$free = array();
+			foreach ( $rates as $id => $rate ) {
+				if ( is_object( $rate ) && method_exists( $rate, 'get_cost' ) && (float) $rate->get_cost() <= 0 ) {
+					$free[ $id ] = $rate;
+				}
+			}
+			if ( empty( $free ) ) {
+				// Never empty the list: no free rate exists, so nothing is removed.
+				$this->log( 'Shipping discount "free_only" found no rate that costs 0 for this package; all rates left in place.' );
+				return $rates;
+			}
+			return $free;
+		}
+
+		foreach ( $rates as $id => $rate ) {
+			if ( ! is_object( $rate ) || ! method_exists( $rate, 'get_cost' ) || ! method_exists( $rate, 'set_cost' ) ) {
+				continue;
+			}
+			if ( ! $this->rule_covers_rate( $rule['methods'], (string) $id, $rate ) ) {
+				continue;
+			}
+			$old = (float) $rate->get_cost();
+			if ( $old <= 0 ) {
+				continue;
+			}
+			$new = 'free' === $rule['mode'] ? 0.0 : $old * ( 100 - $rule['percent'] ) / 100;
+			$this->reprice_rate( $rate, $old, $new );
+		}
+		return $rates;
+	}
+
+	/**
+	 * Does a discount rule's method list cover this rate?
+	 *
+	 * Same lookup as restrictions: the full rate id (`flat_rate:3`) or the method
+	 * id (`flat_rate`). An empty list covers every rate.
+	 *
+	 * @param string[] $methods Method or rate ids.
+	 * @param string   $id      Rate id.
+	 * @param object   $rate    WC_Shipping_Rate.
+	 * @return bool
+	 */
+	private function rule_covers_rate( $methods, $id, $rate ) {
+		if ( empty( $methods ) ) {
+			return true;
+		}
+		$method = method_exists( $rate, 'get_method_id' ) ? (string) $rate->get_method_id() : '';
+		if ( '' === $method ) {
+			$method = (string) strtok( $id, ':' );
+		}
+		return in_array( $id, $methods, true ) || in_array( $method, $methods, true );
+	}
+
+	/**
+	 * Set a rate's cost and scale its taxes by the same factor.
+	 *
+	 * A rate's `taxes` is an array of tax-rate id => amount that WooCommerce
+	 * computed from the ORIGINAL cost (`WC_Tax::calc_shipping_tax( $cost, $rates )`
+	 * in `WC_Shipping_Method::add_rate()`). Every WooCommerce tax rate is a
+	 * percentage of the cost, compound ones included, so the tax is proportional
+	 * to the cost and scaling each amount by new/old reproduces what the method
+	 * would have calculated, without re-deriving the customer's tax location here.
+	 * Cost 0 therefore means taxes 0, which is the "clear the taxes" free
+	 * shipping needs. The cost is rounded to the store's price decimals; the
+	 * taxes stay unrounded, as WooCommerce keeps them until the totals step.
+	 *
+	 * @param object $rate WC_Shipping_Rate.
+	 * @param float  $old  Original cost (> 0).
+	 * @param float  $cost New cost.
+	 */
+	private function reprice_rate( $rate, $old, $cost ) {
+		$decimals = function_exists( 'wc_get_price_decimals' ) ? (int) wc_get_price_decimals() : 2;
+		$cost     = max( 0.0, round( $cost, $decimals ) );
+		$rate->set_cost( function_exists( 'wc_format_decimal' ) ? wc_format_decimal( $cost, $decimals ) : (string) $cost );
+
+		if ( method_exists( $rate, 'get_taxes' ) && method_exists( $rate, 'set_taxes' ) ) {
+			$factor = $cost / $old;
+			$taxes  = array();
+			foreach ( (array) $rate->get_taxes() as $tax_id => $amount ) {
+				$taxes[ $tax_id ] = 0.0 === $factor ? 0 : (float) $amount * $factor;
+			}
+			$rate->set_taxes( $taxes );
+		}
+	}
+
+	/**
+	 * Parse the stored discount rules.
+	 *
+	 * Unreadable lines are skipped (a typo grants nothing rather than breaking
+	 * checkout); a later line for the same code wins, as in `parse_map()`.
+	 *
+	 * @param string $raw Stored value.
+	 * @return array<string, array{mode:string,percent:float,methods:string[]}>
+	 */
+	public function parse_discount_map( $raw ) {
+		$out = array();
+		if ( ! is_string( $raw ) || '' === trim( $raw ) ) {
+			return $out;
+		}
+		foreach ( preg_split( '/\r\n|\r|\n/', $raw ) as $line ) {
+			$line = trim( $line );
+			if ( '' === $line || 0 === strpos( $line, '#' ) ) {
+				continue;
+			}
+			$parts = explode( ':', $line, 2 );
+			if ( 2 !== count( $parts ) ) {
+				continue;
+			}
+			$code = strtoupper( trim( $parts[0] ) );
+			if ( '' === $code ) {
+				continue;
+			}
+			$halves  = explode( '|', $parts[1], 2 );
+			$spec    = strtolower( trim( $halves[0] ) );
+			$methods = array();
+			if ( isset( $halves[1] ) ) {
+				foreach ( explode( ',', $halves[1] ) as $method ) {
+					$method = trim( $method );
+					if ( '' !== $method ) {
+						$methods[] = $method;
+					}
+				}
+			}
+
+			if ( 'free_only' === $spec || 'free' === $spec ) {
+				$out[ $code ] = array(
+					'mode'    => $spec,
+					'percent' => 100.0,
+					'methods' => $methods,
+				);
+				continue;
+			}
+			if ( preg_match( '/^percent\s*=\s*([0-9]+(?:\.[0-9]+)?)$/', $spec, $m ) ) {
+				$pct = (float) $m[1];
+				if ( $pct <= 0 || $pct > 100 ) {
+					continue;
+				}
+				$out[ $code ] = array(
+					'mode'    => 100.0 === $pct ? 'free' : 'percent',
+					'percent' => $pct,
+					'methods' => $methods,
+				);
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Format one rule back into its stored line.
+	 *
+	 * @param string $code Group code.
+	 * @param array  $rule array{mode:string,percent:float,methods:string[]}.
+	 * @return string
+	 */
+	public static function format_discount_line( $code, $rule ) {
+		$spec = 'percent' === $rule['mode'] ? 'percent=' . rtrim( rtrim( number_format( (float) $rule['percent'], 2, '.', '' ), '0' ), '.' ) : $rule['mode'];
+		$line = $code . ': ' . $spec;
+		if ( 'free_only' !== $rule['mode'] && ! empty( $rule['methods'] ) ) {
+			$line .= ' | ' . implode( ', ', $rule['methods'] );
+		}
+		return $line;
 	}
 
 	/**

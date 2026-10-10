@@ -92,6 +92,9 @@ require __DIR__ . '/b2b-notices-test.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-group-restrictions.php';
 require __DIR__ . '/group-restrictions-test.php';
 
+// 1.10.0: catalogue visibility, shipping discounts per group, role mirror.
+require __DIR__ . '/group-catalog-test.php';
+
 // Wholesale + net-terms application forms, the storefront v1 reads and the
 // plugin-version header every request carries.
 echo "\n-- storefront forms: wholesale application, net terms, v1 reads, version header --\n";
