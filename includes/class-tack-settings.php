@@ -2061,16 +2061,24 @@ class Tack_Settings {
 	private function run_connection_test() {
 		$client = new Tack_Api_Client();
 		$result = $client->test_connection();
-		$ok     = ! is_wp_error( $result );
+		$ok     = true === $result;
+		$state  = 'ok';
+		if ( ! $ok ) {
+			$data  = is_wp_error( $result ) ? $result->get_error_data() : null;
+			$state = is_array( $data ) && in_array( $data['state'] ?? '', array( Tack_Api_Client::STATE_REJECTED, Tack_Api_Client::STATE_UNVERIFIED ), true )
+				? $data['state']
+				: Tack_Api_Client::STATE_FAILED;
+		}
 
 		$this->action_result = array(
-			'type'    => $ok ? 'success' : 'error',
-			'message' => $ok ? __( 'Connected to TackQuote successfully.', 'tackquote' ) : $result->get_error_message(),
+			'type'    => $ok ? 'success' : ( Tack_Api_Client::STATE_UNVERIFIED === $state ? 'warning' : 'error' ),
+			'message' => $ok ? __( 'Connected to TackQuote successfully.', 'tackquote' ) : ( is_wp_error( $result ) ? $result->get_error_message() : __( 'TackQuote did not accept the connection test.', 'tackquote' ) ),
 		);
 		set_transient(
 			self::CONNECTION_CHECK,
 			array(
 				'ok'      => $ok,
+				'state'   => $state,
 				'key'     => self::key_fingerprint( (string) get_option( 'tack_quotes_api_key', '' ) ),
 				'at'      => time(),
 				'message' => $this->action_result['message'],
@@ -2088,7 +2096,7 @@ class Tack_Settings {
 		}
 		printf(
 			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-			'success' === $this->action_result['type'] ? 'success' : 'error',
+			in_array( $this->action_result['type'], array( 'success', 'warning' ), true ) ? esc_attr( $this->action_result['type'] ) : 'error',
 			esc_html( $this->action_result['message'] )
 		);
 	}
@@ -2109,8 +2117,10 @@ class Tack_Settings {
 	 *
 	 * States:
 	 *   none      no key is saved. NEVER reported as connected.
-	 *   ok        the last test passed, for the key saved now.
-	 *   failed    the last test failed, for the key saved now.
+	 *   ok         the last test's authenticated ping passed, for the key saved now.
+	 *   rejected   TackQuote refused the key saved now (401/403).
+	 *   unverified the server is reachable but has no ping route: key NOT checked.
+	 *   failed     the last test failed otherwise (transport, 429, 5xx, ...).
 	 *   untested  a key is saved but has not been tested (or a different key was).
 	 *
 	 * @return array{state:string,checked_at:int,message:string}
@@ -2132,8 +2142,12 @@ class Tack_Settings {
 				'message'    => '',
 			);
 		}
+		$state = ! empty( $check['ok'] ) ? 'ok' : (string) ( $check['state'] ?? 'failed' );
+		if ( ! in_array( $state, array( 'ok', 'rejected', 'unverified', 'failed' ), true ) || ( 'ok' === $state && empty( $check['ok'] ) ) ) {
+			$state = 'failed';
+		}
 		return array(
-			'state'      => ! empty( $check['ok'] ) ? 'ok' : 'failed',
+			'state'      => $state,
 			'checked_at' => (int) ( $check['at'] ?? 0 ),
 			'message'    => (string) ( $check['message'] ?? '' ),
 		);
@@ -2245,10 +2259,12 @@ class Tack_Settings {
 	 */
 	private function card_connection( $status ) {
 		$labels = array(
-			'none'     => array( 'error', __( 'Not connected', 'tackquote' ) ),
-			'ok'       => array( 'ok', __( 'Connected', 'tackquote' ) ),
-			'failed'   => array( 'error', __( 'Connection failed', 'tackquote' ) ),
-			'untested' => array( 'warn', __( 'Key saved, not tested', 'tackquote' ) ),
+			'none'       => array( 'error', __( 'Not connected', 'tackquote' ) ),
+			'ok'         => array( 'ok', __( 'Connected', 'tackquote' ) ),
+			'rejected'   => array( 'error', __( 'Key rejected', 'tackquote' ) ),
+			'unverified' => array( 'warn', __( 'Reachable, key not verified', 'tackquote' ) ),
+			'failed'     => array( 'error', __( 'Connection failed', 'tackquote' ) ),
+			'untested'   => array( 'warn', __( 'Key saved, not tested', 'tackquote' ) ),
 		);
 		$pill   = $labels[ $status['state'] ];
 		$this->card_open( 'tack-card-connection', __( 'Connection', 'tackquote' ), $pill[0], $pill[1] );
@@ -2272,7 +2288,7 @@ class Tack_Settings {
 		}
 		echo '</dl>';
 
-		if ( 'failed' === $status['state'] && '' !== $status['message'] ) {
+		if ( in_array( $status['state'], array( 'rejected', 'unverified', 'failed' ), true ) && '' !== $status['message'] ) {
 			echo '<p class="description">' . esc_html( $status['message'] ) . '</p>';
 		}
 		if ( 'none' === $status['state'] ) {
@@ -2503,7 +2519,9 @@ class Tack_Settings {
 			__( 'Allow attachments on quote requests', 'tackquote' )
 		);
 		$cached = get_transient( Tack_Api_Client::CAPABILITIES_TRANSIENT );
-		if ( is_array( $cached ) && isset( $cached['caps'] ) && is_array( $cached['caps'] ) ) {
+		if ( is_array( $cached ) && Tack_Api_Client::STATE_REJECTED === ( $cached['failed'] ?? '' ) ) {
+			$state = __( 'TackQuote rejected the saved API key, so attachments stay off. Run "Test connection" on the Connection tab after fixing the key.', 'tackquote' );
+		} elseif ( is_array( $cached ) && isset( $cached['caps'] ) && is_array( $cached['caps'] ) ) {
 			$state = in_array( 'attachments', $cached['caps'], true )
 				? __( 'Your TackQuote server accepts attachments.', 'tackquote' )
 				: __( 'Your TackQuote server does not accept attachments yet, so the control stays hidden even when this is on.', 'tackquote' );

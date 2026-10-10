@@ -148,31 +148,123 @@ class Tack_Api_Client {
 	}
 
 	/**
-	 * Lightweight connectivity check.
+	 * Connection-test outcomes, carried in the `state` field of a test's WP_Error data.
 	 *
-	 * @return true|WP_Error
+	 * `rejected`   TackQuote answered 401/403: the key is wrong, revoked or not allowed.
+	 * `unverified` the ping route is missing (404: an old or self-hosted server) and the
+	 *              public `GET /health` answered: reachable, but the key was NOT checked.
+	 * `failed`     transport error, 429, 5xx or any other answer.
+	 *
+	 * @since 1.10.0
+	 */
+	const STATE_REJECTED   = 'rejected';
+	const STATE_UNVERIFIED = 'unverified';
+	const STATE_FAILED     = 'failed';
+
+	/**
+	 * Check the saved key against TackQuote's authenticated ping.
+	 *
+	 * Only a 2xx ping passes. `GET /health` is PUBLIC (it never reads the key), so it is
+	 * asked only when the ping route itself is missing (404), and even then the answer is
+	 * "reachable, key not verified", never a pass. Falling back to it on ANY ping failure
+	 * once reported "Connected" for a key TackQuote had just refused with 401.
+	 *
+	 * Capabilities are cached only from a passing ping. A 401/403 clears them, so a
+	 * feature advertised earlier cannot outlive the key's refusal; any other failure
+	 * leaves the cache as it was.
+	 *
+	 * @return true|WP_Error WP_Error data: `state` (STATE_*), `status`, `code`.
 	 */
 	public function test_connection() {
 		$result = $this->request( 'GET', '/integrations/woocommerce/ping' );
-		if ( is_wp_error( $result ) ) {
-			// Fall back to a generic authenticated endpoint if /ping is unavailable.
-			$result = $this->request( 'GET', '/health' );
-			if ( ! is_wp_error( $result ) ) {
-				// Reachable, but no ping answer to read capabilities from: none.
-				$this->remember_capabilities( array(), DAY_IN_SECONDS );
-			}
-			return is_wp_error( $result ) ? $result : true;
+		if ( ! is_wp_error( $result ) ) {
+			$this->remember_capabilities( self::capabilities_of( $result ), DAY_IN_SECONDS );
+			return true;
 		}
-		$this->remember_capabilities( self::capabilities_of( $result ), DAY_IN_SECONDS );
-		return true;
+		$status = self::status_of( $result );
+
+		if ( 401 === $status || 403 === $status ) {
+			$this->forget_capabilities();
+			return self::connection_error( $result, self::STATE_REJECTED );
+		}
+
+		if ( 404 === $status ) {
+			$health = $this->request( 'GET', '/health' );
+			return self::connection_error( is_wp_error( $health ) ? $health : $result, is_wp_error( $health ) ? self::STATE_FAILED : self::STATE_UNVERIFIED );
+		}
+
+		return self::connection_error( $result, self::STATE_FAILED );
+	}
+
+	/**
+	 * The HTTP status a request() error carries; 0 for a transport or no-key error.
+	 *
+	 * @param WP_Error $error Error.
+	 * @return int
+	 */
+	private static function status_of( $error ) {
+		$data = $error->get_error_data();
+		return is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+	}
+
+	/**
+	 * The merchant-facing error for a failed connection test.
+	 *
+	 * Names the HTTP status and TackQuote's own error code when it sent one; never the
+	 * key, and never the raw response body.
+	 *
+	 * @param WP_Error $error Error from request().
+	 * @param string   $state One of STATE_*.
+	 * @return WP_Error
+	 */
+	private static function connection_error( $error, $state ) {
+		$status = self::status_of( $error );
+		$data   = $error->get_error_data();
+		$code   = is_array( $data ) && isset( $data['code'] ) ? sanitize_key( (string) $data['code'] ) : '';
+
+		if ( 401 === $status ) {
+			$message = __( 'TackQuote rejected this API key: check you pasted the whole key and that it is not revoked.', 'tackquote' );
+		} elseif ( 403 === $status ) {
+			$message = __( 'This key lacks permission to connect a store: check its scopes in TackQuote, or create a new key.', 'tackquote' );
+		} elseif ( self::STATE_UNVERIFIED === $state ) {
+			$message = __( 'Server reachable, key not verified: this TackQuote server has no connection check, so the key could not be tested.', 'tackquote' );
+		} elseif ( 'tack_no_key' === $error->get_error_code() ) {
+			$message = $error->get_error_message();
+		} elseif ( 0 === $status ) {
+			$message = __( 'Could not reach TackQuote. Check the API URL, then try again in a few minutes.', 'tackquote' );
+		} elseif ( 429 === $status || $status >= 500 ) {
+			$message = __( 'TackQuote is busy or unavailable right now. Try again in a few minutes.', 'tackquote' );
+		} else {
+			$message = __( 'TackQuote did not accept the connection test.', 'tackquote' );
+		}
+
+		if ( $status > 0 && self::STATE_UNVERIFIED !== $state ) {
+			$message .= ' ' . ( '' !== $code
+				/* translators: 1: HTTP status code, 2: TackQuote's error code. */
+				? sprintf( __( '(HTTP %1$d, code %2$s)', 'tackquote' ), $status, $code )
+				/* translators: %d: HTTP status code. */
+				: sprintf( __( '(HTTP %d)', 'tackquote' ), $status ) );
+		}
+
+		return new WP_Error(
+			'tack_connection_' . $state,
+			$message,
+			array(
+				'state'  => $state,
+				'status' => $status,
+				'code'   => $code,
+			)
+		);
 	}
 
 	/**
 	 * Transient caching what the TackQuote server said it supports.
 	 *
-	 * `{key: <16-char SHA-256 prefix of the API key>, caps: string[], until: int}`.
-	 * Written by the connection test and re-read at most once a day (ten minutes
-	 * after a failed ping), so a storefront page view costs at most one ping a day.
+	 * `{key: <16-char SHA-256 prefix of the API key>, caps: string[], until: int}`
+	 * after a passing ping, re-read at most once a day. A FAILED ping writes
+	 * `{key, until, failed: <STATE_*>}` for ten minutes instead: no `caps` at all, so a
+	 * failure is never read as a capability answer (not even an empty one), and an
+	 * outage or a refused key still costs at most one ping per ten minutes.
 	 *
 	 * @since 1.10.0
 	 */
@@ -229,6 +321,25 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * Remember, for ten minutes, that the ping failed: replaces any capability list.
+	 *
+	 * @since 1.10.0
+	 *
+	 * @param string $state STATE_REJECTED or STATE_FAILED.
+	 */
+	private function remember_failure( $state ) {
+		set_transient(
+			self::CAPABILITIES_TRANSIENT,
+			array(
+				'key'    => $this->key_fingerprint(),
+				'failed' => (string) $state,
+				'until'  => time() + 10 * MINUTE_IN_SECONDS,
+			),
+			10 * MINUTE_IN_SECONDS
+		);
+	}
+
+	/**
 	 * What the TackQuote server says it supports (`GET /integrations/woocommerce/ping`
 	 * answers `capabilities`, tack `WOOCOMMERCE_PLUGIN_CAPABILITIES`).
 	 *
@@ -236,8 +347,9 @@ class Tack_Api_Client {
 	 * none of the fields a newer server added, because an older server's
 	 * `forbidNonWhitelisted` refuses the WHOLE request over one unknown field.
 	 *
-	 * Cached for a day per API key; a failed ping is remembered for ten minutes as
-	 * "nothing", so an outage does not turn every page view into a timeout. The ping
+	 * Cached for a day per API key. A failed ping answers "nothing" and is remembered
+	 * for ten minutes as a failure (never as a capability list), so an outage does not
+	 * turn every page view into a timeout. The ping
 	 * uses the interactive timeout because it can run while a page renders.
 	 *
 	 * @since 1.10.0
@@ -250,13 +362,19 @@ class Tack_Api_Client {
 			return array();
 		}
 		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
-		if ( ! $refresh && is_array( $cached ) && isset( $cached['key'], $cached['caps'], $cached['until'] )
-			&& $cached['key'] === $this->key_fingerprint() && (int) $cached['until'] > time() && is_array( $cached['caps'] ) ) {
-			return array_values( array_filter( $cached['caps'], 'is_string' ) );
+		if ( ! $refresh && is_array( $cached ) && isset( $cached['key'], $cached['until'] )
+			&& $cached['key'] === $this->key_fingerprint() && (int) $cached['until'] > time() ) {
+			if ( isset( $cached['caps'] ) && is_array( $cached['caps'] ) ) {
+				return array_values( array_filter( $cached['caps'], 'is_string' ) );
+			}
+			if ( isset( $cached['failed'] ) ) {
+				return array();
+			}
 		}
 		$result = $this->request( 'GET', '/integrations/woocommerce/ping', null, self::INTERACTIVE_TIMEOUT );
 		if ( is_wp_error( $result ) ) {
-			$this->remember_capabilities( array(), 10 * MINUTE_IN_SECONDS );
+			$status = self::status_of( $result );
+			$this->remember_failure( 401 === $status || 403 === $status ? self::STATE_REJECTED : self::STATE_FAILED );
 			return array();
 		}
 		$caps = self::capabilities_of( $result );
