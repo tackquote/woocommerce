@@ -547,6 +547,30 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * The signed-in buyer's OWN net-terms standing.
+	 *
+	 * `GET /storefront/v1/net-terms?buyerEmail=&buyerExternalId=` answers
+	 * `NetTermsResult` (tack `storefront-core/storefront-results.ts`):
+	 * `{status: anonymous}`, `{status: unlinked, reason}` or `{status: standing,
+	 * state, application, account: {status, termsDays, creditLimit, currency} | null}`
+	 * (`storefront-net-terms.ts`). There is no legacy route, so a server without v1
+	 * routes is an error: the net-terms gateway that calls this fails CLOSED on any
+	 * error and is hidden.
+	 *
+	 * @since 1.9.0
+	 *
+	 * @param string $buyer_email Signed-in buyer's (trusted) email.
+	 * @return array|WP_Error
+	 */
+	public function get_net_terms( $buyer_email ) {
+		$result = $this->storefront_v1_get( 'net-terms', array(), $buyer_email );
+		if ( null === $result ) {
+			return new WP_Error( 'tack_v1_missing', __( 'This TackQuote server has no storefront net-terms route.', 'tackquote' ), array( 'status' => 404 ) );
+		}
+		return $result;
+	}
+
+	/**
 	 * The HTTP status a WP_Error from request() carries, or 0 for a transport failure.
 	 *
 	 * @param WP_Error $error The failure.

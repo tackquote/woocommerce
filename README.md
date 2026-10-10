@@ -11,6 +11,7 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 💷 **B2B pricing** — signed-in trade customers priced from their TackQuote price book, buyer group and quantity breaks, with an optional volume-pricing table
 - 📦 **Order limits** — minimum/maximum order quantities shown on the product page and enforced at the cart and checkout
 - 🏷️ **Buyer group badge** — tells a customer which pricing group they are on, so a discounted price does not read as an error
+- 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: paste your TackQuote API key
 - 🛡️ HPOS- and Cart/Checkout-blocks-compatible; nonce, capability and rate-limit protected; removes its own options and transients on uninstall
@@ -51,6 +52,7 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Wholesale application form | `GET /integrations/woocommerce/wholesale-form?slug=`, `POST /integrations/woocommerce/wholesale-form/submit?slug=` (scope `buyers:write`) |
 | Net-terms application | `POST /storefront/v1/credit-application` (falls back to `POST /integrations/woocommerce/credit-application`; scope `buyers:write`) |
 | Wholesale price gate (opt-in quote-only scope) | `GET /storefront/v1/price-access` (no fallback; fails closed) |
+| Net terms at checkout (opt-in payment method) | `GET /storefront/v1/net-terms` (no fallback; fails closed; re-read when the order is placed) |
 
 Every request carries `X-TackQuote-Plugin-Version`. `/storefront/v1/*` calls send the key in
 `X-Api-Key` only (that route refuses a second credential), with the signed-in customer as
@@ -59,10 +61,10 @@ lookups need no scope beyond a valid key; the two application forms need `buyers
 
 ### What happens when TackQuote cannot be reached
 
-Every one of the B2B lookups except the opt-in wholesale price gate **fails
-open**, and that is a deliberate design decision rather than an oversight. The
-price gate fails closed because its whole purpose is to keep the cart from
-buyers the seller has not approved:
+Every one of the B2B lookups except the opt-in wholesale price gate and the
+opt-in net-terms payment method **fails open**, and that is a deliberate design decision rather than an oversight. The
+price gate and net terms fail closed because their whole purpose is to keep
+something (the cart, an unpaid order) from buyers the seller has not approved:
 
 | Lookup | On failure |
 |---|---|
@@ -70,6 +72,7 @@ buyers the seller has not approved:
 | Order limits | **nothing is blocked** — the cart and checkout behave as they always did |
 | Buyer group | no badge |
 | Wholesale price gate | **fails closed** — the customer sees the quote-only catalogue, and can still request a quote |
+| Net terms at checkout | **fails closed** — the "Net terms (TackQuote)" payment method is hidden; every other payment method still works |
 
 The reasoning for order limits is the one worth stating: a checkout that stops
 working because a supplier's API is slow costs the day's revenue, while an

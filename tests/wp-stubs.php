@@ -1128,3 +1128,136 @@ if ( ! function_exists( 'selected' ) ) {
 		return (string) $selected === (string) $current ? "selected='selected'" : '';
 	}
 }
+
+// ═══ BEGIN W2-net-terms stubs (net-terms gateway, Blocks integration, PO field) ═══
+//
+// Shaped after the members the plugin calls, and nothing more. WC_Payment_Gateway
+// follows WooCommerce's WC_Settings_API: settings live in the option
+// `woocommerce_{id}_settings`, init_settings() fills defaults from form_fields and
+// sets `enabled`, and the base is_available() is `'yes' === $this->enabled` (plus a
+// max_amount check this plugin does not use). get_order_total() reads a scripted
+// cart total. These doubles prove the plugin's decisions, not WooCommerce's.
+
+$GLOBALS['TACK_NT_CART_TOTAL']        = 0.0;
+$GLOBALS['TACK_REGISTERED_SCRIPTS']   = array();
+$GLOBALS['TACK_ADDITIONAL_FIELDS']    = array();
+$GLOBALS['TACK_FORM_FIELDS_RENDERED'] = array();
+
+if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
+	/** Stand-in for WooCommerce's gateway base (WC_Settings_API). */
+	class WC_Payment_Gateway {
+		/** @var string */
+		public $id = '';
+		/** @var string */
+		public $enabled = 'no';
+		/** @var string */
+		public $title = '';
+		/** @var string */
+		public $description = '';
+		/** @var string */
+		public $method_title = '';
+		/** @var string */
+		public $method_description = '';
+		/** @var bool */
+		public $has_fields = false;
+		/** @var array */
+		public $supports = array();
+		/** @var array */
+		public $form_fields = array();
+		/** @var array */
+		public $settings = array();
+		/** @var float */
+		public $max_amount = 0;
+
+		/** Load settings from the option, defaults from form_fields. */
+		public function init_settings() {
+			$stored = get_option( 'woocommerce_' . $this->id . '_settings', null );
+			$stored = is_array( $stored ) ? $stored : array();
+			foreach ( $this->form_fields as $key => $field ) {
+				if ( ! array_key_exists( $key, $stored ) ) {
+					$stored[ $key ] = isset( $field['default'] ) ? $field['default'] : '';
+				}
+			}
+			$this->settings = $stored;
+			$this->enabled  = ! empty( $this->settings['enabled'] ) && 'yes' === $this->settings['enabled'] ? 'yes' : 'no';
+		}
+
+		/**
+		 * @param string $key   Setting.
+		 * @param mixed  $empty Default.
+		 * @return mixed
+		 */
+		public function get_option( $key, $empty = null ) {
+			return array_key_exists( $key, $this->settings ) ? $this->settings[ $key ] : $empty;
+		}
+
+		/** @return bool */
+		public function is_available() {
+			return 'yes' === $this->enabled;
+		}
+
+		/** @return float */
+		protected function get_order_total() {
+			return (float) $GLOBALS['TACK_NT_CART_TOTAL'];
+		}
+
+		/**
+		 * @param WC_Order|null $order Order.
+		 * @return string
+		 */
+		public function get_return_url( $order = null ) {
+			return 'https://shop.example/checkout/order-received/' . ( $order ? $order->get_id() : 0 ) . '/';
+		}
+
+		/** @return bool */
+		public function process_admin_options() {
+			return true;
+		}
+	}
+}
+
+if ( ! class_exists( 'Tack_Stub_Abstract_Payment_Method_Type' ) ) {
+	/** Stand-in for Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType. */
+	abstract class Tack_Stub_Abstract_Payment_Method_Type {
+		/** @var string */
+		protected $name = '';
+		/** @var array */
+		protected $settings = array();
+
+		/**
+		 * @param string $name    Setting.
+		 * @param mixed  $default Default.
+		 * @return mixed
+		 */
+		public function get_setting( $name, $default = '' ) {
+			return isset( $this->settings[ $name ] ) ? $this->settings[ $name ] : $default;
+		}
+
+		/** @return string */
+		public function get_name() {
+			return $this->name;
+		}
+	}
+	class_alias( 'Tack_Stub_Abstract_Payment_Method_Type', 'Automattic\\WooCommerce\\Blocks\\Payments\\Integrations\\AbstractPaymentMethodType' );
+}
+
+if ( ! function_exists( 'wp_register_script' ) ) {
+	/** @param string $handle Handle. @param string $src Source. */
+	function wp_register_script( $handle, $src = '', $deps = array(), $ver = false, $args = false ) {
+		$GLOBALS['TACK_REGISTERED_SCRIPTS'][ $handle ] = array( 'src' => $src, 'deps' => $deps );
+		return true;
+	}
+}
+if ( ! function_exists( 'woocommerce_register_additional_checkout_field' ) ) {
+	/** @param array $options Field definition. */
+	function woocommerce_register_additional_checkout_field( $options ) {
+		$GLOBALS['TACK_ADDITIONAL_FIELDS'][] = $options;
+	}
+}
+if ( ! function_exists( 'woocommerce_form_field' ) ) {
+	/** @param string $key Name. @param array $args Args. @param mixed $value Value. */
+	function woocommerce_form_field( $key, $args, $value = null ) {
+		$GLOBALS['TACK_FORM_FIELDS_RENDERED'][ $key ] = array( 'args' => $args, 'value' => $value );
+	}
+}
+// ═══ END W2-net-terms stubs ═══

@@ -113,6 +113,10 @@ accounts", and only for a signed-in customer, at most once every five minutes pe
 WordPress user ID (`buyerEmail`, `buyerExternalId`). TackQuote answers whether that buyer's
 wholesale application is approved. Nothing is sent for a signed-out visitor.
 
+9. **Net terms at checkout** — `GET /storefront/v1/net-terms`. Off by default; only while the
+"Net terms (TackQuote)" payment method is enabled, for a signed-in customer at checkout. Sends
+the account email and WordPress user ID. Fails closed.
+
 The quote-list re-pricing for signed-in buyers uses the B2B pricing call the plugin already
 makes for the cart (`POST /storefront-pricing/resolve`, SKU and quantity per line plus the
 buyer's email), and only when the merchant has switched TackQuote pricing on.
@@ -164,6 +168,7 @@ To the TackQuote API base URL configured under **TackQuote → TackQuote API URL
 * `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits, the buyer group and its tax exemption for a signed-in customer. Only when the matching feature is switched on.
 * `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
 * `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
+* `GET /storefront/v1/net-terms` — net terms at checkout (off by default).
 * `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope. It is off by default.** Sends the customer's account email address and WordPress user ID.
 
 Every request carries an `X-TackQuote-Plugin-Version` header with the plugin's version number. It identifies the software, not a person.
@@ -205,7 +210,7 @@ where it is going. Read this list before switching order sync on.
 * WooCommerce order ID, order number and status
 * Currency, item subtotal, discount total, shipping total, tax total and order total
 * Coupon codes applied
-* A purchase-order number, only if your store fills the `tack_quotes_order_po_number` filter — WooCommerce core has no purchase-order field, so nothing is sent unless you wire one up
+* A purchase-order number, from the optional checkout field (off by default) or the `tack_quotes_order_po_number` filter
 * Created, last-modified, paid and completed timestamps
 * An idempotency key, so a repeated delivery of the same order state can be discarded
 
@@ -244,6 +249,7 @@ TackQuote as a recipient; the plugin adds suggested wording to
 * `tack_quotes_storefront_v1_missing` — a transient remembering for one hour that the TackQuote server has no `/storefront/v1` routes.
 * `tack_sf_*` — five-minute transients carrying an application form's outcome (success or error text and what was typed, for refilling the form) back to the page after it is submitted. Read once and deleted.
 * `tack_quotes_vat_exempt_applied` — a WooCommerce session value remembering that this plugin set the customer tax exempt, so the exemption can be withdrawn. Never saved to the customer record.
+* Net terms: `tack_nt_<user id>` (TackQuote's answer, one minute), order meta `_tackquote_net_terms` and `_tackquote_po_number`, option `woocommerce_tackquote_net_terms_settings`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
 
 Deleting the plugin removes every option above and the `tack_quotes_registration_config` transient, on every site of a multisite network. The `tack_qr_*` rate-limit counters are left to expire on their own (they last five minutes and are keyed on a hash, so there is no name to delete). The `_tack_quotes_sync_key` order meta is deliberately left in place: orders are financial records and an uninstall routine should not rewrite every one of them.
@@ -327,6 +333,8 @@ Into the request's note, one line per product ("Target prices: …"), after the 
 * **Per-product Quote only** checkbox (`woocommerce_product_options_general_product_data`, saved on `woocommerce_admin_process_product_object`, meta `_tackquote_quote_only`; variations inherit), enforced in `woocommerce_is_purchasable` and in the Store API through `woocommerce_store_api_validate_add_to_cart`. Off by default.
 * **Quote-only scope "approved wholesale accounts"** through `GET /storefront/v1/price-access` (sends the customer's email and WordPress user ID; fails closed). Off by default.
 * **Order limits now also stop the Cart and Checkout blocks** through `woocommerce_store_api_cart_errors`, beside `woocommerce_check_cart_items`, with the same message and the error code `tackquote_order_limit`.
+* **Net terms at checkout** (off by default). A new offline payment method "Net terms (TackQuote)", gateway id `tackquote_net_terms`, registered on `woocommerce_payment_gateways` and, for the Checkout block, as an `AbstractPaymentMethodType` on `woocommerce_blocks_payment_method_type_registration` with a small script using `wc.wcBlocksRegistry.registerPaymentMethod`. Settings live in WooCommerce → Settings → Payments. It is offered only to a signed-in customer with a confirmed email whose TackQuote credit line (`GET /storefront/v1/net-terms`) is active, in the checkout currency, with a limit that covers the order. It FAILS CLOSED: any error, timeout, 404 or unknown answer hides it. Placing the order reads the standing again and refuses if it no longer qualifies; otherwise the order goes on hold with the note "Awaiting payment on net terms (N days)" and order meta `_tackquote_net_terms`. It is never marked paid. The Checkout block receives only a yes/no, never the limit. Order sync sends `payment.method = tackquote_net_terms` so TackQuote can invoice it.
+* **Optional purchase-order number at checkout** (off by default; a setting of the net-terms payment method). Checkout block: `woocommerce_register_additional_checkout_field` (`tackquote/po-number`, order section, at most 64 characters). Classic checkout: a field under the order notes. Saved as order meta `_tackquote_po_number` and sent as `poNumber` through the existing `tack_quotes_order_po_number` filter (a value your own filter supplies still wins).
 * The plugin's buttons use WooCommerce's own button classes (`button`, plus `wp-element-button` on a block theme), so they match the theme.
 
 = 1.8.2 =
