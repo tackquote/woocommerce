@@ -292,6 +292,34 @@ check( 'Store API: the categories listing is not mistaken for a slug', null === 
 check( 'the admin REST API is not touched', null === $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc/v3/products/100' ) ) );
 check( 'an earlier short-circuit is respected', 'x' === $v->guard_store_api_product( 'x', null, new Tack_Test_Rest_Request( '/wc/store/v1/products/100' ) ) );
 
+// Background contexts are never filtered (one gate: shopper_context()).
+if ( ! function_exists( 'wp_doing_cron' ) ) {
+	function wp_doing_cron() { return ! empty( $GLOBALS['TACK_DOING_CRON'] ); }
+}
+tack_test_set_logged_in( false, '' );
+$GLOBALS['TACK_DOING_CRON'] = true;
+$v                          = new Tack_Catalog_Visibility( new Tack_Test_Group_Source( null, 'anonymous' ) );
+$q                          = new Tack_Test_Query( array( 'post_type' => 'product' ), array( 'main' => true ) );
+$v->filter_query( $q );
+check( 'cron / Action Scheduler: no tax_query is added', '' === $q->get( 'tax_query' ) );
+check( 'cron: a guest-hidden product stays purchasable and visible', true === $v->filter_purchasable( true, new Tack_Test_Visibility_Product( 100 ) ) && true === $v->filter_is_visible( true, 100 ) );
+check( 'cron: the Store API route guard passes through', null === $v->guard_store_api_product( null, null, new Tack_Test_Rest_Request( '/wc/store/v1/products/100' ) ) );
+$cron_cart = new Tack_Stub_Cart( array( 'a' => array( 'data' => new Tack_Test_Visibility_Product( 100 ) ) ) );
+check( 'cron: cart lines are not removed', 0 === $v->remove_hidden_cart_items( $cron_cart ) );
+$GLOBALS['TACK_DOING_CRON'] = false;
+$q                          = new Tack_Test_Query( array( 'post_type' => 'product' ), array( 'main' => true ) );
+$v->filter_query( $q );
+check( 'control: the same guest query outside cron IS filtered', is_array( $q->get( 'tax_query' ) ) );
+
+// WP-CLI is a constant, so it is probed in a child process with WP_CLI defined.
+$tack_probe = shell_exec( escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __DIR__ . '/catalog-visibility-cli-probe.php' ) );
+$tack_probe = json_decode( trim( (string) $tack_probe ), true );
+check(
+	'WP-CLI: no tax_query is added and the context gate is closed',
+	is_array( $tack_probe ) && false === $tack_probe['shopper_context'] && false === $tack_probe['tax_query_added'],
+	var_export( $tack_probe, true )
+);
+
 // Off by default; init registers the documented hooks.
 tack_test_set_option( Tack_Catalog_Visibility::OPTION_ENABLED, null );
 unset( $GLOBALS['TACK_OPTIONS'][ Tack_Catalog_Visibility::OPTION_ENABLED ] );

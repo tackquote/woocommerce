@@ -176,8 +176,8 @@ class Tack_Catalog_Visibility {
 		if ( in_array( $segment, self::STORE_API_PRODUCT_SUBROUTES, true ) ) {
 			return $result;
 		}
-		// The route is the Store API by construction, so only the shopper checks apply.
-		if ( current_user_can( 'manage_woocommerce' ) ) {
+		// The route is the Store API by construction, so only the shopper context applies.
+		if ( ! $this->shopper_context() ) {
 			return $result;
 		}
 
@@ -230,13 +230,44 @@ class Tack_Catalog_Visibility {
 	 * @return bool
 	 */
 	public function applies() {
-		if ( is_admin() && ! wp_doing_ajax() ) {
-			return false;
-		}
-		if ( current_user_can( 'manage_woocommerce' ) ) {
+		if ( ! $this->shopper_context() ) {
 			return false;
 		}
 		if ( defined( 'REST_REQUEST' ) && REST_REQUEST && ! $this->is_store_api_request() ) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * The ONE context gate: is a shopper on the other end of this request?
+	 *
+	 * Every enforcement path goes through it (directly for the Store API
+	 * route guard, through `applies()` for everything else), so there is a
+	 * single definition rather than copies that drift.
+	 *
+	 * Not a shopper, so never filtered:
+	 *   - wp-admin (outside admin-ajax);
+	 *   - WP-Cron and Action Scheduler runs (`wp_doing_cron()`). No user is
+	 *     signed in there, so the request reads as a GUEST, and every product
+	 *     hidden from guests would vanish from other plugins' feeds and sync
+	 *     jobs and from this plugin's own scheduled work;
+	 *   - WP-CLI, for the same reason;
+	 *   - store managers (`manage_woocommerce`).
+	 *
+	 * @return bool
+	 */
+	public function shopper_context() {
+		if ( is_admin() && ! wp_doing_ajax() ) {
+			return false;
+		}
+		if ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) {
+			return false;
+		}
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return false;
+		}
+		if ( current_user_can( 'manage_woocommerce' ) ) {
 			return false;
 		}
 		return true;
