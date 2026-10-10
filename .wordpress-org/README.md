@@ -16,7 +16,7 @@ a leak fails the build rather than quietly producing a fat zip.
 |---|---|
 | `banner-1544x500.png`, `banner-772x250.png` | Header of the directory page (retina and standard) |
 | `icon-128x128.png`, `icon-256x256.png` | Search results and the plugin card |
-| `screenshot-1.png` … `screenshot-4.png` | The Screenshots tab, captioned **in numeric order** by the `== Screenshots ==` list in `readme.txt` |
+| `screenshot-1.png` … `screenshot-16.png` | The Screenshots tab, captioned **in numeric order** by the `== Screenshots ==` list in `readme.txt`; 1280x800 PNG, one per feature (also shown in the repository README) |
 | `mark-bw.png`, `preview-on-white.png` | Source marks kept for regenerating the above |
 
 ## The one rule that is easy to break
@@ -26,5 +26,16 @@ name**. Renumbering a screenshot without editing that list silently re-captions
 every screenshot after it. If you add, remove or reorder one, update
 `== Screenshots ==` in the same change.
 
-Screenshot 3 shows the plugin settings screen, so it goes stale whenever that
-screen changes.
+Screenshots 13 to 15 show the settings screen and 14 and 16 the styling options,
+so they go stale whenever those screens change. Screenshots 4, 5, 7, 9 and 11 are
+two views placed side by side or stacked on one 1280x800 canvas.
+
+## How the screenshots were made
+
+WordPress Studio with demo products ("Demo ..." names, drawn product images, no
+personal data), Chrome at a 1280x800 viewport (2x then scaled for 9 and 11).
+The site's TackQuote API was blocked for the whole run by a temporary mu-plugin
+that answered with demo fixtures (prices, buyer group, order limits, net-terms
+standing, wholesale form, quote checkout) and refused every other call, so no
+request reached a TackQuote server. Icons and banners are regenerated from
+`tack/apps/web/public/brand/tackquote-app-icon.png` (the current mark).
