@@ -267,6 +267,10 @@ Edit the product and tick **Quote only** in the General tab of the product data 
 
 Yes. Turn on quote-only mode and choose "Everyone except approved wholesale accounts". The plugin asks TackQuote whether the signed-in customer's wholesale application is approved, and only then shows the cart. If TackQuote cannot be reached, the customer sees the quote-only catalogue (this one check fails closed, because it is a price gate). It needs the API key.
 
+= Which features need a linked account? =
+
+Prices, quantity breaks, order limits, the buyer-group badge and the price gate follow the customer's account email. Net terms, tax exemption and credit standing go only to customers the seller has linked to a TackQuote buyer: approving the customer's wholesale application links them, or the seller links the WordPress user under **Buyers → buyer → WooCommerce customer** in TackQuote. Approving a net-terms application does not link the account. A matching email alone never links one, because WooCommerce does not verify the email at registration. If the email belongs to a buyer already linked to a different WordPress user, that customer gets none of these B2B features.
+
 = Where do target prices on the quote page go? =
 
 Into the request's note, one line per product ("Target prices: …"), after the shopper's own message. The quote itself keeps your store price for each line.
@@ -414,6 +418,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **Fixed: variable products on quote showed no size or colour choice on classic themes** in store-wide quote-only mode. The variation form now renders on quote for classic and block themes, with the quantity and quote buttons in place of the cart button; a quote-only variation still cannot be added to the cart.
 * **Fixed on block themes:** the volume-pricing table renders after the Add to Cart block, once per product, instead of above the excerpt.
 * The readme Description is now a short overview (wordpress.org trims a Description over 2,500 words, External services and Privacy included); the detailed field lists moved, unchanged, into the FAQ, and changelog entries for 1.5.1 and earlier into `changelog.txt`.
+* Net terms, tax exemption and credit standing now go only to customers the seller has linked in TackQuote (a TackQuote server rule; prices still follow the account email). See the FAQ "Which features need a linked account?".
 * Tools → Export Personal Data now includes, per order, the purchase-order number, the TackQuote quote reference and number, and the net terms (through WooCommerce's order exporter). Erase Personal Data deletes the purchase-order number when WooCommerce's "Remove personal data from orders on request" is on.
 * When a wholesale or net-terms application is refused, the answers put back in the form are kept for 2 minutes (was 5) and no longer include phone numbers or tax, VAT or registration numbers; the customer types those again.
 * **Requires WordPress 6.4 and WooCommerce 8.0 or later** (was 6.0 and 6.0). Older releases are untested and no longer receive security fixes. The plugin still checks that a newer WooCommerce feature exists before it uses it.
