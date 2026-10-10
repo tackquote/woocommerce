@@ -77,6 +77,15 @@ class Tack_Settings {
 	/**
 	 * Public setup guide.
 	 */
+	/**
+	 * Admin menu icon: the TackQuote mark alone (no app-icon tile), `fill="black"`, as a
+	 * base64 SVG data URI. WordPress's svg-painter recolours a data-URI menu icon to the
+	 * current admin colour scheme, which it can only do for a single-colour SVG.
+	 * Source: the two paths of tack `apps/web/public/favicon-v3.svg`, viewBox cropped to
+	 * the mark. Same paths as `assets/images/tackquote-mark.svg`.
+	 */
+	const MENU_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ijk1IDg3IDMyMiAzMjIiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHBhdGggZmlsbD0iYmxhY2siIGQ9Ik0gMzA1LjMgODkuMCBMIDMwNy4zIDg5LjAgTCAzMDYuMyA5My4wIEwgMzAyLjQgOTYuMCBMIDMwMC40IDEwMC45IEwgMjk2LjQgMTAzLjkgTCAyOTYuNCAxMDUuOSBMIDI5NC40IDEwNi45IEwgMjk0LjQgMTA4LjggTCAyODguNSAxMTUuOCBMIDI4Ny41IDExOS44IEwgMjgzLjUgMTIzLjcgTCAyODMuNSAxMjYuNiBMIDI3OC42IDEzMi42IEwgMjc3LjYgMTM3LjYgTCAyNjguNyAxNTQuNSBMIDI2OC43IDE1OC40IEwgMjY2LjcgMTYwLjQgTCAyNjUuNyAxNjcuNCBMIDI2My43IDE2OS4zIEwgMjU5LjcgMTg3LjIgTCAyNTguNyAxODcuMiBMIDI1OC43IDE5My4xIEwgMjU3LjcgMTkzLjEgTCAyNTYuOCAyMDMuMSBMIDI1NS44IDIwMy4xIEwgMjU0LjggMjE5LjAgTCAyNTMuOCAyMTkuMCBMIDI1NC44IDI1Ni43IEwgMjU1LjggMjU2LjcgTCAyNTYuOCAyNjkuNiBMIDI1Ny43IDI2OS42IEwgMjU4LjcgMjc5LjUgTCAyNjAuNyAyODIuNCBMIDI2Mi44IDI5My40IEwgMjY1LjcgMjk4LjMgTCAyNjguNyAzMDkuMiBMIDI3OC42IDMyOS4xIEwgMjgwLjYgMzMwLjEgTCAyODEuNSAzMzQuMCBMIDI4My41IDMzNS4xIEwgMjgzLjUgMzM3LjAgTCAyODUuNiAzMzguMCBMIDI4NS42IDM0MC4wIEwgMjg3LjUgMzQxLjAgTCAyODcuNSAzNDIuOSBMIDI5MC41IDM0NC45IEwgMjkwLjUgMzQ3LjAgTCAyOTMuNCAzNDguOSBMIDI5NS40IDM1Mi45IEwgMjkyLjUgMzUzLjkgTCAyOTIuNSAzNTIuOSBMIDI3Mi42IDM1MC45IEwgMjcyLjYgMzQ5LjkgTCAyMzguOCAzNDguOSBMIDIzOC44IDM0OS45IEwgMjE2LjEgMzUwLjkgTCAyMTYuMSAzNTEuOSBMIDIwOS4yIDM1MS45IEwgMjA5LjIgMzUyLjkgTCAxOTUuMyAzNTQuOCBMIDE5Mi4yIDM1Ni44IEwgMTg4LjMgMzU2LjggTCAxODguMyAzNTcuOSBMIDE3MC41IDM2Mi44IEwgMTY4LjQgMzY0LjggTCAxNjUuNSAzNjQuOCBMIDE2MS42IDM2Ny43IEwgMTU0LjYgMzY5LjggTCAxNTMuNiAzNzEuOCBMIDE0Ni42IDM3My43IEwgMTQ1LjYgMzc1LjcgTCAxNDEuNyAzNzYuNyBMIDE0MC43IDM3OC42IEwgMTMwLjggMzgzLjcgTCAxMjguOCAzODYuNiBMIDEyNC45IDM4Ny42IEwgMTIxLjggMzkxLjUgTCAxMTkuOCAzOTEuNSBMIDExNi45IDM5NS42IEwgMTE0LjkgMzk1LjYgTCAxMDcuOSA0MDMuNSBMIDEwNi4wIDQwMy41IEwgMTA1LjAgNDA2LjUgTCAxMDMuMCA0MDYuNSBMIDEwMi4wIDQwMy41IEwgMTAzLjAgNDAzLjUgTCAxMDUuMCAzODMuNyBMIDEwNi4wIDM4My43IEwgMTA3LjAgMzczLjcgTCAxMDcuOSAzNzMuNyBMIDEwNy45IDM2OC44IEwgMTA4LjkgMzY4LjggTCAxMDguOSAzNjMuOCBMIDEwOS45IDM2My44IEwgMTA5LjkgMzU3LjkgTCAxMTEuOSAzNTQuOCBMIDExNC45IDMzOS4wIEwgMTE2LjkgMzM2LjEgTCAxMTYuOSAzMzIuMCBMIDExOC45IDMyOS4xIEwgMTE4LjkgMzI1LjEgTCAxMTkuOCAzMjUuMSBMIDEyNC45IDMwNy4yIEwgMTI2LjggMzA1LjMgTCAxMjkuOCAyOTMuNCBMIDEzMi43IDI4OS40IEwgMTMyLjcgMjg2LjQgTCAxMzcuNyAyNzcuNSBMIDEzNy43IDI3NC41IEwgMTQ0LjYgMjYyLjYgTCAxNDQuNiAyNTkuNiBMIDE1Mi42IDI0My44IEwgMTU3LjUgMjM3LjggTCAxNTkuNiAyMzEuOSBMIDE2NC41IDIyNS45IEwgMTY1LjUgMjIyLjAgTCAxNjcuNCAyMjEuMCBMIDE2Ny40IDIxOS4wIEwgMTY5LjQgMjE3LjkgTCAxNjkuNCAyMTYuMCBMIDE3MS41IDIxNS4wIEwgMTcxLjUgMjEzLjAgTCAxNzMuNSAyMTIuMCBMIDE3NC40IDIwOC4xIEwgMTc3LjQgMjA2LjAgTCAxNzkuMyAyMDEuMSBMIDE4Mi40IDE5OS4xIEwgMTg0LjQgMTk0LjEgTCAxODkuMyAxOTAuMiBMIDE5Mi4yIDE4NC4yIEwgMTk2LjMgMTgxLjIgTCAxOTYuMyAxNzkuMyBMIDIwMi4yIDE3NC40IEwgMjAyLjIgMTcyLjMgTCAyMDkuMiAxNjYuNCBMIDIwOS4yIDE2NC40IEwgMjMzLjkgMTM5LjYgTCAyMzUuOSAxMzkuNiBMIDI0MS45IDEzMi42IEwgMjQzLjkgMTMyLjYgTCAyNDcuOCAxMjcuNyBMIDI0OS44IDEyNy43IEwgMjU3LjcgMTE5LjggTCAyNjIuOCAxMTcuOCBMIDI2NS43IDExMy44IEwgMjY3LjcgMTEzLjggTCAyNjguNyAxMTEuOCBMIDI3Ni42IDEwNy45IEwgMjgxLjUgMTAyLjggTCAyODUuNiAxMDEuOSBMIDI4OS41IDk3LjkgTCAzMDIuNCA5MS45IFoiLz48cGF0aCBmaWxsPSJibGFjayIgZD0iTSAzNDkuMCAyMDUuMCBMIDM2Ny45IDIwNi4wIEwgMzY3LjkgMjA3LjAgTCAzNzQuOCAyMDguMSBMIDM3OC44IDIxMS4wIEwgMzgxLjggMjExLjAgTCAzODMuNyAyMTQuMCBMIDM4OC44IDIxNi4wIEwgNDAwLjcgMjI5LjggTCA0MDEuNiAyMzMuOSBMIDQwMy42IDIzNC44IEwgNDA2LjYgMjQ3LjcgTCA0MDcuNSAyNDcuNyBMIDQwNy41IDI1MS43IEwgNDA4LjUgMjUxLjcgTCA0MDguNSAyNTYuNyBMIDQwOS41IDI1Ni43IEwgNDEwLjUgMjc3LjUgTCA0MDkuNSAyNzcuNSBMIDQwOC41IDI5Ni4zIEwgNDA3LjUgMjk2LjMgTCA0MDQuNiAzMTMuMiBMIDQwMy42IDMxMy4yIEwgNDAxLjYgMzIyLjEgTCAzOTguNiAzMjYuMSBMIDM5OC42IDMyOS4xIEwgMzkzLjcgMzM5LjAgTCAzODkuNyAzNDIuOSBMIDM4OC44IDM0Ny4wIEwgMzgyLjggMzUyLjkgTCAzODIuOCAzNTQuOCBMIDM3OC44IDM1Ny45IEwgMzc4LjggMzU5LjkgTCAzNzYuNyAzNTkuOSBMIDM3Ni43IDM2MS44IEwgMzY0LjggMzczLjcgTCAzNjIuOSAzNzMuNyBMIDM1OS45IDM3Ny43IEwgMzU4LjAgMzc3LjcgTCAzNTIuMCAzODMuNyBMIDM0OC4wIDM4NC42IEwgMzQ0LjEgMzg4LjYgTCAzNDAuMSAzODkuNiBMIDMzOS4xIDM5MS41IEwgMzIzLjMgMzk5LjUgTCAzMTAuNCA0MDMuNSBMIDMwMi40IDM4Ny42IEwgMzAwLjQgMzg2LjYgTCAzMDAuNCAzODMuNyBMIDMwOC40IDM3OS42IEwgMzA5LjQgMzc3LjcgTCAzMTMuMyAzNzYuNyBMIDMxNy4yIDM3Mi43IEwgMzE5LjIgMzcyLjcgTCAzMzkuMSAzNTQuOCBMIDMzOS4xIDM1Mi45IEwgMzQ1LjEgMzQ3LjAgTCAzNDUuMSAzNDQuOSBMIDM0OS4wIDM0MS4wIEwgMzQ5LjAgMzM4LjAgTCAzNTIuMCAzMzUuMSBMIDM1Mi4wIDMzMi4wIEwgMzUzLjkgMzMwLjEgTCAzNTYuMCAzMjAuMSBMIDM1Ny4wIDMyMC4xIEwgMzU4LjAgMzA5LjIgTCAzNTcuMCAzMDguMiBMIDM0NS4xIDMwOC4yIEwgMzQ1LjEgMzA3LjIgTCAzMzkuMSAzMDcuMiBMIDMzNi4xIDMwNS4zIEwgMzMyLjIgMzA1LjMgTCAzMjIuMyAzMDAuNCBMIDMxOC4yIDI5NS4zIEwgMzE1LjMgMjk0LjMgTCAzMTUuMyAyOTIuNCBMIDMwOC40IDI4NS40IEwgMzAzLjQgMjc1LjUgTCAzMDIuNCAyNjUuNiBMIDMwMS40IDI2NS42IEwgMzAyLjQgMjQ0LjggTCAzMDMuNCAyNDQuOCBMIDMwMy40IDI0MC43IEwgMzEwLjQgMjI2LjkgTCAzMjMuMyAyMTQuMCBMIDMyNy4yIDIxMy4wIEwgMzI4LjIgMjExLjAgTCAzMzEuMiAyMTEuMCBMIDMzMi4yIDIwOS4xIEwgMzQyLjAgMjA3LjAgTCAzNDIuMCAyMDYuMCBMIDM0OS4wIDIwNi4wIFoiLz48L3N2Zz4=';
+
 	const DOCS_URL = 'https://tackquote.com/docs/integrations/woocommerce';
 
 	/**
@@ -125,7 +134,7 @@ class Tack_Settings {
 			'manage_options',
 			self::PAGE_SLUG,
 			array( $this, 'render_page' ),
-			'dashicons-money-alt',
+			self::MENU_ICON,
 			56
 		);
 	}
@@ -1458,10 +1467,6 @@ class Tack_Settings {
 			}
 			echo '</p>';
 		}
-
-		if ( empty( $known ) ) {
-			echo '<p class="description">' . esc_html__( 'Add at least one code to switch the rules below from typing to ticking.', 'tackquote' ) . '</p>';
-		}
 	}
 
 	/**
@@ -1626,18 +1631,23 @@ class Tack_Settings {
 		 */
 		echo '<div class="tack-table-wrap"><table class="widefat striped tack-grid">';
 		$columns = count( $extra ) + count( $known );
-		echo '<thead><tr><th scope="col" rowspan="2" class="tack-grid__row-head">' . esc_html( $column ) . '</th>';
+		$rowspan = $columns > 0 ? ' rowspan="2"' : '';
+		echo '<thead><tr><th scope="col"' . $rowspan . ' class="tack-grid__row-head">' . esc_html( $column ) . '</th>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rowspan is one of two literals above.
 		if ( $columns > 0 ) {
 			printf( '<th scope="colgroup" colspan="%1$d" class="tack-grid__group">%2$s</th>', (int) $columns, esc_html( $copy['heading'] ) );
 		}
-		echo '<th scope="col" rowspan="2">' . esc_html__( 'Result', 'tackquote' ) . '</th></tr><tr>';
-		foreach ( $extra as $code => $label ) {
-			echo '<th scope="col" class="tack-grid__col">' . esc_html( $label ) . '</th>';
+		echo '<th scope="col"' . $rowspan . '>' . esc_html__( 'Result', 'tackquote' ) . '</th></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rowspan is one of two literals above.
+		if ( $columns > 0 ) {
+			echo '<tr>';
+			foreach ( $extra as $code => $label ) {
+				echo '<th scope="col" class="tack-grid__col">' . esc_html( $label ) . '</th>';
+			}
+			foreach ( $known as $code ) {
+				echo '<th scope="col" class="tack-grid__col"><code>' . esc_html( $code ) . '</code></th>';
+			}
+			echo '</tr>';
 		}
-		foreach ( $known as $code ) {
-			echo '<th scope="col" class="tack-grid__col"><code>' . esc_html( $code ) . '</code></th>';
-		}
-		echo '</tr></thead><tbody>';
+		echo '</thead><tbody>';
 
 		foreach ( $rows as $row ) {
 			$id      = (string) $row['id'];
@@ -1673,9 +1683,7 @@ class Tack_Settings {
 			}
 
 			echo '<td class="tack-grid__state"><span class="description">';
-			echo ( empty( $known ) && empty( $extra ) )
-				? esc_html( $copy['no_codes'] )
-				: ( empty( $allowed ) ? esc_html( $copy['untouched'] ) : esc_html( $copy['ticked'] ) );
+			echo empty( $allowed ) ? esc_html( $copy['untouched'] ) : esc_html( $copy['ticked'] );
 			echo '</span></td></tr>';
 		}
 
@@ -1902,7 +1910,7 @@ class Tack_Settings {
 		<div class="wrap tack-admin">
 			<header class="tack-header">
 				<div class="tack-header__brand">
-					<span class="tack-logo" aria-hidden="true"><span class="dashicons dashicons-money-alt"></span></span>
+					<img class="tack-logo" src="<?php echo esc_url( plugins_url( 'assets/images/tackquote-mark.svg', TACK_QUOTES_FILE ) ); ?>" alt="" width="40" height="40" />
 					<div>
 						<h1 class="tack-header__title"><?php esc_html_e( 'TackQuote', 'tackquote' ); ?></h1>
 						<p class="tack-header__tagline"><?php esc_html_e( 'Quotes, B2B pricing and order sync for WooCommerce.', 'tackquote' ); ?></p>
@@ -1918,6 +1926,8 @@ class Tack_Settings {
 					<a href="<?php echo esc_url( self::DOCS_URL ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Docs', 'tackquote' ); ?><span class="screen-reader-text"> <?php esc_html_e( '(opens in a new tab)', 'tackquote' ); ?></span></a>
 				</div>
 			</header>
+			<?php // WordPress moves admin notices to just after this marker instead of into the header. ?>
+			<hr class="wp-header-end" />
 			<?php
 			// This page sits outside Settings, so WordPress does not print the "Settings
 			// saved." notice or a sanitizer's add_settings_error() on its own.

@@ -241,6 +241,10 @@ check( '...and the Overview shows the host and only the last four characters of 
 $tabs_html = tack_tabs_page( $tabs_settings, 'connection' );
 check( 'the Connection tab never prints the saved key', false === strpos( $tabs_html, 'tq_live_abcd1234' ) );
 check( '...and asks before removing it', false !== strpos( $tabs_html, 'data-tack-confirm=' ) );
+check( 'the header shows the TackQuote mark as a decorative image beside the visible name', (bool) preg_match( '#<img class="tack-logo" src="[^"]*assets/images/tackquote-mark\.svg" alt=""#', $tabs_html ) && false !== strpos( $tabs_html, '>TackQuote</h1>' ) );
+check( 'the shipped mark exists', is_readable( TACK_QUOTES_DIR . 'assets/images/tackquote-mark.svg' ) );
+$tabs_icon = base64_decode( substr( Tack_Settings::MENU_ICON, strlen( 'data:image/svg+xml;base64,' ) ), true );
+check( 'the menu icon is a single-colour (black) SVG data URI, so wp-admin can recolour it', 0 === strpos( Tack_Settings::MENU_ICON, 'data:image/svg+xml;base64,' ) && is_string( $tabs_icon ) && false !== strpos( $tabs_icon, '<svg' ) && 2 === substr_count( $tabs_icon, 'fill="black"' ) && false === strpos( $tabs_icon, '<rect' ) );
 
 // Leave shared fixtures as later files expect them.
 unset( $GLOBALS['TACK_TRANSIENTS'][ Tack_Settings::CONNECTION_CHECK ] );

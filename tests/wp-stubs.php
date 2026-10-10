@@ -147,6 +147,9 @@ function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false ) {
 function human_time_diff( $from, $to = 0 ) {
 	return max( 1, (int) round( abs( $to - $from ) / 60 ) ) . ' mins';
 }
+function plugins_url( $path = '', $plugin = '' ) {
+	return 'https://shop.example/wp-content/plugins/tackquote/' . ltrim( $path, '/' );
+}
 function wp_parse_url( $url, $component = -1 ) {
 	return parse_url( $url, $component );
 }

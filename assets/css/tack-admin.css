@@ -41,20 +41,10 @@
 }
 
 .tack-logo {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 44px;
-	height: 44px;
-	border-radius: 10px;
-	background: var(--tack-accent);
-	color: #fff;
-}
-
-.tack-logo .dashicons {
-	width: 26px;
-	height: 26px;
-	font-size: 26px;
+	display: block;
+	flex: none;
+	width: 40px;
+	height: 40px;
 }
 
 .tack-admin .tack-header__title {
@@ -170,6 +160,25 @@
 	border-radius: var(--tack-radius);
 	background: var(--tack-surface);
 	cursor: pointer;
+}
+
+/*
+ * wp-admin's forms.css sets `.form-table td fieldset label` to inline-block with
+ * `margin: .35em 0 .5em !important`; these selectors out-rank it inside this page.
+ */
+.tack-admin .form-table td fieldset label.tack-choice {
+	display: flex;
+	margin: 0 !important;
+	line-height: 1.5;
+}
+
+.tack-admin .form-table td fieldset label.tack-toggle {
+	display: inline-flex;
+	margin: 0 !important;
+}
+
+.tack-admin .form-table td .tack-checklist label {
+	margin: 0 !important;
 }
 
 .tack-choice input[type="radio"] {
@@ -331,6 +340,7 @@
 
 .tack-grid__group {
 	text-align: center;
+	white-space: nowrap;
 }
 
 .tack-admin .tack-grid .tack-grid__col {
@@ -610,6 +620,43 @@
 
 	.tack-form .form-table th {
 		width: auto;
+	}
+
+	/*
+	 * wp-admin stacks `.form-table th, .form-table td` on phones, and that rule
+	 * also reaches the grids nested inside a row. Keep the grids tabular; their
+	 * wrapper scrolls sideways instead.
+	 */
+	.tack-form .form-table,
+	.tack-form .form-table > tbody,
+	.tack-form .form-table > tbody > tr {
+		display: block;
+		width: 100%;
+		max-width: 100%;
+	}
+
+	.tack-form .form-table > tbody > tr > td {
+		min-width: 0;
+	}
+
+	.tack-grid .tack-grid__row-head,
+	.tack-grid__state {
+		min-width: 8em;
+	}
+
+	.tack-admin .form-table .tack-grid tr {
+		display: table-row;
+	}
+
+	.tack-admin .form-table .tack-grid th,
+	.tack-admin .form-table .tack-grid td {
+		display: table-cell;
+		width: auto;
+		padding: 8px 10px;
+	}
+
+	.tack-admin .form-table .tack-grid .tack-grid__col {
+		width: 1%;
 	}
 
 	.tack-indent {
