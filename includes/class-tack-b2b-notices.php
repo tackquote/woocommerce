@@ -233,8 +233,8 @@ class Tack_B2B_Notices {
 	public function render_order_limit_notice( $for_product = null ) {
 		$explicit = is_object( $for_product );
 		if ( ! $explicit && class_exists( 'Tack_Block_Product' ) && Tack_Block_Product::is_compat_hook() ) {
-			// WooCommerce's block-template compatibility layer: the global is not the
-			// product there, and the block filter renders the notice by the form.
+			// WooCommerce's block-template compatibility layer fires this above the
+			// excerpt; the Add to Cart block filter renders the notice by the form.
 			return;
 		}
 		$product = $explicit ? $for_product : ( $GLOBALS['product'] ?? null );

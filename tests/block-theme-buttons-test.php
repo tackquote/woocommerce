@@ -6,7 +6,7 @@
  * `woocommerce_after_add_to_cart_button` fires only inside a rendered add-to-cart
  * form (nothing for a quote-only or price-less product), and the summary hook is
  * fired by WooCommerce's compatibility layer from inside a `render_block` filter,
- * where `global $product` is the product slug. See `Tack_Block_Product`.
+ * above the excerpt and outside the form the JS reads. See `Tack_Block_Product`.
  *
  * `render_block_{$name}` is invoked here the way `WP_Block::render()` does
  * (wp-includes/class-wp-block.php, WordPress 7.1.3): ( $content, $parsed_block,
@@ -108,7 +108,7 @@ check( 'classic theme: the summary fallback still renders the buttons', 1 === su
 $again = tack_parity_capture( function () use ( $w2 ) { $w2->render_product_button( '' ); } );
 check( 'classic theme: both classic mounts firing still render once', '' === $again, $again );
 
-// A hook firing with the product SLUG as `global $product` (block template, no main loop) renders nothing.
+// Defensive: a non-product `global $product` (e.g. the `product` query var, a slug) renders nothing.
 $w3                 = new Tack_Widget();
 $GLOBALS['product'] = 'safety-gloves';
 check( 'a slug in global $product is not mistaken for a product', '' === tack_parity_capture( function () use ( $w3 ) { $w3->render_product_button( '' ); } ) );

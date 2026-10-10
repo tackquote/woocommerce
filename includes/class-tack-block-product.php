@@ -14,15 +14,21 @@
  *   which is exactly the quote-only and no-price case.
  * - `woocommerce_single_product_summary` is fired only by WooCommerce's block
  *   template compatibility layer (`SingleProductTemplateCompatibility::inject_hooks()`,
- *   a `render_block` filter, BEFORE the post excerpt). For WooCommerce's own
- *   template the main loop is not entered (`get_the_block_template_html()` only
- *   calls `the_post()` for a template from the active theme), so `global $product`
- *   there is still the `product` query var: the product SLUG, a string.
+ *   a `render_block` filter), BEFORE the post excerpt. `global $product` is set
+ *   there (`SingleProductTemplate::update_single_product_content()` calls
+ *   `wc_setup_product_data()`), so the summary fallback rendered the buttons
+ *   above the excerpt, outside the add-to-cart form, and the once-per-product
+ *   flag then suppressed them inside it. Outside the form `tack-quotes.js` cannot
+ *   read the quantity or the chosen variation: a variable product's "Request a
+ *   Quote" was always refused, and "Add to Quote" added the parent at quantity 1.
+ *   Verified on Studio (WooCommerce 11.2.1, Twenty Twenty-Five).
  *
  * So the controls are rendered through the Add to Cart blocks' own render
  * filters (`render_block_{$name}`, `wp-includes/class-wp-block.php`), and the
  * compatibility-layer firing of the summary hook is skipped so it cannot put
- * them above the excerpt, outside the form the JS reads.
+ * them above the excerpt, outside the form the JS reads. For a purchasable
+ * product they then render inside the form (`woocommerce_after_add_to_cart_button`);
+ * for a quote-only or price-less one, after the block.
  *
  * @package TackQuote
  */
