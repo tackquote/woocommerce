@@ -40,3 +40,11 @@ request reached a TackQuote server. Icons and banners are regenerated from
 `tack/apps/web/public/brand/tackquote-app-icon.png` (the current mark).
 
 Superseded files were removed on 2026-10-10 (owner request): the pre-redesign `demo/` captures and the old source marks. Icons and banners are regenerated from the brand kit in the tack repo (`apps/web/public/brand/tackquote-app-icon.png`); screenshots come from the Studio site on the current design.
+
+## Recaptures
+
+- **screenshot-13 (2026-10-11):** retaken at 1.11.0 so the version chip, the Help card and the new
+  "Connected via Connect with TackQuote" row match the released plugin. Unlike the original run, the
+  Studio site was connected to the live TackQuote API through Connect with TackQuote, so the Overview
+  shows a real connection; the API key suffix was masked to dots before capture and no other account
+  detail is on screen. Same demo site title, 1280x800 viewport, six of ten B2B switches on.
