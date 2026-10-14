@@ -27,7 +27,7 @@
       "Lets buyers TackQuote has approved for net terms place an order without paying now. The order is put on hold and TackQuote invoices it on the buyer's terms. Shown only to a signed-in buyer whose TackQuote credit line is active, in the checkout currency, whose remaining available credit (or, when TackQuote does not report it, the limit) covers the order; hidden whenever TackQuote cannot confirm that.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
       "Net terms (TackQuote)": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
       "Offer net terms to approved TackQuote buyers": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
-      "Only administrators see this: no TackQuote wholesale form has the slug \"%s\". Create one in TackQuote under Settings, Wholesale forms, or choose another slug on the Forms tab.": "hint rendered only for users who can manage the store",
+      "Only administrators see this: no TackQuote wholesale form has the slug \"%s\". Create one in TackQuote under Wholesale, Signup forms, or choose another slug on the Forms tab.": "hint rendered only for users who can manage the store",
       "Open the Forms tab": "hint rendered only for users who can manage the store",
       "Quote only": "product editor (WooCommerce > Products), seen by the shop manager only",
       "Server reachable, key not verified: this TackQuote server has no connection check, so the key could not be tested.": "Settings > Connection test result, seen by the shop manager only",

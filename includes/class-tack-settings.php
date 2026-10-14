@@ -1827,7 +1827,7 @@ class Tack_Settings {
 		echo '<p>' . esc_html__( 'Let customers apply for a wholesale account or for net payment terms from your store.', 'tackquote' ) . '</p>';
 		$this->learn_more(
 			array(
-				__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is the one you design in TackQuote under Settings → Wholesale forms; the net-terms application goes to your TackQuote review queue.', 'tackquote' ),
+				__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is the one you design in TackQuote under Wholesale → Signup forms; the net-terms application goes to your TackQuote review queue.', 'tackquote' ),
 				__( 'The shortcode [tackquote_wholesale_application] renders the wholesale form on any page; add slug="…" to render a different form. Both tabs below appear on My Account only when ticked. The API key needs the buyers:write scope for applications to be accepted.', 'tackquote' ),
 			)
 		);
@@ -1844,7 +1844,7 @@ class Tack_Settings {
 			esc_attr( $value ),
 			esc_attr( Tack_Storefront_Forms::DEFAULT_SLUG )
 		);
-		$this->help( __( 'The form slug from TackQuote → Settings → Wholesale forms. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) );
+		$this->help( __( 'The form slug from TackQuote → Wholesale → Signup forms. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) );
 	}
 
 	/**
