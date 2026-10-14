@@ -56,7 +56,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Tack_Storefront_Forms {
 
-	/** Option: the slug of the wholesale form to render (TackQuote -> Settings -> Wholesale forms). */
+	/** Option: the slug of the wholesale form to render (TackQuote -> Wholesale -> Signup forms). */
 	const OPTION_FORM_SLUG = 'tack_quotes_wholesale_form_slug';
 
 	/** Option: show the "Wholesale account" tab on My Account. */
@@ -2082,7 +2082,7 @@ class Tack_Storefront_Forms {
 			. esc_html(
 				sprintf(
 					/* translators: %s: the wholesale form slug set in the plugin settings. */
-					__( 'Only administrators see this: no TackQuote wholesale form has the slug "%s". Create one in TackQuote under Settings, Wholesale forms, or choose another slug on the Forms tab.', 'tackquote' ),
+					__( 'Only administrators see this: no TackQuote wholesale form has the slug "%s". Create one in TackQuote under Wholesale, Signup forms, or choose another slug on the Forms tab.', 'tackquote' ),
 					$slug
 				)
 			)

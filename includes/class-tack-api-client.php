@@ -703,7 +703,7 @@ class Tack_Api_Client {
 	 * as `get_registration_config()`: a success is kept for 5 minutes, a failure for
 	 * 60 seconds so an outage does not turn every page view into a timeout.
 	 *
-	 * @param string $slug  Form slug (Settings -> Wholesale forms in TackQuote).
+	 * @param string $slug  Form slug (Wholesale -> Signup forms in TackQuote).
 	 * @param bool   $force Bypass the cache.
 	 * @return array|WP_Error The form definition (`fields`, `name`, `description`,
 	 *                        `successMessage`), or a WP_Error naming why not.
