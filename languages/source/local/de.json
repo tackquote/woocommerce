@@ -70,6 +70,7 @@
   "woo.forms.reference_n": "Referenz {n}",
   "woo.forms.reference_too_long": "Eine Angabe zu einer Handelsreferenz ist zu lang.",
   "woo.forms.requested_terms": "Gewünschtes Zahlungsziel",
+  "woo.forms.seller_calendar": "Datumsangaben richten sich nach dem Kalender des Verkäufers ({city}). Dort ist heute der {day}.",
   "woo.forms.session_expired": "Ihre Sitzung ist abgelaufen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.",
   "woo.forms.sign_in": "Anmelden",
   "woo.forms.street_address": "Straße und Hausnummer",

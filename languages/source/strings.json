@@ -532,6 +532,14 @@
       }
     },
     {
+      "msgid": "Dates follow the seller's calendar (%1$s). Today there is %2$s.",
+      "key": "woo.forms.seller_calendar",
+      "placeholders": {
+        "city": "%1$s",
+        "day": "%2$s"
+      }
+    },
+    {
       "msgid": "Your wholesale account is approved.",
       "key": "woo.forms.wholesale_is_approved"
     },

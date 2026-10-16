@@ -283,6 +283,11 @@ msgstr "国"
 msgid "Credit limit: %s"
 msgstr "与信限度額：%s"
 
+#. catalogue: woo.forms.seller_calendar
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Dates follow the seller's calendar (%1$s). Today there is %2$s."
+msgstr "日付は販売者のカレンダー（%1$s）に従います。販売者の地域の今日は%2$sです。"
+
 #. catalogue: tackquote.quote.email
 msgid "Email address"
 msgstr "メールアドレス"

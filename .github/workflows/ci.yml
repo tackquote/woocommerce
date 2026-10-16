@@ -44,6 +44,8 @@ jobs:
           node tests/js/with-options.test.js
           node tests/js/list-row.test.js
           node tests/js/quote-success.test.js
+          node --check assets/js/tack-storefront-forms.js
+          node tests/js/seller-calendar.test.js
 
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist
