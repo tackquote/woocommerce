@@ -127,11 +127,18 @@
 				if ( label ) {
 					label.textContent = dayLabel( today );
 				}
-				var described = ( input.getAttribute( 'aria-describedby' ) || '' ).split( ' ' ).filter( Boolean );
-				if ( described.indexOf( hint.id ) === -1 ) {
-					described.push( hint.id );
-					input.setAttribute( 'aria-describedby', described.join( ' ' ) );
-				}
+			}
+			// A hidden node named by aria-describedby is still announced: link it only while shown.
+			var described = ( input.getAttribute( 'aria-describedby' ) || '' ).split( ' ' ).filter( function ( id ) {
+				return id && id !== hint.id;
+			} );
+			if ( differs ) {
+				described.push( hint.id );
+			}
+			if ( described.length ) {
+				input.setAttribute( 'aria-describedby', described.join( ' ' ) );
+			} else {
+				input.removeAttribute( 'aria-describedby' );
 			}
 		} );
 	}
