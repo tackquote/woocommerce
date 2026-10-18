@@ -70,6 +70,7 @@
   "woo.forms.reference_n": "Référence {n}",
   "woo.forms.reference_too_long": "Une information de référence commerciale est trop longue.",
   "woo.forms.requested_terms": "Délai de paiement demandé",
+  "woo.forms.seller_calendar": "Les dates suivent le calendrier du vendeur ({city}). Là-bas, nous sommes aujourd’hui le {day}.",
   "woo.forms.session_expired": "Votre session a expiré. Veuillez recharger la page et réessayer.",
   "woo.forms.sign_in": "Se connecter",
   "woo.forms.street_address": "Numéro et nom de rue",

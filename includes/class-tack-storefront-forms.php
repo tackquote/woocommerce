@@ -83,6 +83,12 @@ class Tack_Storefront_Forms {
 	/** Prefix of the transient that carries a submission's outcome back to the page. */
 	const RESULT_PREFIX = 'tack_sf_';
 
+	/** Style handle that carries only the hidden-hint rule (enqueue_hint_style()). */
+	const HINT_STYLE_HANDLE = 'tackquote-storefront-forms';
+
+	/** Beats a theme's `.description{display:block}`, which outranks the browser's `[hidden]` rule. */
+	const HINT_STYLE = '.tackquote-seller-calendar[hidden]{display:none !important}';
+
 	/**
 	 * How long an outcome waits to be shown, in seconds.
 	 *
@@ -438,6 +444,7 @@ class Tack_Storefront_Forms {
 		$blocking  = $this->required_file_field( $fields );
 		$file_mode = $this->file_mode( $fields );
 
+		$calendar    = self::seller_calendar( $form );
 		$fields_html = '';
 		foreach ( $fields as $field ) {
 			if ( ! is_array( $field ) || empty( $field['key'] ) || empty( $field['type'] ) ) {
@@ -445,7 +452,7 @@ class Tack_Storefront_Forms {
 			}
 			$key          = (string) $field['key'];
 			$value        = array_key_exists( $key, $refill ) ? $refill[ $key ] : ( isset( $prefill[ $key ] ) ? $prefill[ $key ] : '' );
-			$fields_html .= $this->render_field( $field, 'tack_sf', $value, $file_mode );
+			$fields_html .= $this->render_field( $field, 'tack_sf', $value, $file_mode, $calendar );
 		}
 
 		$blocked = '';
@@ -1626,13 +1633,14 @@ class Tack_Storefront_Forms {
 	/**
 	 * One form field from its definition.
 	 *
-	 * @param array  $field     Field definition (`key`, `label`, `type`, `required`, `options`, `help`, `showIf`, `min`).
-	 * @param string $name      The POST array the field belongs to (`tack_sf`).
-	 * @param mixed  $value     Current value (prefill or refill).
-	 * @param string $file_mode 1.10.0: file_mode() for this visitor (`upload`, `signin`, `unsupported`).
+	 * @param array      $field     Field definition (`key`, `label`, `type`, `required`, `options`, `help`, `showIf`, `min`).
+	 * @param string     $name      The POST array the field belongs to (`tack_sf`).
+	 * @param mixed      $value     Current value (prefill or refill).
+	 * @param string     $file_mode 1.10.0: file_mode() for this visitor (`upload`, `signin`, `unsupported`).
+	 * @param array|null $calendar  The seller's calendar (seller_calendar()), or null.
 	 * @return string
 	 */
-	public function render_field( array $field, $name, $value, $file_mode = 'unsupported' ) {
+	public function render_field( array $field, $name, $value, $file_mode = 'unsupported', $calendar = null ) {
 		$key      = (string) $field['key'];
 		$type     = (string) $field['type'];
 		$label    = isset( $field['label'] ) ? (string) $field['label'] : $key;
@@ -1733,6 +1741,7 @@ class Tack_Storefront_Forms {
 			default:
 				$input_type = in_array( $type, array( 'email', 'tel', 'number', 'date' ), true ) ? $type : 'text';
 				$extra      = array( 'maxlength' => (string) self::MAX_TEXT );
+				$after      = '';
 				if ( 'email' === $type ) {
 					$extra['autocomplete'] = 'email';
 				} elseif ( 'tel' === $type ) {
@@ -1741,9 +1750,17 @@ class Tack_Storefront_Forms {
 					$extra['step']      = 'any';
 					$extra['inputmode'] = 'decimal';
 				} elseif ( 'date' === $type && isset( $field['min'] ) && 'today' === $field['min'] ) {
-					$extra['min'] = gmdate( 'Y-m-d' );
+					// "No dates in the past" means the SELLER's today, the day the server
+					// refuses dates before. An older TackQuote server sends no calendar:
+					// then this store's UTC today, as before.
+					$extra['min'] = is_array( $calendar ) ? $calendar['today'] : gmdate( 'Y-m-d' );
+					if ( is_array( $calendar ) ) {
+						$extra['data-tack-seller-zone']  = $calendar['timeZone'];
+						$extra['data-tack-seller-today'] = $calendar['today'];
+						$after                           = $this->seller_calendar_hint( $id, $calendar );
+					}
 				}
-				return $this->input_row( $name_of, $label, is_string( $value ) ? $value : '', $input_type, $required, $extra, $id, $cond, $help );
+				return $this->input_row( $name_of, $label, is_string( $value ) ? $value : '', $input_type, $required, $extra, $id, $cond, $help, $after );
 		}
 	}
 
@@ -1759,15 +1776,16 @@ class Tack_Storefront_Forms {
 	 * @param string $id       Element id, derived from the name when ''.
 	 * @param string $cond     Pre-escaped showIf data attributes.
 	 * @param string $help     Help text.
+	 * @param string $after    Pre-escaped markup placed after the help (the seller-calendar hint).
 	 * @return string
 	 */
-	private function input_row( $name, $label, $value, $type = 'text', $required = false, array $extra = array(), $id = '', $cond = '', $help = '' ) {
+	private function input_row( $name, $label, $value, $type = 'text', $required = false, array $extra = array(), $id = '', $cond = '', $help = '', $after = '' ) {
 		if ( '' === $id ) {
 			$id = sanitize_key( str_replace( array( '[', ']' ), array( '_', '' ), $name ) );
 		}
 		$attrs = '';
 		foreach ( $extra as $attr => $attr_value ) {
-			if ( in_array( $attr, array( 'maxlength', 'min', 'max', 'step', 'autocomplete', 'inputmode', 'placeholder' ), true ) ) {
+			if ( in_array( $attr, array( 'maxlength', 'min', 'max', 'step', 'autocomplete', 'inputmode', 'placeholder', 'data-tack-seller-zone', 'data-tack-seller-today' ), true ) ) {
 				$attrs .= ' ' . $attr . '="' . esc_attr( (string) $attr_value ) . '"';
 			}
 		}
@@ -1778,7 +1796,100 @@ class Tack_Storefront_Forms {
 			. ( $required ? ' <span class="required" aria-hidden="true">*</span>' : ' <span class="optional">' . esc_html__( '(optional)', 'tackquote' ) . '</span>' )
 			. '</label>'
 			. '<input type="' . esc_attr( $type ) . '" class="input-text" name="' . esc_attr( $name ) . '" id="' . esc_attr( $id ) . '" value="' . esc_attr( $value ) . '"' . $attrs . ( $required ? ' required="required"' : '' ) . $describe . ' />'
-			. $help_html . '</p>';
+			. $help_html . $after . '</p>';
+	}
+
+	/**
+	 * The seller's calendar the server sent with a form definition, or null.
+	 *
+	 * TackQuote adds `calendar: { timeZone, today }` to a form definition that has a
+	 * "No dates in the past" date field: the seller's IANA zone and their today
+	 * (`YYYY-MM-DD`), the day the server refuses earlier dates against. An older
+	 * server sends none, and anything malformed is ignored: the field then falls back
+	 * to this store's own today, as before.
+	 *
+	 * `today` is re-derived here, at render time, from the zone and this store's clock:
+	 * a definition is cached for up to 15 minutes (Tack_Api_Client::FORM_CACHE_TRANSIENT), so the
+	 * day the server sent can be yesterday's once the seller's midnight has passed. The
+	 * derived day is clamped to the sent day and the day after it (the cache is far shorter
+	 * than a day, so anything outside that is a wrong store clock), and the sent day is
+	 * used as it is when PHP does not know the zone.
+	 *
+	 * @param mixed                  $form The form definition.
+	 * @param DateTimeInterface|null $now  The current moment (tests); null for now.
+	 * @return array{timeZone: string, today: string}|null
+	 */
+	public static function seller_calendar( $form, $now = null ) {
+		if ( ! is_array( $form ) || ! isset( $form['calendar'] ) || ! is_array( $form['calendar'] ) ) {
+			return null;
+		}
+		$zone  = isset( $form['calendar']['timeZone'] ) ? $form['calendar']['timeZone'] : null;
+		$today = isset( $form['calendar']['today'] ) ? $form['calendar']['today'] : null;
+		if ( ! is_string( $zone ) || ! is_string( $today ) ) {
+			return null;
+		}
+		// Accepts IANA names of one to three parts, for example Asia/Kolkata, UTC or America/Argentina/Buenos_Aires.
+		if ( 1 !== preg_match( '/^[A-Za-z][A-Za-z0-9_+\-]*(\/[A-Za-z0-9_+\-]+){0,2}$/', $zone ) || strlen( $zone ) > 64 ) {
+			return null;
+		}
+		if ( 1 !== preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $today, $m ) || ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+			return null;
+		}
+		return array(
+			'timeZone' => $zone,
+			'today'    => self::seller_today( $zone, $today, $now ),
+		);
+	}
+
+	/**
+	 * The seller's today in `$zone` by this store's clock, kept between `$sent` and the day
+	 * after it; `$sent` when PHP does not know the zone.
+	 *
+	 * @param string                 $zone An IANA zone that passed seller_calendar()'s check.
+	 * @param string                 $sent The valid `YYYY-MM-DD` day the server sent.
+	 * @param DateTimeInterface|null $now  The current moment; null for now.
+	 * @return string
+	 */
+	private static function seller_today( $zone, $sent, $now = null ) {
+		try {
+			$tz   = new DateTimeZone( $zone );
+			$live = ( $now instanceof DateTimeInterface )
+				? ( new DateTimeImmutable( '@' . $now->getTimestamp() ) )->setTimezone( $tz )->format( 'Y-m-d' )
+				: ( new DateTimeImmutable( 'now', $tz ) )->format( 'Y-m-d' );
+			$next = ( new DateTimeImmutable( $sent, new DateTimeZone( 'UTC' ) ) )->modify( '+1 day' )->format( 'Y-m-d' );
+		} catch ( Exception $e ) {
+			// An unknown zone: DateInvalidTimeZoneException on PHP 8.3+, Exception before; both extend Exception.
+			return $sent;
+		}
+		// Same-length ISO days compare correctly as strings.
+		if ( $live < $sent ) {
+			return $sent;
+		}
+		return $live > $next ? $next : $live;
+	}
+
+	/**
+	 * The hint under a "No dates in the past" field, hidden until the script finds the
+	 * shopper's own date differs from the seller's today (only the browser knows the
+	 * shopper's date). The same sentence as TackQuote's hosted form.
+	 *
+	 * @param string $id       The input's id.
+	 * @param array  $calendar seller_calendar().
+	 * @return string
+	 */
+	private function seller_calendar_hint( $id, array $calendar ) {
+		$parts = explode( '/', $calendar['timeZone'] );
+		$city  = str_replace( '_', ' ', (string) end( $parts ) );
+		$text  = sprintf(
+			/* translators: 1: the city of the seller's time zone, for example "Kolkata". 2: the seller's date today, for example "Oct 17, 2026". */
+			__( 'Dates follow the seller\'s calendar (%1$s). Today there is %2$s.', 'tackquote' ),
+			$city,
+			'%TACKDAY%'
+		);
+		// The script writes the day in the shopper's language; the ISO date is the fallback.
+		return '<span class="description tackquote-seller-calendar" id="' . esc_attr( $id . '_calendar' ) . '" hidden="hidden">'
+			. str_replace( '%TACKDAY%', '<span class="tackquote-seller-day">' . esc_html( $calendar['today'] ) . '</span>', esc_html( $text ) )
+			. '</span>';
 	}
 
 	/**
@@ -2274,22 +2385,24 @@ class Tack_Storefront_Forms {
 			),
 			'label'    => $common + array( 'for' => true ),
 			'input'    => $common + array(
-				'type'             => true,
-				'name'             => true,
-				'value'            => true,
-				'required'         => true,
-				'checked'          => true,
-				'disabled'         => true,
-				'readonly'         => true,
-				'maxlength'        => true,
-				'min'              => true,
-				'max'              => true,
-				'step'             => true,
-				'autocomplete'     => true,
-				'inputmode'        => true,
-				'placeholder'      => true,
-				'accept'           => true,
-				'aria-describedby' => true,
+				'type'                   => true,
+				'name'                   => true,
+				'value'                  => true,
+				'required'               => true,
+				'checked'                => true,
+				'disabled'               => true,
+				'readonly'               => true,
+				'maxlength'              => true,
+				'min'                    => true,
+				'max'                    => true,
+				'step'                   => true,
+				'autocomplete'           => true,
+				'inputmode'              => true,
+				'placeholder'            => true,
+				'accept'                 => true,
+				'aria-describedby'       => true,
+				'data-tack-seller-zone'  => true,
+				'data-tack-seller-today' => true,
 			),
 			'select'   => $common + array(
 				'name'             => true,
@@ -2315,7 +2428,10 @@ class Tack_Storefront_Forms {
 				'value'    => true,
 				'disabled' => true,
 			),
-			'span'     => $common + array( 'aria-hidden' => true ),
+			'span'     => $common + array(
+				'aria-hidden' => true,
+				'hidden'      => true,
+			),
 			'a'        => $common + array( 'href' => true ),
 			'h2'       => $common,
 			'h3'       => $common,
@@ -2343,6 +2459,26 @@ class Tack_Storefront_Forms {
 			return;
 		}
 		wp_enqueue_script( 'tackquote-storefront-forms', TACK_QUOTES_URL . 'assets/js/tack-storefront-forms.js', array(), TACK_QUOTES_VERSION, true );
+		self::enqueue_hint_style();
+	}
+
+	/**
+	 * Keep a hidden seller-calendar hint hidden under any theme. The browser's own
+	 * `[hidden]{display:none}` loses to a theme rule such as `.description{display:block}`,
+	 * so the hint would show on load. A source-less handle prints only its inline CSS
+	 * (WP_Styles::do_item(), `if ( ! $src )`); after wp_head it prints in the footer.
+	 * Once per page, however many forms render.
+	 */
+	private static function enqueue_hint_style() {
+		if ( ! function_exists( 'wp_register_style' ) || ! function_exists( 'wp_add_inline_style' ) ) {
+			return;
+		}
+		if ( function_exists( 'wp_style_is' ) && wp_style_is( self::HINT_STYLE_HANDLE, 'enqueued' ) ) {
+			return;
+		}
+		wp_register_style( self::HINT_STYLE_HANDLE, false, array(), TACK_QUOTES_VERSION );
+		wp_enqueue_style( self::HINT_STYLE_HANDLE );
+		wp_add_inline_style( self::HINT_STYLE_HANDLE, self::HINT_STYLE );
 	}
 
 	/**

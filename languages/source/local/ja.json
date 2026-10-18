@@ -70,6 +70,7 @@
   "woo.forms.reference_n": "照会先 {n}",
   "woo.forms.reference_too_long": "取引先の照会先の入力内容が長すぎます。",
   "woo.forms.requested_terms": "希望する支払期日",
+  "woo.forms.seller_calendar": "日付は販売者のカレンダー（{city}）に基づきます。現地の今日の日付は{day}です。",
   "woo.forms.session_expired": "セッションの有効期限が切れました。ページを再読み込みして、もう一度お試しください。",
   "woo.forms.sign_in": "ログイン",
   "woo.forms.street_address": "番地",

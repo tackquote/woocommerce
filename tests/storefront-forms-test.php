@@ -206,6 +206,99 @@ check( 'an unreachable server renders a friendly notice and no form', false !== 
 check( '...and the failure is remembered briefly so the page is not slowed by a retry per view', is_array( get_transient( Tack_Api_Client::FORM_CACHE_TRANSIENT ) ) );
 check( '...with the raw server message nowhere in the output', false === strpos( $html, 'Service Unavailable' ) );
 
+// ── 1b. "No dates in the past" follows the SELLER's calendar ───────────────
+// TackQuote sends `calendar: { timeZone, today }` with a definition that has such a
+// field; the server refuses a date before the seller's today. A day far from this
+// machine's own today proves the min comes from the calendar, not from gmdate().
+
+$tack_cal_form = array(
+	'tenantSlug' => 'acme',
+	'id'         => 'form-cal',
+	'name'       => 'Trade account',
+	'fields'     => array(
+		array( 'key' => 'start', 'label' => 'Start date', 'type' => 'date', 'min' => 'today', 'help' => 'When you want to start' ),
+		array( 'key' => 'other', 'label' => 'Any date', 'type' => 'date' ),
+	),
+	'calendar'   => array(
+		'timeZone' => 'America/Argentina/Buenos_Aires',
+		'today'    => '2031-03-04',
+	),
+);
+tack_test_reset_transients();
+$client = new Tack_Test_Forms_Client( array( 'wholesale-form?slug=default' => $tack_cal_form ) );
+$forms  = new Tack_Storefront_Forms( $client );
+$html   = $forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+check( 'with a seller calendar, the earliest day is the seller\'s today', (bool) preg_match( '/<input type="date"[^>]*name="tack_sf\[start\]"[^>]*min="2031-03-04"/', $html ), substr( $html, 0, 600 ) );
+check( 'the date input carries the seller\'s zone and today for the script', (bool) preg_match( '/name="tack_sf\[start\]"[^>]*data-tack-seller-zone="America\/Argentina\/Buenos_Aires" data-tack-seller-today="2031-03-04"/', $html ) );
+check( 'the seller-calendar hint is rendered hidden (the script shows it), with the zone\'s city and the day', false !== strpos( $html, '<span class="description tackquote-seller-calendar" id="tack_sf_start_calendar" hidden="hidden">Dates follow the seller&#039;s calendar (Buenos Aires). Today there is <span class="tackquote-seller-day">2031-03-04</span>.</span>' ), $html );
+check( 'the field\'s own help text is kept beside the hint', false !== strpos( $html, 'id="tack_sf_start_help">When you want to start</span><span class="description tackquote-seller-calendar"' ) );
+check( 'a date field WITHOUT "No dates in the past" gets neither a min nor the seller calendar', (bool) preg_match( '/<input type="date"[^>]*name="tack_sf\[other\]"(?![^>]*(min=|data-tack-seller))[^>]*\/>/', $html ) && 1 === substr_count( $html, 'tackquote-seller-calendar' ) );
+
+// Older servers and malformed calendars: exactly the old behaviour (this store's UTC today).
+$tack_cal_cases = array(
+	'no calendar (an older TackQuote server)' => null,
+	'calendar not an object'                  => 'Asia/Kolkata',
+	'an impossible day'                       => array( 'timeZone' => 'Asia/Kolkata', 'today' => '2031-02-30' ),
+	'a day with a time'                       => array( 'timeZone' => 'Asia/Kolkata', 'today' => '2031-03-04T00:00:00Z' ),
+	'a zone that is not an IANA name'         => array( 'timeZone' => '"><script>x</script>', 'today' => '2031-03-04' ),
+	'a zone that is not a string'             => array( 'timeZone' => 5, 'today' => '2031-03-04' ),
+);
+foreach ( $tack_cal_cases as $tack_label => $tack_calendar ) {
+	$tack_def = $tack_cal_form;
+	unset( $tack_def['calendar'] );
+	if ( null !== $tack_calendar ) {
+		$tack_def['calendar'] = $tack_calendar;
+	}
+	tack_test_reset_transients();
+	$forms = new Tack_Storefront_Forms( new Tack_Test_Forms_Client( array( 'wholesale-form?slug=default' => $tack_def ) ) );
+	$html  = $forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+	check( 'falls back to this store\'s today with ' . $tack_label, (bool) preg_match( '/<input type="date"[^>]*name="tack_sf\[start\]"[^>]*min="' . gmdate( 'Y-m-d' ) . '"/', $html ) && false === strpos( $html, 'data-tack-seller' ) && false === strpos( $html, 'tackquote-seller-calendar' ), $html );
+}
+
+check( 'seller_calendar() accepts a one-part zone (UTC) and a three-part one', array( 'timeZone' => 'UTC', 'today' => '2031-03-04' ) === Tack_Storefront_Forms::seller_calendar( array( 'calendar' => array( 'timeZone' => 'UTC', 'today' => '2031-03-04' ) ) ) && null !== Tack_Storefront_Forms::seller_calendar( array( 'calendar' => array( 'timeZone' => 'America/Indiana/Knox', 'today' => '2031-03-04' ) ) ) );
+
+// The definition is cached for up to 15 minutes, so the day the server sent can be the seller's
+// YESTERDAY once their midnight passes. The day is re-derived at render time from the zone.
+// 20:00 UTC on Mar 4 is 01:30 on Mar 5 in Kolkata, while this store's UTC day is still Mar 4.
+$tack_cal_kolkata = array( 'calendar' => array( 'timeZone' => 'Asia/Kolkata', 'today' => '2031-03-04' ) );
+$tack_cal_at      = static function ( $iso ) {
+	return new DateTimeImmutable( $iso );
+};
+$tack_cal_got     = Tack_Storefront_Forms::seller_calendar( $tack_cal_kolkata, $tack_cal_at( '2031-03-04T20:00:00Z' ) );
+check( 'a cached calendar whose today is yesterday gives the seller\'s CURRENT day (Kolkata), not the cached one nor the UTC day', '2031-03-05' === $tack_cal_got['today'], wp_json_encode( $tack_cal_got ) );
+$tack_cal_got = Tack_Storefront_Forms::seller_calendar( $tack_cal_kolkata, $tack_cal_at( '2031-03-04T10:00:00Z' ) );
+check( '...and the sent day when it is still the seller\'s day', '2031-03-04' === $tack_cal_got['today'], wp_json_encode( $tack_cal_got ) );
+$tack_cal_got = Tack_Storefront_Forms::seller_calendar( $tack_cal_kolkata, $tack_cal_at( '2031-03-02T10:00:00Z' ) );
+check( 'a store clock BEHIND the server never moves the earliest day before the sent day', '2031-03-04' === $tack_cal_got['today'], wp_json_encode( $tack_cal_got ) );
+$tack_cal_got = Tack_Storefront_Forms::seller_calendar( $tack_cal_kolkata, $tack_cal_at( '2031-03-10T10:00:00Z' ) );
+check( 'a store clock far AHEAD moves the earliest day at most one day past the sent day', '2031-03-05' === $tack_cal_got['today'], wp_json_encode( $tack_cal_got ) );
+$tack_cal_got = Tack_Storefront_Forms::seller_calendar( array( 'calendar' => array( 'timeZone' => 'Mars/Olympus_Mons', 'today' => '2031-03-04' ) ), $tack_cal_at( '2031-03-04T20:00:00Z' ) );
+check( 'a zone PHP does not know keeps the sent day', is_array( $tack_cal_got ) && '2031-03-04' === $tack_cal_got['today'] && 'Mars/Olympus_Mons' === $tack_cal_got['timeZone'], wp_json_encode( $tack_cal_got ) );
+
+// The same through the real render path and the real clock: a definition cached with the seller's
+// yesterday renders the seller's today as min, data attribute and hint day.
+$tack_cal_live = ( new DateTimeImmutable( 'now', new DateTimeZone( 'Asia/Kolkata' ) ) );
+$tack_cal_def  = $tack_cal_form;
+$tack_cal_def['calendar'] = array( 'timeZone' => 'Asia/Kolkata', 'today' => $tack_cal_live->modify( '-1 day' )->format( 'Y-m-d' ) );
+tack_test_reset_transients();
+$GLOBALS['TACK_ENQUEUED_STYLES']   = array();
+$GLOBALS['TACK_REGISTERED_STYLES'] = array();
+$GLOBALS['TACK_INLINE_STYLES']     = array();
+$forms = new Tack_Storefront_Forms( new Tack_Test_Forms_Client( array( 'wholesale-form?slug=default' => $tack_cal_def ) ) );
+$html  = $forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+$tack_cal_today = ( new DateTimeImmutable( 'now', new DateTimeZone( 'Asia/Kolkata' ) ) )->format( 'Y-m-d' );
+check( 'rendered from a cache holding the seller\'s yesterday: min, data-tack-seller-today and the hint carry the seller\'s today', (bool) preg_match( '/name="tack_sf\[start\]"[^>]*min="' . $tack_cal_today . '"[^>]*data-tack-seller-today="' . $tack_cal_today . '"/', $html ) && false !== strpos( $html, '<span class="tackquote-seller-day">' . $tack_cal_today . '</span>' ), $html );
+
+// A theme's `.description{display:block}` beats the browser's `[hidden]` rule: an inline rule keeps the hint hidden.
+check( 'the hidden-hint rule is enqueued on a source-less handle (prints inline CSS only)', isset( $GLOBALS['TACK_REGISTERED_STYLES']['tackquote-storefront-forms'] ) && false === $GLOBALS['TACK_REGISTERED_STYLES']['tackquote-storefront-forms'] && wp_style_is( 'tackquote-storefront-forms', 'enqueued' ), wp_json_encode( $GLOBALS['TACK_REGISTERED_STYLES'] ) );
+check( '...with !important so a theme rule cannot unhide the hint', array( '.tackquote-seller-calendar[hidden]{display:none !important}' ) === ( $GLOBALS['TACK_INLINE_STYLES']['tackquote-storefront-forms'] ?? null ), wp_json_encode( $GLOBALS['TACK_INLINE_STYLES'] ) );
+$forms->render_wholesale_form( 'default', 'https://shop.example/apply/' );
+check( '...added once per page, however many forms render', 1 === count( $GLOBALS['TACK_INLINE_STYLES']['tackquote-storefront-forms'] ), wp_json_encode( $GLOBALS['TACK_INLINE_STYLES'] ) );
+
+// wp_kses keeps an attribute only when the allowlist names it (the test stub does not filter attributes).
+$allowed = Tack_Storefront_Forms::allowed_html();
+check( 'the kses allowlist keeps the seller-calendar attributes on the input and `hidden` on the hint', ! empty( $allowed['input']['data-tack-seller-zone'] ) && ! empty( $allowed['input']['data-tack-seller-today'] ) && ! empty( $allowed['span']['hidden'] ) );
+
 // ── 2. Submitting: answers take the server's shapes ────────────────────────
 
 tack_test_reset_transients();

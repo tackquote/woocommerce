@@ -70,6 +70,7 @@
   "woo.forms.reference_n": "Referentie {n}",
   "woo.forms.reference_too_long": "Een gegeven bij een handelsreferentie is te lang.",
   "woo.forms.requested_terms": "Gewenste betalingstermijn",
+  "woo.forms.seller_calendar": "Datums volgen de kalender van de verkoper ({city}). Daar is het vandaag {day}.",
   "woo.forms.session_expired": "Uw sessie is verlopen. Laad de pagina opnieuw en probeer het nogmaals.",
   "woo.forms.sign_in": "Inloggen",
   "woo.forms.street_address": "Straat en huisnummer",

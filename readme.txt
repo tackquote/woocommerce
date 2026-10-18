@@ -417,6 +417,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 == Changelog ==
 
 = Unreleased =
+* **"No dates in the past" follows the seller's calendar.** A wholesale application date field with that rule now starts on the seller's today (the day TackQuote checks against, sent with the form as `calendar`), not this store's UTC day, so a shopper west of the seller can no longer pick a day TackQuote then refuses. A hint under the field says so when the shopper's own date differs ("Dates follow the seller's calendar (Kolkata). Today there is Oct 17, 2026."), translated in the seven bundled languages (machine-assisted, pending native review). An older TackQuote server without `calendar` gets exactly the old field.
 * Readme: the short description now says the store connects with one button and no key to copy, as it does since 1.11.0.
 * Readme: the 1.10.0 notes no longer list accepted quote to store checkout as off by default; it is active whenever the store is connected.
 

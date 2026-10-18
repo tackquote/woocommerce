@@ -283,6 +283,11 @@ msgstr "País"
 msgid "Credit limit: %s"
 msgstr "Límite de crédito: %s"
 
+#. catalogue: woo.forms.seller_calendar
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Dates follow the seller's calendar (%1$s). Today there is %2$s."
+msgstr "Las fechas se rigen por el calendario del vendedor (%1$s). Allí hoy es %2$s."
+
 #. catalogue: tackquote.quote.email
 msgid "Email address"
 msgstr "Correo electrónico"
