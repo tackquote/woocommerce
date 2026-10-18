@@ -1,5 +1,5 @@
 TackQuote for WooCommerce: full changelog for release 1.11.1 and for 1.10.1 and earlier, newest first.
-1.11.0 and 1.10.2 are listed in readme.txt.
+The latest releases are listed in readme.txt.
 
 = 1.11.1 =
 Released 2026-10-18.
