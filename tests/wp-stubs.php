@@ -1430,6 +1430,20 @@ if ( ! function_exists( 'sanitize_hex_color' ) ) {
 }
 
 $GLOBALS['TACK_INLINE_STYLES'] = array();
+if ( ! function_exists( 'wp_register_style' ) ) {
+	/** @param string $handle Handle. @param string|false $src Source; false = inline CSS only. */
+	function wp_register_style( $handle, $src = '', $deps = array(), $ver = false, $media = 'all' ) {
+		$GLOBALS['TACK_REGISTERED_STYLES'][ $handle ] = $src;
+		return true;
+	}
+}
+if ( ! function_exists( 'wp_style_is' ) ) {
+	/** @param string $handle Handle. @param string $status 'enqueued' or 'registered'. */
+	function wp_style_is( $handle, $status = 'enqueued' ) {
+		$list = 'registered' === $status ? 'TACK_REGISTERED_STYLES' : 'TACK_ENQUEUED_STYLES';
+		return isset( $GLOBALS[ $list ] ) && array_key_exists( $handle, $GLOBALS[ $list ] );
+	}
+}
 if ( ! function_exists( 'wp_add_inline_style' ) ) {
 	function wp_add_inline_style( $handle, $data ) {
 		$GLOBALS['TACK_INLINE_STYLES'][ $handle ][] = $data;

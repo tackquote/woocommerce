@@ -107,11 +107,40 @@
 		}
 	}
 
+	/** The ISO day after `day`. */
+	function nextDay( day ) {
+		var p = day.split( '-' );
+		var d = new Date( Date.UTC( +p[ 0 ], +p[ 1 ] - 1, +p[ 2 ] + 1 ) );
+		var pad = function ( n ) {
+			return ( n < 10 ? '0' : '' ) + n;
+		};
+		return d.getUTCFullYear() + '-' + pad( d.getUTCMonth() + 1 ) + '-' + pad( d.getUTCDate() );
+	}
+
+	/**
+	 * The seller's today by this device's clock, kept between the day the server sent and
+	 * the day after it. A device clock set wrong must not move the earliest day: earlier
+	 * would let the shopper pick a day TackQuote refuses, later would refuse a valid one.
+	 * The day after covers a page left open past the seller's midnight.
+	 */
+	function sellerToday( zone, sent, now ) {
+		var valid = DAY.test( sent ) ? sent : null;
+		var live = dayIn( zone, now );
+		if ( ! valid ) {
+			return live;
+		}
+		if ( ! live || live < valid ) {
+			return valid;
+		}
+		var next = nextDay( valid );
+		return live > next ? next : live;
+	}
+
 	function sellerCalendar( form, now ) {
 		var inputs = form.querySelectorAll( 'input[data-tack-seller-today]' );
 		Array.prototype.forEach.call( inputs, function ( input ) {
 			var sent = input.getAttribute( 'data-tack-seller-today' );
-			var today = dayIn( input.getAttribute( 'data-tack-seller-zone' ), now ) || ( DAY.test( sent ) ? sent : null );
+			var today = sellerToday( input.getAttribute( 'data-tack-seller-zone' ), sent, now );
 			if ( ! today ) {
 				return;
 			}
@@ -122,6 +151,10 @@
 			}
 			var differs = today !== localDay( now );
 			hint.hidden = ! differs;
+			// A theme's `.description{display:block}` outranks `[hidden]`; the inline style does not lose.
+			if ( hint.style ) {
+				hint.style.display = differs ? '' : 'none';
+			}
 			if ( differs ) {
 				var label = hint.querySelector( '.tackquote-seller-day' );
 				if ( label ) {

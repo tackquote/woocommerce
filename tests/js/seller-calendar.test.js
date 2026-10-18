@@ -36,6 +36,7 @@ function El(attrs) {
   this.hidden = 'hidden' in this.attrs;
   this.min = this.attrs.min || '';
   this.textContent = '';
+  this.style = {};
   this.children = [];
   this.listeners = {};
 }
@@ -97,7 +98,11 @@ function render(calendar, min) {
 /** Run the script once at `nowIso`, the shopper in zone `buyerZone`. */
 function run(page, nowIso, buyerZone, lang) {
   process.env.TZ = buyerZone;
-  const fixed = new Date(nowIso).getTime();
+  let fixed = new Date(nowIso).getTime();
+  // Move "now" for later events (focusin) on the same page.
+  page.setNow = (iso) => {
+    fixed = new Date(iso).getTime();
+  };
   class FixedDate extends Date {
     constructor(...args) {
       super(...(args.length ? args : [fixed]));
@@ -176,9 +181,56 @@ check('an older server (no calendar) leaves the field exactly as rendered', () =
   assert.equal(p.input.getAttribute('aria-describedby'), null);
 });
 
-check('the field re-reads the calendar when the shopper enters it (focusin is wired)', () => {
-  const p = run(render(KOLKATA, '2026-10-17'), NOW, 'America/Los_Angeles');
+check('the field re-reads the calendar when the shopper enters it (focusin moves min past the seller\'s midnight)', () => {
+  // 10:00 UTC on Oct 16 is 15:30 on the 16th in Kolkata: the sent day still holds.
+  const p = run(render({ timeZone: 'Asia/Kolkata', today: '2026-10-16' }, '2026-10-16'), '2026-10-16T10:00:00Z', 'America/Los_Angeles');
+  assert.equal(p.input.min, '2026-10-16');
   assert.equal(typeof p.form.listeners.focusin, 'function');
+  // Ten hours later it is 01:30 on the 17th in Kolkata; the shopper tabs into the field.
+  p.setNow('2026-10-16T20:00:00Z');
+  p.form.listeners.focusin({ target: p.input });
+  assert.equal(p.input.min, '2026-10-17');
+});
+
+check('focusin on another field leaves the date field alone', () => {
+  const p = run(render({ timeZone: 'Asia/Kolkata', today: '2026-10-16' }, '2026-10-16'), '2026-10-16T10:00:00Z', 'America/Los_Angeles');
+  p.setNow('2026-10-16T20:00:00Z');
+  p.form.listeners.focusin({ target: new El({ id: 'tack_sf_name' }) });
+  assert.equal(p.input.min, '2026-10-16');
+});
+
+// The device clock is the shopper's and can be wrong. The server sent the seller's today
+// (Oct 17 in Kolkata at the real NOW); the earliest day stays within [sent, sent + 1 day].
+check('a device clock a day BEHIND never moves the earliest day before the day the server sent', () => {
+  // The device thinks it is Oct 15, 20:00 UTC (Oct 16 in Kolkata).
+  const p = run(render(KOLKATA, '2026-10-17'), '2026-10-15T20:00:00Z', 'America/Los_Angeles');
+  assert.equal(p.input.min, '2026-10-17');
+});
+
+check('a device clock a day AHEAD moves the earliest day at most to the day after the sent day', () => {
+  // The device thinks it is Oct 17, 20:00 UTC (Oct 18 in Kolkata): allowed, as a page left open past midnight.
+  const p = run(render(KOLKATA, '2026-10-17'), '2026-10-17T20:00:00Z', 'America/Los_Angeles');
+  assert.equal(p.input.min, '2026-10-18');
+});
+
+check('a device clock days AHEAD is held to the day after the sent day', () => {
+  const p = run(render(KOLKATA, '2026-10-17'), '2026-10-20T20:00:00Z', 'America/Los_Angeles');
+  assert.equal(p.input.min, '2026-10-18');
+});
+
+check('the day after the sent day rolls over a month end', () => {
+  const p = run(render({ timeZone: 'Asia/Kolkata', today: '2026-10-31' }, '2026-10-31'), '2026-11-03T20:00:00Z', 'America/Los_Angeles');
+  assert.equal(p.input.min, '2026-11-01');
+});
+
+// A theme's `.description{display:block}` outranks the `hidden` attribute; the inline style does not lose.
+check('a shown hint clears the inline display, a hidden one sets display:none', () => {
+  const shown = run(render(KOLKATA, '2026-10-17'), NOW, 'America/Los_Angeles');
+  assert.equal(shown.hint.hidden, false);
+  assert.equal(shown.hint.style.display, '');
+  const hidden = run(render(KOLKATA, '2026-10-17'), NOW, 'Asia/Kolkata');
+  assert.equal(hidden.hint.hidden, true);
+  assert.equal(hidden.hint.style.display, 'none');
 });
 
 if (failures) {

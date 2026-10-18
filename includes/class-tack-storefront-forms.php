@@ -83,6 +83,12 @@ class Tack_Storefront_Forms {
 	/** Prefix of the transient that carries a submission's outcome back to the page. */
 	const RESULT_PREFIX = 'tack_sf_';
 
+	/** Style handle that carries only the hidden-hint rule (enqueue_hint_style()). */
+	const HINT_STYLE_HANDLE = 'tackquote-storefront-forms';
+
+	/** Beats a theme's `.description{display:block}`, which outranks the browser's `[hidden]` rule. */
+	const HINT_STYLE = '.tackquote-seller-calendar[hidden]{display:none !important}';
+
 	/**
 	 * How long an outcome waits to be shown, in seconds.
 	 *
@@ -1802,10 +1808,18 @@ class Tack_Storefront_Forms {
 	 * server sends none, and anything malformed is ignored: the field then falls back
 	 * to this store's own today, as before.
 	 *
-	 * @param mixed $form The form definition.
+	 * `today` is re-derived here, at render time, from the zone and this store's clock:
+	 * a definition is cached for up to 15 minutes (Tack_Api_Client::FORM_CACHE_TRANSIENT), so the
+	 * day the server sent can be yesterday's once the seller's midnight has passed. The
+	 * derived day is clamped to the sent day and the day after it (the cache is far shorter
+	 * than a day, so anything outside that is a wrong store clock), and the sent day is
+	 * used as it is when PHP does not know the zone.
+	 *
+	 * @param mixed                  $form The form definition.
+	 * @param DateTimeInterface|null $now  The current moment (tests); null for now.
 	 * @return array{timeZone: string, today: string}|null
 	 */
-	public static function seller_calendar( $form ) {
+	public static function seller_calendar( $form, $now = null ) {
 		if ( ! is_array( $form ) || ! isset( $form['calendar'] ) || ! is_array( $form['calendar'] ) ) {
 			return null;
 		}
@@ -1823,8 +1837,35 @@ class Tack_Storefront_Forms {
 		}
 		return array(
 			'timeZone' => $zone,
-			'today'    => $today,
+			'today'    => self::seller_today( $zone, $today, $now ),
 		);
+	}
+
+	/**
+	 * The seller's today in `$zone` by this store's clock, kept between `$sent` and the day
+	 * after it; `$sent` when PHP does not know the zone.
+	 *
+	 * @param string                 $zone An IANA zone that passed seller_calendar()'s check.
+	 * @param string                 $sent The valid `YYYY-MM-DD` day the server sent.
+	 * @param DateTimeInterface|null $now  The current moment; null for now.
+	 * @return string
+	 */
+	private static function seller_today( $zone, $sent, $now = null ) {
+		try {
+			$tz   = new DateTimeZone( $zone );
+			$live = ( $now instanceof DateTimeInterface )
+				? ( new DateTimeImmutable( '@' . $now->getTimestamp() ) )->setTimezone( $tz )->format( 'Y-m-d' )
+				: ( new DateTimeImmutable( 'now', $tz ) )->format( 'Y-m-d' );
+			$next = ( new DateTimeImmutable( $sent, new DateTimeZone( 'UTC' ) ) )->modify( '+1 day' )->format( 'Y-m-d' );
+		} catch ( Exception $e ) {
+			// An unknown zone: DateInvalidTimeZoneException on PHP 8.3+, Exception before; both extend Exception.
+			return $sent;
+		}
+		// Same-length ISO days compare correctly as strings.
+		if ( $live < $sent ) {
+			return $sent;
+		}
+		return $live > $next ? $next : $live;
 	}
 
 	/**
@@ -2418,6 +2459,26 @@ class Tack_Storefront_Forms {
 			return;
 		}
 		wp_enqueue_script( 'tackquote-storefront-forms', TACK_QUOTES_URL . 'assets/js/tack-storefront-forms.js', array(), TACK_QUOTES_VERSION, true );
+		self::enqueue_hint_style();
+	}
+
+	/**
+	 * Keep a hidden seller-calendar hint hidden under any theme. The browser's own
+	 * `[hidden]{display:none}` loses to a theme rule such as `.description{display:block}`,
+	 * so the hint would show on load. A source-less handle prints only its inline CSS
+	 * (WP_Styles::do_item(), `if ( ! $src )`); after wp_head it prints in the footer.
+	 * Once per page, however many forms render.
+	 */
+	private static function enqueue_hint_style() {
+		if ( ! function_exists( 'wp_register_style' ) || ! function_exists( 'wp_add_inline_style' ) ) {
+			return;
+		}
+		if ( function_exists( 'wp_style_is' ) && wp_style_is( self::HINT_STYLE_HANDLE, 'enqueued' ) ) {
+			return;
+		}
+		wp_register_style( self::HINT_STYLE_HANDLE, false, array(), TACK_QUOTES_VERSION );
+		wp_enqueue_style( self::HINT_STYLE_HANDLE );
+		wp_add_inline_style( self::HINT_STYLE_HANDLE, self::HINT_STYLE );
 	}
 
 	/**
