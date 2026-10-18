@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.11.0
+Stable tag: 1.11.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -416,7 +416,9 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 == Changelog ==
 
-= Unreleased =
+= 1.11.1 =
+Released 2026-10-18.
+
 * **"No dates in the past" follows the seller's calendar.** A wholesale application date field with that rule now starts on the seller's today (the day TackQuote checks against, sent with the form as `calendar`), not this store's UTC day, so a shopper west of the seller can no longer pick a day TackQuote then refuses. A hint under the field says so when the shopper's own date differs ("Dates follow the seller's calendar (Kolkata). Today there is Oct 17, 2026."), translated in the seven bundled languages (machine-assisted, pending native review). An older TackQuote server without `calendar` gets exactly the old field.
 * Readme: the short description now says the store connects with one button and no key to copy, as it does since 1.11.0.
 * Readme: the 1.10.0 notes no longer list accepted quote to store checkout as off by default; it is active whenever the store is connected.
@@ -434,16 +436,4 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **My Account › Net terms shows the customer's terms.** A customer whose net terms are active sees their payment terms, credit limit and, when TackQuote reports it, the credit still available, instead of the application form. A customer whose application is under review sees "Your net-terms application is being reviewed." Anyone else, or anyone when TackQuote cannot be reached, gets the form as before. The answer is the one the "Net terms (TackQuote)" checkout method reads, shared for up to a minute. New template `tackquote/myaccount/net-terms-account.php`.
 * **My Account › Wholesale account prefills the customer's name.** First name, last name, company name and phone are filled in from the customer's WooCommerce billing details, then their WordPress profile, like the quote form.
 
-= 1.10.1 =
-* No functional change: source comments and packaging cleaned for release; release audit added to the build.
-
-= 1.10.0 =
-* **Security and standards audit.** A customer who changes their own email is not trusted with another buyer's prices, net terms or tax exemption until confirmed; rate limits can no longer be dodged with a forged `X-Real-IP`; draft, private, password-protected and group-hidden products can no longer be quoted; uninstall removes everything the plugin stores.
-* **Settings redesigned into tabs**, with an Overview; "Test connection" no longer calls a rejected key connected.
-* **New, each off by default:** attachments on quote requests; per buyer group category visibility, shipping discounts and an optional role; wholesale and net-terms application forms and My Account tabs; tax-exempt buyers; net terms and a purchase-order number at checkout; a quote page, quote buttons on product cards and the cart; per-product quote only.
-* Accepted quote to store checkout, active whenever the store is connected.
-* **Fixed:** order limits were never applied; stores that enter prices including tax were undercharged tax on TackQuote prices; the quote form's success message was invisible.
-* Translations bundled for seven languages, and styling that follows your theme. Requires WordPress 6.4 and WooCommerce 8.0 or later.
-* The full 1.10.0 notes are in changelog.txt.
-
-Older releases are listed in changelog.txt, shipped with the plugin.
+1.10.1, 1.10.0 and older releases are listed in changelog.txt, shipped with the plugin.
