@@ -314,13 +314,13 @@ validate_readme() { # <readme> <main-php> <listing-dir (holds screenshot-N.png)>
 	long_notice="$(perl -ne 'if (/^==\s*Upgrade Notice\s*==/i) { $in=1; next } if ($in && /^==[^=]/) { $in=0 } next unless $in; if (/^=\s*(.+?)\s*=\s*$/) { $v=$1; next } $len{$v} += length($_) if defined $v && /\S/; END { for (sort keys %len) { print "$_\n" if $len{$_} > 300 } }' "$readme")"
 	[ -z "$long_notice" ] || r_err "upgrade notice(s) over 300 characters: $(printf '%s' "$long_notice" | tr '\n' ' ')"
 
-	# Changelog section <= 5,000 characters. Plugin Check reports a longer one as
-	# readme_parser_warnings_trimmed_section_changelog ("A maximum of 5000 characters
-	# is supported") and wordpress.org shows it cut short. Plugin Check's bundled
-	# parser (includes/Lib/Readme/Parser.php: 'section-changelog' => 5000, trimmed with
-	# 'words') actually counts WORDS, so 5,000 characters is the stricter reading and
-	# is what is enforced. Measured as the parser keeps the section: everything after
-	# the "== Changelog ==" line up to the next "== ... ==" heading, in characters.
+	# Changelog section <= 5,000 CHARACTERS (a deliberately stricter rule than the
+	# directory's). wordpress.org's readme parser (class-parser.php) caps the changelog
+	# section at 5,000 WORDS ('section-changelog' => 5000, trimmed with 'words') and
+	# shows the rest cut short; Plugin Check, which bundles that parser, reports it as
+	# readme_parser_warnings_trimmed_section_changelog. Counting characters keeps the
+	# section far inside that cap. Measured as the parser keeps the section: everything
+	# after the "== Changelog ==" line up to the next "== ... ==" heading, in characters.
 	# Older entries belong in changelog.txt, which ships in the zip.
 	local cl_len cl_words
 	read -r cl_len cl_words < <(perl -CI -e 'local $/; my $t = <STDIN>; if ($t =~ /^==\s*Changelog\s*==[ \t]*\r?\n(.*?)(?=^==[^=]|\z)/ims) { my $b = $1; my @w = grep { length } split(/\s+/, $b); print length($b), " ", scalar(@w), "\n" } else { print "-1 0\n" }' <"$readme")
