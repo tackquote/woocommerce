@@ -69,10 +69,10 @@ the two application forms below; the read-only storefront lookups need no extra 
 
 1. **Connection test** — `GET /integrations/woocommerce/ping`; on 404, `GET /health` (key unverified).
 Sent when an administrator clicks "Test TackQuote connection", and at most daily from the
-storefront for item 11. Sends your API key and the store's address only: no order or customer data.
+storefront for item 11. Sends your API key and the store's address; since 1.12.0, to a TackQuote server that asks for them, also the site name, the WordPress time zone, the WooCommerce currency and the store base address (WooCommerce → Settings → General). No order or customer data.
 
 2. **Quote form field policy** — `GET /integrations/woocommerce/registration-config`.
-Sent on storefront page views while quote buttons are on, at most every 15 minutes. Same data as item 1.
+Sent on storefront page views while quote buttons are on, at most every 15 minutes. Your API key and the store's address.
 
 3. **Quote request** — `POST /integrations/woocommerce/quote-requests`.
 Sent when a shopper submits the quote form. Sends what that shopper typed
@@ -81,7 +81,7 @@ number if given, company name and any company details the seller's registration 
 requires (legal name, tax/VAT ID, registration number, website, address, city, state, postal
 code, country, company phone, industry, employee count), the free-text note if written, and
 for each requested product its name, SKU, quantity, unit price excluding tax, WooCommerce
-product ID and any target price, together with the store's currency code. Since 1.12.0, when
+product ID (since 1.12.0, a variation as `<product ID>_<variation ID>` on a server that supports it) and any target price, together with the store's currency code. Since 1.12.0, when
 the quote modal shows the form you designed in TackQuote, it sends that form's answers instead
 (what the shopper typed into each of your fields, and the upload ids of any files) together with
 the form version shown, and the same products.
@@ -244,7 +244,7 @@ This plugin sends data to TackQuote, a third-party service, over HTTPS. It sends
 
 To the TackQuote API base URL configured under **TackQuote → TackQuote API URL** — `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. Endpoints used:
 
-* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test and server features. Sends only the store's address.
+* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test and server features. Sends the store's address and, since 1.12.0 and only to a server that asks for them, the site name, the WordPress time zone, the WooCommerce currency and the store base address (no customer data).
 * `GET /integrations/woocommerce/registration-config` — fetches which fields the quote form should ask for. Sends only the store's address.
 * `POST /integrations/woocommerce/quote-requests` — a shopper's quote request.
 * `POST /integrations/woocommerce/order-sync` — order sync. **Only when the merchant has switched order sync on. It is off by default.**
@@ -462,6 +462,8 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 = Unreleased =
 
+* **Store details for TackQuote.** On a TackQuote server that asks for them, the connection check also sends the site name and address, the WordPress time zone, the WooCommerce currency and the store base address (WooCommerce → Settings → General). TackQuote keeps them on this store's connection and sets your workspace's time zone from the store's only when the workspace has none. A site on a manual UTC offset rather than a city is not used for the time zone.
+* **Variations named the way catalogue sync names them.** On a TackQuote server that supports it, a quoted variation is sent as `<product ID>_<variation ID>`, the key TackQuote's catalogue sync gives that variation, so a store without catalogue sync no longer leaves a second product record in TackQuote at the bare variation ID.
 * Fixed: "Request a quote for your cart" in the Cart block now adds a variation as that variation of its product (with its options in the name, including a value chosen for an "Any" attribute), so it merges with the same variation added from the product page. TackQuote still receives one line per variation.
 * Fixed: when TackQuote does not take a quote request because of the store's connection (for example a revoked API key), shoppers see "We could not send your quote request right now" instead of the server's message; administrators see the reason in a notice and on the Connection tab.
 * Fixed: a key TackQuote refuses no longer schedules a background check on every page view (the check now waits ten minutes whatever its outcome), and a refused key hides the storefront even if TackQuote never accepted it before, after the same confirming second check, never during a shopper's visit.

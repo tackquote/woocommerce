@@ -1749,6 +1749,10 @@ class Tack_Widget {
 
 		$client = new Tack_Api_Client();
 
+		// 1.12.0: a chosen variation named the way TackQuote's catalogue sync keys it,
+		// to a server that advertises `variation_keys` (no stray row at the bare id).
+		$payload['lineItems'] = self::with_variation_keys( $payload['lineItems'], $client->supports( 'variation_keys' ) );
+
 		/*
 		 * Target prices (1.10.0, quote page): `lineItems[].targetPrice`, which TackQuote
 		 * shows the seller as "Buyer asked for", on a server that
@@ -2219,6 +2223,37 @@ class Tack_Widget {
 				'externalProductId' => (string) $product->get_id(),
 			),
 		);
+	}
+
+	/**
+	 * Name each variation line `{parent id}_{variation id}`, the key TackQuote's
+	 * catalogue sync gives a variation's row, when the server takes it
+	 * (`variation_keys`, 1.12.0). A store connected without catalogue sync then has its
+	 * quoted variation recorded under the same key the first sync will use, instead of a
+	 * second row at the bare variation id. Every other line, and every line to an older
+	 * server, is sent unchanged.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param array $lines     Quote line items.
+	 * @param bool  $supported The server lists `variation_keys`.
+	 * @return array
+	 */
+	public static function with_variation_keys( array $lines, $supported ) {
+		if ( ! $supported ) {
+			return $lines;
+		}
+		foreach ( $lines as $i => $line ) {
+			$id = isset( $line['externalProductId'] ) ? absint( $line['externalProductId'] ) : 0;
+			if ( ! $id ) {
+				continue;
+			}
+			$product = wc_get_product( $id );
+			if ( $product instanceof WC_Product_Variation && $product->get_parent_id() > 0 ) {
+				$lines[ $i ]['externalProductId'] = $product->get_parent_id() . '_' . $product->get_id();
+			}
+		}
+		return $lines;
 	}
 
 	/**

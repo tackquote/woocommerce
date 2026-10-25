@@ -204,5 +204,9 @@ require __DIR__ . '/embed-admin-test.php';
 echo "\n-- 1.12.0 live QA fixes --\n";
 require __DIR__ . '/live-qa-1120-test.php';
 
+// 1.12.0 back office: store profile on the ping, variation keys on quote lines.
+echo "\n-- 1.12.0 back office (store profile, variation keys) --\n";
+require __DIR__ . '/backoffice-1120-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
