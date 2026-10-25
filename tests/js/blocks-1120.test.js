@@ -139,7 +139,7 @@ asyncChecks.push(
   )
 );
 
-// ── Seller form: the registration policy's company fields (Fable R1) ─────────
+// ── Seller form: the registration policy's company fields ────────────────
 function quotesApi(registration) {
   const chain = new Proxy(function () {}, { get: () => () => chain, apply: () => chain });
   const $ = new Proxy(function () { return chain; }, { get: (t, p) => (p in t ? t[p] : () => chain) });

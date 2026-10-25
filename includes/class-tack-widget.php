@@ -893,7 +893,7 @@ class Tack_Widget {
 	}
 
 	/**
-	 * Can a quote control open the quote modal on this page? (1.12.0, Fable P5.)
+	 * Can a quote control open the quote modal on this page? (1.12.0.)
 	 *
 	 * Decides whether the seller-designed form is read and printed here: a page with
 	 * no launcher, no product-page buttons, no card buttons, no cart control and no
@@ -1608,7 +1608,7 @@ class Tack_Widget {
 			$phone      = sanitize_text_field( $collected['buyer']['phone'] );
 
 			// The company name: the form's buyer_company answer when it has one, else the
-			// registration policy's own company-name field shown beneath the form (Fable R1).
+			// registration policy's own company-name field shown beneath the form.
 			// `company[...]` (the policy's required company details) is kept as posted.
 			$role_company = sanitize_text_field( $collected['buyer']['company'] );
 			$company_name = '' !== $role_company ? $role_company : $company_name;
@@ -1767,7 +1767,7 @@ class Tack_Widget {
 			}
 			if ( null !== $form_answers && self::refused_form_fields( $result ) ) {
 				// The capability cache said `quote-form`, the server refused the fields: it is
-				// an older server now (Fable P7). Next page: the built-in form.
+				// an older server now. Next page: the built-in form.
 				$client->forget_capabilities();
 				Tack_Quote_Form::forget();
 			}

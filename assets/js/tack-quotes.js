@@ -697,7 +697,7 @@
     var cfg = TackQuotes.quoteForm || {};
     var key = cfg.roles && cfg.roles[role];
     // The key comes from the TackQuote server: only TackQuote's own field-key shape is
-    // put into a selector (Fable P11).
+    // put into a selector.
     if (typeof key !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(key)) {
       return $();
     }
@@ -758,7 +758,7 @@
 
   // The seller's registration policy still decides whether a company is needed
   // (company_only, or the company details it requires), and TackQuote refuses a
-  // request without them, so they follow the designed fields (Fable R1). A form with
+  // request without them, so they follow the designed fields. A form with
   // a buyer_company field already asks for the company name: not twice.
   function sellerPolicyFields(cfg) {
     return buildBuyingAs() + buildCompanyFields(!!(cfg && cfg.roles && cfg.roles.buyer_company));
@@ -836,7 +836,7 @@
     }
 
     // Before the focus pick below: the company section must already be in the state
-    // the reset radio says (Fable R1b).
+    // the reset radio says.
     syncCompanySection($overlay);
 
     modal.removeAttribute('hidden');
@@ -871,7 +871,7 @@
       });
     }
     // The reset above put the radio back to its default: the section follows it NOW,
-    // not only on the next change (Fable R1b: a hidden, still-enabled required input
+    // not only on the next change (a hidden, still-enabled required input
     // blocked an individual shopper's first submit).
     syncCompanySection($overlay);
 
@@ -1110,7 +1110,7 @@
       files = files.concat(mine);
     });
 
-    // Each field's own cap first, naming the field, then the request's total (Fable P1):
+    // Each field's own cap first, naming the field, then the request's total:
     // a refusal after the upload would leave orphaned files and a confusing message.
     for (var si = 0; si < slots.length; si++) {
       var slot = slots[si];
@@ -1145,7 +1145,7 @@
       $submit.text(TackQuotes.i18n.sending);
       var ids = uploaded.uploadIds || [];
       // Each id goes to the field its file came from, by the position the upload
-      // handler echoes (`files[].index`), never by counting (Fable P8).
+      // handler echoes (`files[].index`), never by counting.
       var owner = {};
       slots.forEach(function (slot) {
         for (var i = slot.first; i < slot.first + slot.count; i++) {
