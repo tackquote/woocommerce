@@ -148,6 +148,7 @@
   "woo.quick_order.sku_row": "SKU, Zeile {row}",
   "woo.quick_order.too_many": "Geben Sie höchstens {max} Produkte auf einmal ein.",
   "woo.quick_order.view_cart": "Warenkorb anzeigen",
+  "woo.quote.request_failed": "Ihre Angebotsanfrage konnte gerade nicht gesendet werden. Bitte versuchen Sie es in einigen Minuten erneut.",
   "woo.quote_form.changed": "Dieses Formular wurde gerade aktualisiert. Bitte prüfen Sie Ihre Angaben und senden Sie es erneut.",
   "woo.quote_form.field_files_max": "{label}: Hängen Sie höchstens {max} Dateien an.",
   "woo.visibility.invalid_id": "Ungültige Produkt-ID.",

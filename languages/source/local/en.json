@@ -148,6 +148,7 @@
   "woo.quick_order.sku_row": "SKU, row {row}",
   "woo.quick_order.too_many": "Enter at most {max} products at a time.",
   "woo.quick_order.view_cart": "View cart",
+  "woo.quote.request_failed": "We could not send your quote request right now. Please try again in a few minutes.",
   "woo.quote_form.changed": "This form has just been updated. Please check your answers and send it again.",
   "woo.quote_form.field_files_max": "{label}: attach at most {max} files.",
   "woo.visibility.invalid_id": "Invalid product ID.",

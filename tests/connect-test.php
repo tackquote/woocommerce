@@ -465,6 +465,20 @@ check( 'tab: the button reads Connect with TackQuote', false !== strpos( $cx_htm
 tack_cx_reset();
 tack_test_set_option( Tack_Connect::OPTION_VIA, Tack_Connect::VIA_CONNECT );
 $cx_html = tack_cx_render( 'connection' );
+check( 'D4: a saved key that was never tested is NOT shown as connected', false === strpos( $cx_html, 'Connected via' ) && false !== strpos( $cx_html, 'Key saved, not tested' ) );
+// A passing test of the key saved now.
+set_transient(
+	Tack_Settings::CONNECTION_CHECK,
+	array(
+		'ok'      => true,
+		'state'   => 'ok',
+		'key'     => substr( hash( 'sha256', (string) get_option( 'tack_quotes_api_key', '' ) ), 0, 16 ),
+		'at'      => time(),
+		'message' => '',
+	),
+	DAY_IN_SECONDS
+);
+$cx_html = tack_cx_render( 'connection' );
 check( 'tab: a Connect key shows "Connected via Connect with TackQuote" and Connect again', false !== strpos( $cx_html, 'Connected via Connect with TackQuote' ) && false !== strpos( $cx_html, 'Connect again' ) );
 $cx_html = tack_cx_render( 'overview' );
 check( 'overview: Connected via Connect with TackQuote', false !== strpos( $cx_html, '<dt>Connected via</dt><dd>Connect with TackQuote</dd>' ) );

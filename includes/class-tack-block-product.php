@@ -226,9 +226,49 @@ class Tack_Block_Product {
 			$lines[ (string) (int) $child_id ] = array(
 				's' => (string) $variation->get_sku(),
 				'p' => $price,
+				// The variation's label, worded as WooCommerce words it (1.12.0).
+				'l' => self::variation_label( $variation ),
 			);
 		}
 		return $lines;
+	}
+
+	/**
+	 * A variation's attributes as WooCommerce words them for a shopper, for example
+	 * "Large, Blue": attribute term names (not slugs), comma separated, through
+	 * `wc_get_formatted_variation( $variation, true, false )`. One formatter for every
+	 * place a quote line names a variation (product page, quick order, cart), so the same
+	 * variation reads the same everywhere. '' when there is none.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object $variation The variation.
+	 * @return string
+	 */
+	public static function variation_label( $variation ) {
+		if ( ! function_exists( 'wc_get_formatted_variation' ) || ! is_object( $variation ) ) {
+			return '';
+		}
+		$label = (string) wc_get_formatted_variation( $variation, true, false );
+		return trim( html_entity_decode( wp_strip_all_tags( $label ), ENT_QUOTES, 'UTF-8' ) );
+	}
+
+	/**
+	 * The name of a quote line for a variation: "Parent - Large, Blue". The variation's
+	 * own name when its parent or label is unknown.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object|null $parent_product The parent product.
+	 * @param WC_Product|object      $variation      The variation.
+	 * @return string
+	 */
+	public static function line_name( $parent_product, $variation ) {
+		$label = self::variation_label( $variation );
+		if ( is_object( $parent_product ) && method_exists( $parent_product, 'get_name' ) && '' !== $label ) {
+			return (string) $parent_product->get_name() . ' - ' . $label;
+		}
+		return is_object( $variation ) && method_exists( $variation, 'get_name' ) ? (string) $variation->get_name() : '';
 	}
 
 	/**

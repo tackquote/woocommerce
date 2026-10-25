@@ -140,7 +140,9 @@
         product = '<a href="' + escapeHtml(line.url) + '">' + escapeHtml(line.name) + '</a>';
         // priceHtml is WooCommerce's own price markup, already through wp_kses_post().
         price = line.priceHtml || '';
-        if (!line.purchasable) {
+        // Once: the store's price HTML already says it for a quote-only product
+        // (the catalogue mode's "Available on quote" label).
+        if (!line.purchasable && price.indexOf('tack-quote-only-cta') === -1) {
           product += ' <span class="tack-quick-order-note">' + escapeHtml(i18n.notPurchasable) + '</span>';
         }
       } else if (line.status === 'needs_options') {
@@ -302,6 +304,6 @@
 
   // Node tests load this file with stand-ins; browsers have no `module`.
   if (typeof module === 'object' && module && module.exports) {
-    module.exports = { parsePasted: parsePasted, collect: collect };
+    module.exports = { parsePasted: parsePasted, collect: collect, renderResults: renderResults };
   }
 })(jQuery);

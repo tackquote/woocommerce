@@ -148,6 +148,7 @@
   "woo.quick_order.sku_row": "SKU, linha {row}",
   "woo.quick_order.too_many": "Informe no máximo {max} produtos por vez.",
   "woo.quick_order.view_cart": "Ver carrinho",
+  "woo.quote.request_failed": "Não foi possível enviar seu pedido de orçamento agora. Tente novamente em alguns minutos.",
   "woo.quote_form.changed": "Este formulário acabou de ser atualizado. Confira suas respostas e envie novamente.",
   "woo.quote_form.field_files_max": "{label}: anexe no máximo {max} arquivos.",
   "woo.visibility.invalid_id": "ID de produto inválido.",

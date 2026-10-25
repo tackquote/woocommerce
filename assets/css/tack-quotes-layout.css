@@ -372,3 +372,65 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
 .tack-quick-order-error {
   font-weight: 600;
 }
+
+/* ── Product Button block grids: the card control follows the card's button ── */
+/* The wrapper wears the Product Button block's own alignment and font-size classes
+ * (Tack_Widget::card_wrapper_class()); this mirrors WooCommerce's own layout rules for
+ * that block (product-button.css: a centred column, align-left / align-right). */
+.wp-block-button.tack-card-quote {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-block-start: var(--wp--preset--spacing--20, 0.5em);
+}
+
+.wp-block-button.tack-card-quote.align-left {
+  align-items: flex-start;
+}
+
+.wp-block-button.tack-card-quote.align-right {
+  align-items: flex-end;
+}
+
+.wp-block-button.tack-card-quote > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  height: auto;
+}
+
+/* ── Quick order on block themes: inputs take the theme's form styling ───────── */
+/* Zero specificity (:where), so any theme or WooCommerce rule for inputs wins; this
+ * only replaces the browser's small default inputs that block themes leave unstyled. */
+:where(.tack-quick-order) :where(input.input-text, textarea.input-text) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.5em;
+  padding: var(--wp--preset--spacing--20, 0.5em) var(--wp--preset--spacing--30, 0.75em);
+  font: inherit;
+  color: inherit;
+  background-color: var(--wp--preset--color--base, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: var(--wp--custom--form--border-radius, 0);
+}
+
+/* On a narrow screen WooCommerce's responsive tables float each cell's label
+ * (`td::before { content: attr(data-title); float: … }`): a cell with no value then
+ * collapses and the next row's label rides up over it. The cell contains its float,
+ * and an empty one shows a dash. */
+@media (max-width: 768px) {
+  .tack-quick-order-table td {
+    overflow: hidden;
+  }
+}
+
+.tack-quick-order-table td:empty::after {
+  content: "\2013";
+}
+
+/* ── Storefront's handheld footer bar (fixed, below 768px) ───────────────────── */
+/* Storefront fixes a bar of links to the bottom of small screens (woocommerce.scss,
+ * `.storefront-handheld-footer-bar`, links ms(7) = 4.236em tall, hidden from 768px):
+ * the launcher sits above it rather than over its cart link. */
+@media (max-width: 767px) {
+  body:has(.storefront-handheld-footer-bar) .tack-quote-list-widget {
+    inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + var(--tackquote-bottom-bar-height, 4.236em) + env(safe-area-inset-bottom, 0px));
+  }
+}

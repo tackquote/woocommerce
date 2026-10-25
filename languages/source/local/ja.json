@@ -148,6 +148,7 @@
   "woo.quick_order.sku_row": "SKU（{row}行目）",
   "woo.quick_order.too_many": "一度に入力できる商品は{max}件までです。",
   "woo.quick_order.view_cart": "カートを表示",
+  "woo.quote.request_failed": "現在、見積り依頼を送信できませんでした。数分後にもう一度お試しください。",
   "woo.quote_form.changed": "このフォームは更新されました。回答を確認して、もう一度送信してください。",
   "woo.quote_form.field_files_max": "{label}：添付できるファイルは{max}件までです。",
   "woo.visibility.invalid_id": "商品 ID が無効です。",

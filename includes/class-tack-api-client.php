@@ -505,6 +505,24 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * Why the last ping for the saved key failed, from the cache: STATE_REJECTED (401 or
+	 * 403), STATE_FAILED (anything else), or '' when the last ping passed or there is no
+	 * fresh answer. No ping is made.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return string
+	 */
+	public function last_ping_failure() {
+		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
+		if ( is_array( $cached ) && isset( $cached['key'], $cached['until'], $cached['failed'] )
+			&& $cached['key'] === $this->key_fingerprint() && (int) $cached['until'] > time() ) {
+			return (string) $cached['failed'];
+		}
+		return '';
+	}
+
+	/**
 	 * The cached capability list, or null when there is no fresh one (no ping is made).
 	 *
 	 * @since 1.12.0

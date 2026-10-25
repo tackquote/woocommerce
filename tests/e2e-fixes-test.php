@@ -50,9 +50,9 @@ foreach ( array( $e2e_parent, $e2e_s, $e2e_m, $e2e_l ) as $e2e_p ) {
 check(
 	'D4: variation_lines() maps each variation to its OWN SKU and price (null when unpriced)',
 	array(
-		'204' => array( 's' => 'E2E-B-S', 'p' => 10.0 ),
-		'205' => array( 's' => 'E2E-B-M', 'p' => 12.0 ),
-		'206' => array( 's' => 'E2E-B-L', 'p' => null ),
+		'204' => array( 's' => 'E2E-B-S', 'p' => 10.0, 'l' => Tack_Block_Product::variation_label( $e2e_s ) ),
+		'205' => array( 's' => 'E2E-B-M', 'p' => 12.0, 'l' => Tack_Block_Product::variation_label( $e2e_m ) ),
+		'206' => array( 's' => 'E2E-B-L', 'p' => null, 'l' => Tack_Block_Product::variation_label( $e2e_l ) ),
 	) === Tack_Block_Product::variation_lines( $e2e_parent ),
 	var_export( Tack_Block_Product::variation_lines( $e2e_parent ), true )
 );

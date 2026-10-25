@@ -2189,8 +2189,26 @@ class Tack_Settings {
 				'message'    => '',
 			);
 		}
+		// TackQuote already refused this key and the store is stood down: say so, whatever an
+		// older test said.
+		if ( class_exists( 'Tack_Standing' ) && Tack_Standing::is_stood_down() ) {
+			return array(
+				'state'      => 'rejected',
+				'checked_at' => 0,
+				'message'    => __( 'TackQuote no longer accepts this store\'s API key. Connect again.', 'tackquote' ),
+			);
+		}
 		$check = get_transient( self::CONNECTION_CHECK );
 		if ( ! is_array( $check ) || ( $check['key'] ?? '' ) !== self::key_fingerprint( $key ) ) {
+			// Not tested by an administrator, but the storefront already saw TackQuote refuse it.
+			$failure = class_exists( 'Tack_Widget' ) ? Tack_Widget::last_request_failure() : null;
+			if ( null !== $failure && in_array( (int) $failure['status'], array( 401, 403 ), true ) ) {
+				return array(
+					'state'      => 'rejected',
+					'checked_at' => (int) $failure['at'],
+					'message'    => (string) $failure['message'],
+				);
+			}
 			return array(
 				'state'      => 'untested',
 				'checked_at' => 0,

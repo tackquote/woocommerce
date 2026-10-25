@@ -28,7 +28,14 @@
 	// The slot's camelCase cart items as the lines tack-quotes.js reads (`data-lines`).
 	function linesOf( cart ) {
 		var items = cart && Array.isArray( cart.cartItems ) ? cart.cartItems : [];
+		// The parent and variation ids come from the plugin's Store API data on each item
+		// (TackWithOptions.cartLine, tack-with-options.js): the Store API itself names a
+		// variation only by its own id.
+		var toLine = window.TackWithOptions && window.TackWithOptions.cartLine;
 		return items.map( function ( it ) {
+			if ( toLine ) {
+				return toLine( it );
+			}
 			var minor = it.prices ? Number( it.prices.currency_minor_unit ) : NaN;
 			var raw = it.prices ? Number( it.prices.price ) : NaN;
 			return {
