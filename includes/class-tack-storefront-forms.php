@@ -2366,9 +2366,12 @@ class Tack_Storefront_Forms {
 	}
 
 	/**
-	 * Allow exactly the markup the forms are built from.
-	 *
-	 * `wp_kses_post()` strips form controls, so the forms carry their own list.
+	 * Allow exactly the markup the application forms and the My Account views are built
+	 * from: form controls (which `wp_kses_post()` strips), notices, and the net-terms
+	 * standing summary, whose amounts are wc_price() markup (`<bdi>` and, in WooCommerce
+	 * 11.2, a currency symbol `<span … translate="no" dir="auto">`). Both
+	 * render_net_terms_form() and the tab that prints it filter through this list, so
+	 * anything missing here is dropped from the page.
 	 *
 	 * @return array
 	 */
@@ -2454,7 +2457,10 @@ class Tack_Storefront_Forms {
 			'span'     => $common + array(
 				'aria-hidden' => true,
 				'hidden'      => true,
+				'translate'   => true,
+				'dir'         => true,
 			),
+			'bdi'      => array(),
 			'a'        => $common + array( 'href' => true ),
 			'h2'       => $common,
 			'h3'       => $common,
@@ -2467,8 +2473,9 @@ class Tack_Storefront_Forms {
 	/**
 	 * The markup of one net-terms summary line: text escaped with esc_html() and an
 	 * amount from wc_price() (`<span class="woocommerce-Price-amount amount"><bdi>`, and
-	 * in WooCommerce 11.2 a currency symbol `<span … translate="no" dir="auto">`).
-	 * wp_kses_post() would drop the `<bdi>`, which WordPress does not list.
+	 * in WooCommerce 11.2 a currency symbol `<span … translate="no" dir="auto">`), for
+	 * the template that prints one line. wp_kses_post() would drop the `<bdi>`, which
+	 * WordPress does not list; allowed_html() carries the same entries for the outer filter.
 	 *
 	 * @since 1.12.0
 	 *

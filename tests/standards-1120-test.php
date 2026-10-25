@@ -123,6 +123,29 @@ $tack_std_price = '<span class="woocommerce-Price-amount amount"><bdi><span clas
 $tack_std_out   = tack_std_outside_allowlist( 'Credit limit: ' . $tack_std_price, Tack_Storefront_Forms::price_line_allowed_html() );
 check( 'net-terms summary: wc_price() markup (span + bdi) is on price_line_allowed_html()', array() === $tack_std_out, implode( ', ', $tack_std_out ) );
 
+// The net-terms standing view (render_net_terms_form() and the tab that prints it) is
+// filtered through allowed_html(), so wc_price()'s markup must be on that list too.
+$tack_std_out = tack_std_outside_allowlist( $tack_std_price, Tack_Storefront_Forms::allowed_html() );
+check( 'net-terms standing: wc_price() markup (span translate/dir + bdi) is on allowed_html() as well', array() === $tack_std_out, implode( ', ', $tack_std_out ) );
+if ( function_exists( 'tack_tabs_render_net_terms' ) && function_exists( 'tack_tabs_standing' ) ) {
+	// The account-tabs suite's own preconditions: a key, a signed-in customer whose email
+	// is confirmed (an unconfirmed one gets the form, not the standing).
+	tack_test_reset_user_meta();
+	tack_test_set_option( 'tack_quotes_api_key', 'tk_test_key' );
+	tack_test_set_logged_in( true, 'buyer@trade-customer.test' );
+	$tack_std_standing         = new ReflectionMethod( 'Tack_Storefront_Forms', 'net_terms_standing_html' );
+	$tack_std_standing->setAccessible( true );
+	Tack_Net_Terms_Standing::reset_request_cache();
+	tack_test_reset_transients();
+	$tack_std_raw = $tack_std_standing->invoke( new Tack_Storefront_Forms( new Tack_Test_Forms_Client( array( 'storefront/v1/net-terms' => tack_tabs_standing() ) ) ) );
+	$tack_std_out = tack_std_outside_allowlist( $tack_std_raw, Tack_Storefront_Forms::allowed_html() );
+	check( 'net-terms standing: the summary as built (before any filtering) is entirely on allowed_html()', false !== strpos( $tack_std_raw, 'tackquote-net-terms-credit-limit' ) && array() === $tack_std_out, implode( ', ', $tack_std_out ) . ' :: ' . $tack_std_raw );
+	list( $tack_std_tab ) = tack_tabs_render_net_terms( tack_tabs_standing() );
+	check( 'net-terms standing: the rendered tab keeps every amount', 2 <= substr_count( $tack_std_tab, 'class="amount"' ), $tack_std_tab );
+} else {
+	check( 'net-terms standing: fixtures from account-tabs-test.php are present', false );
+}
+
 if ( isset( $simple, $variable ) ) {
 	$tack_std_widget = new Tack_Widget();
 	$tack_std_card   = new ReflectionMethod( 'Tack_Widget', 'card_button_html' );
@@ -172,3 +195,63 @@ if ( class_exists( 'Tack_Test_Embed_Admin' ) ) {
 } else {
 	check( 'claim: fixtures from embed-admin-test.php are present', false );
 }
+
+// ── readme.txt: the wordpress.org listing must not cut the disclosures off ──
+// Plugin Check's readme parser (includes/Lib/Readme/Parser.php, Plugin Check 2.1.0)
+// appends every section it does not know (External services, Privacy) to Description,
+// each behind an <h3> title, and trims the result once its whitespace-split pieces
+// reach 2 x 2500. Replicated here; it agreed with `wp plugin check` on both sides of
+// the line (trimmed at bfd9d72, clean at 1c3eeac).
+
+/**
+ * Whitespace-split pieces of the Description as the readme parser assembles it.
+ *
+ * @param string $readme readme.txt contents.
+ * @return int
+ */
+function tack_std_readme_description_pieces( $readme ) {
+	$lines    = explode( "\n", str_replace( "\r", '', $readme ) );
+	$expected = array( 'description', 'installation', 'faq', 'screenshots', 'changelog', 'upgrade_notice', 'other_notes' );
+	$alias    = array(
+		'frequently_asked_questions' => 'faq',
+		'change_log'                 => 'changelog',
+		'screenshot'                 => 'screenshots',
+	);
+	while ( $lines && ( 0 !== strpos( trim( $lines[0] ), '== ' ) || 0 === strpos( trim( $lines[0] ), '=== ' ) ) ) {
+		array_shift( $lines );
+	}
+	$sections = array_fill_keys( $expected, '' );
+	$current  = '';
+	$name     = '';
+	foreach ( $lines as $line ) {
+		$t = trim( $line );
+		if ( '' === $t ) {
+			$current .= "\n";
+			continue;
+		}
+		if ( '=' === $t[0] && isset( $t[1] ) && '=' === $t[1] ) {
+			if ( '' !== $name ) {
+				$sections[ $name ] .= trim( $current );
+			}
+			$current = '';
+			$title   = trim( $line, "#= \t" );
+			$name    = strtolower( str_replace( ' ', '_', $title ) );
+			$name    = $alias[ $name ] ?? $name;
+			if ( ! in_array( $name, $expected, true ) ) {
+				$current .= '<h3>' . $title . '</h3>';
+				$name     = 'other_notes';
+			}
+			continue;
+		}
+		$current .= $line . "\n";
+	}
+	if ( '' !== $name ) {
+		$sections[ $name ] .= trim( $current );
+	}
+	$description = $sections['description'] . ( '' !== $sections['other_notes'] ? "\n" . $sections['other_notes'] : '' );
+	return count( preg_split( '/(\s+)/u', $description, -1, PREG_SPLIT_DELIM_CAPTURE ) );
+}
+
+$tack_std_pieces = tack_std_readme_description_pieces( (string) file_get_contents( TACK_QUOTES_DIR . 'readme.txt' ) );
+check( 'readme: Description + External services + Privacy fit the listing (' . $tack_std_pieces . ' of 5000 pieces), so wordpress.org shows every disclosure', $tack_std_pieces < 5000 );
+check( 'readme: the budget check counts something real (positive control: 2,600 more words go over)', tack_std_readme_description_pieces( (string) file_get_contents( TACK_QUOTES_DIR . 'readme.txt' ) . "\n== Extra ==\n" . str_repeat( 'word ', 2600 ) ) >= 5000 );

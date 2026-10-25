@@ -227,7 +227,7 @@ class Tack_Rest_Keys {
 		if ( ! Tack_Connect::can_connect() ) {
 			wp_die( esc_html__( 'You do not have permission to change how this store connects to TackQuote.', 'tackquote' ), '', array( 'response' => 403 ) );
 		}
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a redirect from WooCommerce's own consent screen cannot carry a nonce; nothing here changes state.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a redirect from WooCommerce's own consent screen cannot carry a nonce. Behind can_connect() above, and all it changes is a cache: the cached sync status (kept at most five minutes) is cleared and re-read, and this admin's one-time notice is set.
 		$success = isset( $_GET['success'] ) && '1' === sanitize_key( wp_unslash( $_GET['success'] ) );
 		$this->finish( $success );
 		$this->redirect( Tack_Settings::tab_url( 'connection' ) );
