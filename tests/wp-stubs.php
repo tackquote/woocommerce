@@ -387,6 +387,9 @@ if ( ! class_exists( 'Tack_Stub_WC' ) ) {
 		/** @var object|null */
 		public $session;
 
+		/** @var object|null */
+		public $countries;
+
 		/** @return Tack_Stub_Payment_Gateways|null */
 		public function payment_gateways() {
 			return null === $GLOBALS['TACK_GATEWAYS'] ? null : new Tack_Stub_Payment_Gateways();
@@ -500,6 +503,10 @@ if ( ! function_exists( 'WC' ) ) {
 		// W1-forms: the customer and session the tax-exemption tests read.
 		$wc->customer = isset( $GLOBALS['TACK_WC_CUSTOMER'] ) ? $GLOBALS['TACK_WC_CUSTOMER'] : null;
 		$wc->session  = isset( $GLOBALS['TACK_WC_SESSION'] ) ? $GLOBALS['TACK_WC_SESSION'] : null;
+		// 1.12.0 store profile: the store's base address.
+		if ( isset( $GLOBALS['TACK_WC_COUNTRIES'] ) ) {
+			$wc->countries = $GLOBALS['TACK_WC_COUNTRIES'];
+		}
 		return $wc;
 	}
 }

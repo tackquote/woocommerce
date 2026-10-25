@@ -64,7 +64,58 @@ class Tack_Api_Client {
 		if ( '' === $key ) {
 			return new WP_Error( 'tack_no_key', __( 'No TackQuote API key configured.', 'tackquote' ) );
 		}
+		// 1.12.0: the store's own facts ride on the ping, only to a server whose last
+		// passing ping listed `store_profile` (read from the cache: no extra request).
+		if ( self::PING_PATH === $path ) {
+			$caps = $this->cached_capabilities();
+			if ( is_array( $caps ) && in_array( 'store_profile', $caps, true ) ) {
+				$headers = array_merge( (array) $headers, array( 'X-TackQuote-Store-Profile' => self::store_profile_header() ) );
+			}
+		}
 		return $this->send( $method, $path, $body, $timeout, $headers, $key );
+	}
+
+	/** The authenticated ping route. */
+	const PING_PATH = '/integrations/woocommerce/ping';
+
+	/**
+	 * The store's own facts for TackQuote (`store_profile`, 1.12.0): the site name and
+	 * address, the WordPress time zone, the WooCommerce currency and the store's base
+	 * address (WooCommerce > Settings > General). TackQuote keeps them on this store's
+	 * connection and fills the workspace's time zone only when it has none. Public
+	 * settings only; no customer data.
+	 *
+	 * `wp_timezone_string()` answers a city zone (`America/Chicago`) or, on a site set
+	 * to a manual offset, `+05:30`; TackQuote ignores the offset form. Sent as base64url
+	 * JSON so the header stays one ASCII token whatever the store's name is.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return string
+	 */
+	public static function store_profile_header() {
+		$profile = array(
+			'name'     => (string) get_bloginfo( 'name' ),
+			'url'      => (string) home_url(),
+			'timezone' => (string) wp_timezone_string(),
+		);
+		if ( function_exists( 'get_woocommerce_currency' ) ) {
+			$profile['currency'] = (string) get_woocommerce_currency();
+		}
+		if ( function_exists( 'WC' ) && WC() && isset( WC()->countries ) && is_object( WC()->countries ) ) {
+			$countries          = WC()->countries;
+			$profile['address'] = array(
+				'address1' => (string) $countries->get_base_address(),
+				'address2' => (string) $countries->get_base_address_2(),
+				'city'     => (string) $countries->get_base_city(),
+				'state'    => (string) $countries->get_base_state(),
+				'postcode' => (string) $countries->get_base_postcode(),
+				'country'  => (string) $countries->get_base_country(),
+			);
+		}
+		$json = (string) wp_json_encode( $profile );
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- transport encoding of public store settings for one HTTP header, not obfuscation.
+		return rtrim( strtr( base64_encode( $json ), '+/', '-_' ), '=' );
 	}
 
 	/**
