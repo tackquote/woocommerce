@@ -231,9 +231,83 @@ class Tack_Block_Product {
 			$lines[ (string) (int) $child_id ] = array(
 				's' => (string) $variation->get_sku(),
 				'p' => $price,
+				// The variation's label, worded as WooCommerce words it (1.12.0).
+				'l' => self::variation_label( $variation ),
 			);
 		}
 		return $lines;
+	}
+
+	/**
+	 * A variation's attributes as WooCommerce words them for a shopper, for example
+	 * "Large, Blue": attribute term names (not slugs), comma separated, through
+	 * `wc_get_formatted_variation( $variation, true, false )`. One formatter for every
+	 * place a quote line names a variation (product page, quick order, cart), so the same
+	 * variation reads the same everywhere. '' when there is none.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object $variation The variation.
+	 * @return string
+	 */
+	public static function variation_label( $variation ) {
+		if ( ! function_exists( 'wc_get_formatted_variation' ) || ! is_object( $variation ) ) {
+			return '';
+		}
+		$label = (string) wc_get_formatted_variation( $variation, true, false );
+		return trim( html_entity_decode( wp_strip_all_tags( $label ), ENT_QUOTES, 'UTF-8' ) );
+	}
+
+	/**
+	 * The name of a quote line for a variation: "Parent - Large, Blue". The variation's
+	 * own name when its parent or label is unknown.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object|null $parent_product The parent product.
+	 * @param WC_Product|object      $variation      The variation.
+	 * @return string
+	 */
+	public static function line_name( $parent_product, $variation ) {
+		$label = self::variation_label( $variation );
+		if ( is_object( $parent_product ) && method_exists( $parent_product, 'get_name' ) && '' !== $label ) {
+			return (string) $parent_product->get_name() . ' - ' . $label;
+		}
+		return is_object( $variation ) && method_exists( $variation, 'get_name' ) ? (string) $variation->get_name() : '';
+	}
+
+	/**
+	 * The quote-line name of a variation cart line: "Parent - Large, Blue".
+	 *
+	 * The label comes from the CART LINE's own attributes when it has them
+	 * (`$cart_item['variation']`), so a value the shopper chose for an "Any …" attribute
+	 * (which the variation itself does not store) is kept; else from the variation.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param array             $cart_item WooCommerce cart item.
+	 * @param WC_Product|object $variation The line's variation (`$cart_item['data']`).
+	 * @return string
+	 */
+	public static function cart_line_name( array $cart_item, $variation ) {
+		$parent_id = is_object( $variation ) && method_exists( $variation, 'get_parent_id' ) ? (int) $variation->get_parent_id() : 0;
+		$parent    = $parent_id > 0 && function_exists( 'wc_get_product' ) ? wc_get_product( $parent_id ) : null;
+		$chosen    = array();
+		if ( isset( $cart_item['variation'] ) && is_array( $cart_item['variation'] ) ) {
+			$chosen = array_filter(
+				$cart_item['variation'],
+				static function ( $value ) {
+					return '' !== (string) $value;
+				}
+			);
+		}
+		if ( ! empty( $chosen ) && function_exists( 'wc_get_formatted_variation' ) && is_object( $parent ) && method_exists( $parent, 'get_name' ) ) {
+			$label = trim( html_entity_decode( wp_strip_all_tags( (string) wc_get_formatted_variation( $chosen, true, false ) ), ENT_QUOTES, 'UTF-8' ) );
+			if ( '' !== $label ) {
+				return (string) $parent->get_name() . ' - ' . $label;
+			}
+		}
+		return self::line_name( $parent, $variation );
 	}
 
 	/**

@@ -319,10 +319,31 @@ class Tack_Embed_Admin {
 			return;
 		}
 		if ( ! in_array( self::SERVER_CAPABILITY, $this->client()->server_capabilities(), true ) ) {
-			self::notice(
-				'warning',
-				__( 'Your TackQuote server does not offer the dashboard inside WooCommerce yet. Open TackQuote at app.tackquote.com instead.', 'tackquote' )
-			);
+			// No capability list can mean a refused key or an unreachable server, not an
+			// older server: say which, from the ping that just failed.
+			$failure = $this->client()->last_ping_failure();
+			if ( Tack_Api_Client::STATE_REJECTED === $failure ) {
+				self::notice(
+					'error',
+					__( 'TackQuote refused this store’s API key, so the dashboard cannot open here. Connect the store again.', 'tackquote' ),
+					$settings_url,
+					__( 'Reconnect to TackQuote', 'tackquote' )
+				);
+			} elseif ( Tack_Api_Client::STATE_FAILED === $failure ) {
+				self::notice(
+					'warning',
+					__( 'TackQuote could not be reached just now. Try again in a few minutes, or open TackQuote in a new tab.', 'tackquote' ),
+					'https://' . self::DEFAULT_APP_HOST . '/',
+					self::DEFAULT_APP_HOST
+				);
+			} else {
+				self::notice(
+					'warning',
+					__( 'Your TackQuote server does not offer the dashboard inside WooCommerce yet. Open TackQuote instead:', 'tackquote' ),
+					'https://' . self::DEFAULT_APP_HOST . '/',
+					self::DEFAULT_APP_HOST
+				);
+			}
 			echo '</div>';
 			return;
 		}

@@ -1196,9 +1196,40 @@ class Tack_Widget {
 		}
 		$id                       = (int) $product->get_id();
 		$this->block_cards[ $id ] = ( isset( $this->block_cards[ $id ] ) ? $this->block_cards[ $id ] : 0 ) + 1;
-		// Beside the block, as the archive hook prints it: the card's own sibling, so
-		// tack-quotes-layout.css's `.wc-block-product > .tack-card-quote-btn` rules apply.
-		return (string) $block_content . $html;
+		// In a wrapper that wears the Product Button block's own alignment and font-size
+		// classes, so the control is aligned and sized like the card's Add to cart,
+		// whatever the theme or the block settings chose (no size is set here).
+		$wrapper = self::card_wrapper_class( (string) $block_content );
+		// The block puts its preset font-size class on the button too (a theme's button
+		// element style would otherwise win over the inherited size): so does the control.
+		if ( preg_match_all( '/\bhas-[a-z0-9-]+-font-size\b/', $wrapper, $sizes ) > 0 ) {
+			// $html is this class's own markup, whose first attribute is `class="…"`.
+			$html = preg_replace( '/class="/', 'class="' . esc_attr( implode( ' ', $sizes[0] ) ) . ' ', $html, 1 );
+		}
+		return (string) $block_content . '<div class="' . esc_attr( $wrapper ) . '">' . $html . '</div>';
+	}
+
+	/**
+	 * Classes for the card control's wrapper: `wp-block-button tack-card-quote`, plus the
+	 * Product Button block's own layout and typography classes (alignment, text
+	 * alignment, preset font size, block font size) read from its rendered wrapper.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param string $block_content The rendered Product Button block.
+	 * @return string
+	 */
+	public static function card_wrapper_class( $block_content ) {
+		$classes = array( 'wp-block-button', 'tack-card-quote' );
+		// The class attribute of the block's first tag (its wrapper).
+		if ( 1 === preg_match( '/^\s*<[a-z][a-z0-9]*\b[^>]*?\sclass="([^"]*)"/i', $block_content, $first ) ) {
+			foreach ( preg_split( '/\s+/', html_entity_decode( $first[1], ENT_QUOTES, 'UTF-8' ) ) as $class ) {
+				if ( 1 === preg_match( '/^(?:align(?:left|center|right|wide|full)|align-(?:left|center|right)|has-text-align-(?:left|center|right)|has-[a-z0-9-]+-font-size|has-custom-font-size)$/', $class ) ) {
+					$classes[] = $class;
+				}
+			}
+		}
+		return implode( ' ', array_unique( $classes ) );
 	}
 
 	/**
@@ -1320,7 +1351,9 @@ class Tack_Widget {
 				'variation_id' => isset( $item['variation_id'] ) ? (int) $item['variation_id'] : 0,
 				'quantity'     => isset( $item['quantity'] ) ? max( 1, (int) $item['quantity'] ) : 1,
 				'sku'          => method_exists( $data, 'get_sku' ) ? (string) $data->get_sku() : '',
-				'name'         => method_exists( $data, 'get_name' ) ? (string) $data->get_name() : '',
+				'name'         => ! empty( $item['variation_id'] )
+					? Tack_Block_Product::cart_line_name( $item, $data )
+					: ( method_exists( $data, 'get_name' ) ? (string) $data->get_name() : '' ),
 				'price'        => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $data ) : 0.0,
 			);
 		}
@@ -1796,9 +1829,13 @@ class Tack_Widget {
 				// an older server now. Ask it again next time instead of failing every request.
 				$client->forget_capabilities();
 			}
-			wp_send_json_error( array( 'message' => $result->get_error_message() ), 502 );
+			// The shopper gets a calm message; the reason goes to the shop's administrators.
+			self::record_request_failure( $result );
+			wp_send_json_error( array( 'message' => self::shopper_error( $result ) ), 502 );
 		}
 
+		// TackQuote took this request: an older failure no longer describes the store.
+		self::clear_request_failure();
 		wp_send_json_success(
 			array(
 				'quoteId'          => isset( $result['id'] ) ? $result['id'] : null,
@@ -1859,6 +1896,137 @@ class Tack_Widget {
 		}
 		$message = (string) $error->get_error_message();
 		return false !== strpos( $message, 'uploadIds' ) || false !== strpos( $message, 'uploadToken' );
+	}
+
+	/** Transient: the last quote request TackQuote refused for a reason the shopper cannot fix. */
+	const FAILURE_TRANSIENT = 'tack_quotes_storefront_failure';
+
+	/**
+	 * What a shopper is told when TackQuote did not take their quote request.
+	 *
+	 * Only TackQuote's own answer about the REQUEST (a 400 or 422 it explains, such as
+	 * a company detail the seller requires) is passed on, and a 429 as "wait". Anything
+	 * about the store's connection (an invalid or revoked API key, a missing scope, an
+	 * outage or a proxy's page) is not the shopper's to fix and is never shown to them:
+	 * they get a calm generic sentence and the administrator gets the reason
+	 * (record_request_failure()).
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 * @return string
+	 */
+	public static function shopper_error( $error ) {
+		$data   = $error->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+		$own    = is_array( $data ) && ! empty( $data['json'] ) && isset( $data['statusCode'] ) && (int) $data['statusCode'] === $status;
+		if ( 429 === $status ) {
+			return __( 'Too many quote requests from this connection. Please wait a few minutes and try again.', 'tackquote' );
+		}
+		// A refusal of a field the plugin itself sent (an older server, a form that changed)
+		// is never the shopper's to fix, and neither is a validator's wording about the
+		// request's shape ("property answers should not exist", "must be a string",
+		// "must contain at least 1 elements", "must match /…/", "must not be empty").
+		$ours = self::refused_form_fields( $error ) || self::refused_attachment_fields( $error ) || self::refused_target_price( $error );
+		if ( ! $ours && $own && in_array( $status, array( 400, 422 ), true ) ) {
+			$message = trim( wp_strip_all_tags( (string) $error->get_error_message() ) );
+			if ( '' !== $message && 1 !== preg_match( '/^property |\bshould not\b|\bmust (?:be|contain|match|not)\b/i', $message ) ) {
+				return function_exists( 'mb_substr' ) ? mb_substr( $message, 0, 300 ) : substr( $message, 0, 300 );
+			}
+		}
+		return __( 'We could not send your quote request right now. Please try again in a few minutes.', 'tackquote' );
+	}
+
+	/**
+	 * Remember, for the administrators, why TackQuote did not take a quote request, and
+	 * log it (WooCommerce > Status > Logs, source `tackquote`). Only failures that are
+	 * the store's to fix are kept: a 400/422 about the request itself and a 429 are the
+	 * shopper's and are not.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 */
+	public static function record_request_failure( $error ) {
+		$data   = $error->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+		if ( in_array( $status, array( 400, 409, 422, 429 ), true ) ) {
+			return;
+		}
+		$code    = is_array( $data ) && isset( $data['code'] ) ? sanitize_key( (string) $data['code'] ) : '';
+		$message = trim( wp_strip_all_tags( (string) $error->get_error_message() ) );
+		set_transient(
+			self::FAILURE_TRANSIENT,
+			array(
+				'key'     => substr( hash( 'sha256', (string) get_option( 'tack_quotes_api_key', '' ) ), 0, 16 ),
+				'status'  => $status,
+				'code'    => $code,
+				'message' => function_exists( 'mb_substr' ) ? mb_substr( $message, 0, 200 ) : substr( $message, 0, 200 ),
+				'at'      => time(),
+			),
+			DAY_IN_SECONDS
+		);
+		if ( function_exists( 'wc_get_logger' ) ) {
+			$logger = wc_get_logger();
+			if ( $logger ) {
+				$logger->error( sprintf( 'quote request refused by TackQuote: HTTP %d %s %s', $status, $code, $message ), array( 'source' => 'tackquote' ) );
+			}
+		}
+	}
+
+	/**
+	 * Forget the recorded failure: a quote request or a connection check succeeded.
+	 *
+	 * @since 1.12.0
+	 */
+	public static function clear_request_failure() {
+		delete_transient( self::FAILURE_TRANSIENT );
+	}
+
+	/**
+	 * The last recorded failure for the key saved now, or null.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return array{status:int,code:string,message:string,at:int}|null
+	 */
+	public static function last_request_failure() {
+		$failure = get_transient( self::FAILURE_TRANSIENT );
+		$key     = (string) get_option( 'tack_quotes_api_key', '' );
+		if ( ! is_array( $failure ) || '' === $key || ( $failure['key'] ?? '' ) !== substr( hash( 'sha256', $key ), 0, 16 ) ) {
+			return null;
+		}
+		return $failure;
+	}
+
+	/**
+	 * Admin notice: shoppers' quote requests are failing for a reason the store must fix.
+	 *
+	 * @since 1.12.0
+	 */
+	public static function failure_notice() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$failure = self::last_request_failure();
+		if ( null === $failure ) {
+			return;
+		}
+		$reason = 401 === (int) $failure['status']
+			? __( 'TackQuote refused this store\'s API key.', 'tackquote' )
+			: sprintf(
+				/* translators: 1: HTTP status code (0 when TackQuote could not be reached), 2: TackQuote's message. */
+				__( 'TackQuote answered HTTP %1$d: %2$s', 'tackquote' ),
+				(int) $failure['status'],
+				'' !== $failure['message'] ? $failure['message'] : '-'
+			);
+		printf(
+			'<div class="notice notice-error"><p>%1$s %2$s <a href="%3$s">%4$s</a></p></div>',
+			esc_html__( 'A shopper\'s quote request could not be sent to TackQuote.', 'tackquote' ),
+			esc_html( $reason ),
+			esc_url( Tack_Settings::tab_url( 'connection' ) ),
+			esc_html__( 'Check the connection', 'tackquote' )
+		);
 	}
 
 	/**

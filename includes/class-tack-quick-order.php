@@ -304,7 +304,7 @@ class Tack_Quick_Order {
 		if ( ! self::visible( $item, $parent ) ) {
 			return $base + array( 'status' => 'not_found' );
 		}
-		$name = (string) $item->get_name();
+		$name = null !== $parent ? Tack_Block_Product::line_name( $parent, $item ) : (string) $item->get_name();
 		if ( $item->is_type( 'variable' ) || $item->is_type( 'grouped' ) || $item->is_type( 'external' ) ) {
 			return $base + array(
 				'status' => 'needs_options',

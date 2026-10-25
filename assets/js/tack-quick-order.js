@@ -204,7 +204,12 @@
 					'</a>';
 				// priceHtml is WooCommerce's own price markup, already through wp_kses_post().
 				price = line.priceHtml || '';
-				if ( ! line.purchasable ) {
+				// Once: the store's price HTML already says it for a quote-only product
+				// (the catalogue mode's "Available on quote" label).
+				if (
+					! line.purchasable &&
+					price.indexOf( 'tack-quote-only-cta' ) === -1
+				) {
 					product +=
 						' <span class="tack-quick-order-note">' +
 						escapeHtml( i18n.notPurchasable ) +
@@ -467,6 +472,10 @@
 
 	// Node tests load this file with stand-ins; browsers have no `module`.
 	if ( typeof module === 'object' && module && module.exports ) {
-		module.exports = { parsePasted, collect };
+		module.exports = {
+			parsePasted,
+			collect,
+			renderResults,
+		};
 	}
 } )( jQuery );

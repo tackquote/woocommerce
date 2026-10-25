@@ -2144,24 +2144,9 @@
 							quantity: it.quantity,
 						} );
 					} else if ( id ) {
-						// Added since the page rendered: the id is a product or variation id, which
-						// the server resolves either way; the display price is the Store API's, in
-						// the store's cart tax display mode.
-						const minor =
-							it.prices &&
-							Number( it.prices.currency_minor_unit );
-						const raw = it.prices && Number( it.prices.price );
-						lines.push( {
-							product_id: id,
-							variation_id: 0,
-							name: String( it.name || '' ),
-							sku: String( it.sku || '' ),
-							price:
-								isFinite( raw ) && isFinite( minor )
-									? raw / Math.pow( 10, minor )
-									: 0,
-							quantity: it.quantity,
-						} );
+						// Added since the page rendered: the parent and variation come from the
+						// plugin's own Store API data on the item (TackWithOptions.cartLine).
+						lines.push( window.TackWithOptions.cartLine( it ) );
 					}
 				} );
 				finish( lines );

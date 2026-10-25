@@ -35,7 +35,15 @@
 	function linesOf( cart ) {
 		const items =
 			cart && Array.isArray( cart.cartItems ) ? cart.cartItems : [];
+		// The parent and variation ids come from the plugin's Store API data on each item
+		// (TackWithOptions.cartLine, tack-with-options.js): the Store API itself names a
+		// variation only by its own id.
+		const toLine =
+			window.TackWithOptions && window.TackWithOptions.cartLine;
 		return items.map( function ( it ) {
+			if ( toLine ) {
+				return toLine( it );
+			}
 			const minor = it.prices
 				? Number( it.prices.currency_minor_unit )
 				: NaN;

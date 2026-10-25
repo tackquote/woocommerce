@@ -287,14 +287,47 @@ tack_rk_ping_sequence( array( $rk_refused ) );
 ( new Tack_Api_Client() )->test_connection();
 check( 'admin connection test: api_key_invalid confirmed: stood down', Tack_Standing::is_stood_down() );
 
-// An older server (no `standing` capability) never causes it.
+// A key that was NEVER answered by a `standing` server (refused from the first ping):
+// TackQuote sends api_key_invalid with every refused key, so once confirmed it stands
+// the store down too (live QA: a refused key otherwise kept the storefront up forever).
 tack_test_set_option( Tack_Standing::OPTION, array() );
 tack_test_reset_transients();
-tack_rk_ping_sequence( array( $rk_ping_old ) );
-( new Tack_Api_Client() )->server_capabilities( true );
 tack_rk_ping_sequence( array( $rk_refused ) );
 Tack_Standing::refresh();
-check( 'a server without `standing`: no stand-down', ! Tack_Standing::is_stood_down() );
+check( 'D3: a key refused from the first ping, confirmed: stood down', Tack_Standing::is_stood_down() );
+tack_test_set_option( Tack_Standing::OPTION, array() );
+tack_rk_ping_sequence( array( $rk_refused ) );
+( new Tack_Api_Client() )->server_capabilities( true );
+check( 'D3: ... but never from a page view (no observe)', ! Tack_Standing::is_stood_down() );
+
+// D3: every refresh outcome records its time, so the ten-minute floor holds.
+foreach (
+	array(
+		'an unconfirmed refusal' => array( $rk_refused, $rk_ping_old ),
+		'a 401 without the code' => array( $rk_signin ),
+		'a network error'        => 'TRANSPORT',
+		'a 503'                  => array( array( 503, array( 'statusCode' => 503, 'message' => 'down' ) ) ),
+	) as $label => $answers
+) {
+	tack_test_set_option( Tack_Standing::OPTION, array() );
+	if ( 'TRANSPORT' === $answers ) {
+		$GLOBALS['TACK_HTTP_RESPONDER'] = function () {
+			return new WP_Error( 'http_request_failed', 'cURL error 28: timed out' );
+		};
+	} else {
+		tack_rk_ping_sequence( $answers );
+	}
+	Tack_Standing::refresh();
+	$rec = get_option( Tack_Standing::OPTION );
+	check( "D3: $label records the check time", is_array( $rec ) && (int) ( $rec['checked'] ?? 0 ) >= time() - 5 );
+	$GLOBALS['TACK_CRON'] = array();
+	Tack_Standing::maybe_schedule_refresh();
+	check( "D3: ... so the next page view schedules no refresh", empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] ) );
+}
+tack_test_set_option( Tack_Standing::OPTION, array() );
+$GLOBALS['TACK_CRON'] = array();
+Tack_Standing::maybe_schedule_refresh();
+check( 'D3: never checked -> one refresh is scheduled (positive control)', ! empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] ) );
 
 // Make it stood down again for the storefront checks below.
 tack_rk_ping_sequence( array( $rk_ping_new ) );

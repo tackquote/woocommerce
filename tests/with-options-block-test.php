@@ -30,7 +30,18 @@ if ( ! function_exists( 'doing_action' ) ) {
 if ( ! function_exists( 'wc_get_formatted_variation' ) ) {
 	/** @param object $v Variation. @return string */
 	function wc_get_formatted_variation( $v, $flat = false, $include_names = true, $skip = false ) {
-		return implode( ', ', $v->attrs );
+		// WooCommerce takes a variation, or a cart line's attribute => value array. For the
+		// array it shows a taxonomy attribute's term name (ucfirst of the slug stands in for
+		// it here) and a custom attribute's value exactly as typed, URL-decoded
+		// (wc-product-functions.php, WooCommerce 11.2.1).
+		if ( ! is_array( $v ) ) {
+			return implode( ', ', $v->attrs );
+		}
+		$out = array();
+		foreach ( $v as $key => $value ) {
+			$out[] = 0 === strpos( (string) $key, 'attribute_pa_' ) ? ucfirst( (string) $value ) : rawurldecode( (string) $value );
+		}
+		return implode( ', ', $out );
 	}
 }
 

@@ -107,6 +107,8 @@ class Tack_1120_Product extends Tack_Parity_Product {
 
 /** A variation double (instanceof WC_Product_Variation, defined by standards-audit-test.php). */
 class Tack_1120_Variation extends WC_Product_Variation {
+	/** @var string[] Attribute term names (wc_get_formatted_variation() stub reads them). */
+	public $attrs = array( 'Large', 'Blue' );
 	/** @var string */
 	public $sku = '';
 	/** @var string */

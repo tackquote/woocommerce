@@ -148,6 +148,7 @@
   "woo.quick_order.sku_row": "SKU, regel {row}",
   "woo.quick_order.too_many": "Voer maximaal {max} producten tegelijk in.",
   "woo.quick_order.view_cart": "Bekijk winkelwagen",
+  "woo.quote.request_failed": "Uw offerteaanvraag kon nu niet worden verzonden. Probeer het over een paar minuten opnieuw.",
   "woo.quote_form.changed": "Dit formulier is net bijgewerkt. Controleer uw antwoorden en verstuur het opnieuw.",
   "woo.quote_form.field_files_max": "{label}: voeg maximaal {max} bestanden toe.",
   "woo.visibility.invalid_id": "Ongeldige product-ID.",

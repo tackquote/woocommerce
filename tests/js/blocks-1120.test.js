@@ -231,6 +231,49 @@ check('roleInput: a server key outside the field-key shape never reaches a selec
   assert.ok(sandbox);
 });
 
+// ── D1: a Store API cart item as a quote-list line ──────────────────────────────
+const woModule = { exports: {} };
+vm.runInNewContext(read('tack-with-options.js'), { module: woModule, window: {} });
+const cartLine = (it) => JSON.parse(JSON.stringify(woModule.exports.cartLine(it)));
+check('D1: a variation item with the plugin\'s Store API data -> parent + variation, label kept', () => {
+  assert.deepEqual(
+    cartLine({
+      id: 302,
+      type: 'variation',
+      name: 'Glove',
+      quantity: 2,
+      extensions: { tackquote: { productId: 301, variationId: 302, name: 'Glove - Large, Blue', sku: 'GLOVE-LB', price: 6 } },
+    }),
+    { product_id: 301, variation_id: 302, name: 'Glove - Large, Blue', sku: 'GLOVE-LB', price: 6, quantity: 2 }
+  );
+});
+check('D1: without that data (older page): the item id, and the variation values in the name', () => {
+  assert.deepEqual(
+    cartLine({
+      id: 302,
+      name: 'Glove',
+      sku: 'GLOVE-LB',
+      quantity: 1,
+      prices: { price: '600', currency_minor_unit: 2 },
+      variation: [{ attribute: 'Size', value: 'Large' }, { attribute: 'Colour', value: 'Blue' }],
+    }),
+    { product_id: 302, variation_id: 0, name: 'Glove - Large, Blue', sku: 'GLOVE-LB', price: 6, quantity: 1 }
+  );
+});
+check('D1: the Cart block control and the fixed control use the same mapping', () => {
+  assert.match(flat(read('tack-cart-quote-block.js')), /window\.TackWithOptions&&window\.TackWithOptions\.cartLine/);
+  assert.match(flat(read('tack-quotes.js')), /lines\.push\(window\.TackWithOptions\.cartLine\(it\)\);/);
+});
+check('D10: a product-page variation row takes WooCommerce\'s label when the page sent it', () => {
+  const row = JSON.parse(
+    JSON.stringify(woModule.exports.listRow({ productId: 301, name: 'Glove', sku: 'GLOVE', price: 5 }, 302, 'large / blue', { 302: { s: 'GLOVE-LB', p: 6, l: 'Large, Blue' } }))
+  );
+  assert.equal(row.name, 'Glove - Large, Blue');
+});
+check('D6: a quote-only row says "Available on quote" once (the price HTML already says it)', () => {
+  assert.match(flat(read('tack-quick-order.js')), /!line\.purchasable&&price\.indexOf\('tack-quote-only-cta'\)===-1/);
+});
+
 // ── Quick order: pasted lists ────────────────────────────────────────────────
 const qoModule = { exports: {} };
 const $stub = function () {

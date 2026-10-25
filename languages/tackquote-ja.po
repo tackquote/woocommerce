@@ -948,6 +948,11 @@ msgstr "お客様のアカウントの数量別価格"
 msgid "We could not check these items right now. Please try again."
 msgstr "現在これらの商品を確認できません。もう一度お試しください。"
 
+#. catalogue: woo.quote.request_failed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "We could not send your quote request right now. Please try again in a few minutes."
+msgstr "現在、見積り依頼を送信できませんでした。数分後にもう一度お試しください。"
+
 #. catalogue: woo.modal.website
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Website"

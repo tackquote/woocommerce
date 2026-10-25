@@ -200,6 +200,10 @@ require __DIR__ . '/rest-keys-test.php';
 echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
 require __DIR__ . '/embed-admin-test.php';
 
+// 1.12.0 live QA fixes (D1, D2, D4, D7, D8, D10; D3 is in rest-keys-test.php).
+echo "\n-- 1.12.0 live QA fixes --\n";
+require __DIR__ . '/live-qa-1120-test.php';
+
 // 1.12.0 coding-standards pass: eval-free i18n scan, escaping where markup is echoed,
 // the claim handler's own capability and nonce check. Last: it reuses earlier fixtures.
 echo "\n-- coding-standards pass (escape late, nonce in scope, no eval) --\n";

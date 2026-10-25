@@ -139,7 +139,11 @@ if ( isset( $simple, $variable ) ) {
 // ── "Link my TackQuote account": capability and nonce in the handler itself ─
 if ( class_exists( 'Tack_Test_Embed_Admin' ) ) {
 	$tack_std_claim = function ( $caps, $nonce ) {
-		$GLOBALS['TACK_CAPS']  = $caps;
+		// A signed-in shop manager, set here rather than inherited from an earlier suite.
+		$was                        = array( $GLOBALS['TACK_LOGGED_IN'] ?? false, $GLOBALS['TACK_USER_LOGIN'] ?? null );
+		$GLOBALS['TACK_LOGGED_IN']  = true;
+		$GLOBALS['TACK_USER_LOGIN'] = 'shopmanager';
+		$GLOBALS['TACK_CAPS']       = $caps;
 		$client                = new Tack_Test_Embed_Client();
 		$client->answers['/embed/claim'] = array( 'status' => 'linked' );
 		$admin                 = new Tack_Test_Embed_Admin( $client );
@@ -152,7 +156,9 @@ if ( class_exists( 'Tack_Test_Embed_Admin' ) ) {
 			$died = $e->getMessage();
 		}
 		unset( $_POST['_tqnonce'], $_POST['tq_link_code'] );
-		$GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
+		$GLOBALS['TACK_CAPS']       = array( 'manage_woocommerce' );
+		$GLOBALS['TACK_LOGGED_IN']  = $was[0];
+		$GLOBALS['TACK_USER_LOGIN'] = $was[1];
 		return array( $died, count( $client->calls ) );
 	};
 	list( $tack_std_died, $tack_std_calls ) = $tack_std_claim( array(), wp_create_nonce( Tack_Embed_Admin::CLAIM_ACTION ) );
@@ -162,7 +168,7 @@ if ( class_exists( 'Tack_Test_Embed_Admin' ) ) {
 	list( $tack_std_died, $tack_std_calls ) = $tack_std_claim( array( 'manage_woocommerce' ), '' );
 	check( 'claim: a missing nonce is refused before any API call', false !== strpos( $tack_std_died, 'expired' ) && 0 === $tack_std_calls );
 	list( $tack_std_died, $tack_std_calls ) = $tack_std_claim( array( 'manage_woocommerce' ), wp_create_nonce( Tack_Embed_Admin::CLAIM_ACTION ) );
-	check( 'claim: with the capability and its own nonce the code is sent (positive control)', '' === $tack_std_died && 1 === $tack_std_calls );
+	check( 'claim: with the capability and its own nonce the code is sent (positive control)', '' === $tack_std_died && 1 === $tack_std_calls, 'died: ' . $tack_std_died . ' calls: ' . $tack_std_calls );
 } else {
 	check( 'claim: fixtures from embed-admin-test.php are present', false );
 }
