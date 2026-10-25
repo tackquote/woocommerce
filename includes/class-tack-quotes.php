@@ -34,6 +34,10 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-form.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quick-order.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-standing.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-rest-keys.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-lifecycle.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-update-notice.php';
 
 /**
  * Main plugin class (singleton).
@@ -72,6 +76,27 @@ final class Tack_Quotes {
 	public function init() {
 		$this->settings = new Tack_Settings();
 		$this->settings->init();
+
+		// 1.12.0: catalogue and order sync through WooCommerce's own key approval, the
+		// disconnect stand-down, and (in the GitHub release zip only) WordPress updates
+		// from the GitHub release. The updater file is absent from the WordPress.org build.
+		( new Tack_Rest_Keys() )->init();
+		Tack_Standing::init();
+		$updater = TACK_QUOTES_DIR . 'includes/class-tack-release-updates.php';
+		if ( is_readable( $updater ) ) {
+			require_once $updater;
+			Tack_Release_Updates::init();
+		}
+
+		// Stood down: TackQuote answered that this store's key is revoked or the store is
+		// disconnected (Tack_Standing; never on a network error). The storefront buttons,
+		// quote list, quote page, application forms and accepted-quote checkout links are
+		// hidden until a working key is saved. Store policies the merchant set (quote-only
+		// mode, prices, restrictions) are left exactly as they are.
+		$stood_down = Tack_Standing::is_stood_down();
+		if ( $stood_down ) {
+			self::hide_storefront();
+		}
 
 		// Quote-only (B2B catalog) mode. Registered unconditionally; the class
 		// re-checks whether it applies per request, because the current user is
@@ -152,12 +177,12 @@ final class Tack_Quotes {
 
 		// Accepted quote -> store checkout (`?tackquote_checkout=<token>`). Only for a
 		// connected store: without an API key no such link can exist.
-		if ( Tack_Quote_Checkout::is_enabled() ) {
+		if ( ! $stood_down && Tack_Quote_Checkout::is_enabled() ) {
 			( new Tack_Quote_Checkout() )->init();
 		}
 
 		// Frontend "Request a Quote" widget/button.
-		if ( 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
+		if ( ! $stood_down && 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
 			( new Tack_Widget() )->init();
 		}
 
@@ -193,6 +218,39 @@ final class Tack_Quotes {
 		// The textdomain is registered on `init` by tack_quotes_load_textdomain() in
 		// tackquote.php, not here: this runs on plugins_loaded, which WordPress 6.7+
 		// reports as too early for translation loading.
+	}
+
+	/**
+	 * While stood down (Tack_Standing): the shortcodes render nothing (the quote page's and
+	 * quick order's are registered empty, because the widget that owns them is not loaded, and WordPress would
+	 * otherwise print the bare shortcode), and the Wholesale account and Net terms tabs
+	 * leave the My Account menu.
+	 *
+	 * @since 1.12.0
+	 */
+	public static function hide_storefront() {
+		add_shortcode( 'tackquote_quote_page', '__return_empty_string' );
+		// Quick order boots inside the widget too (1.12.0), so its shortcode is registered
+		// empty the same way. Its block renders nothing unregistered: it saves no markup.
+		add_shortcode( Tack_Quick_Order::SHORTCODE, '__return_empty_string' );
+		add_filter(
+			'pre_do_shortcode_tag',
+			function ( $output, $tag ) {
+				return in_array( $tag, array( 'tackquote_wholesale_application', 'tackquote_net_terms_application' ), true ) ? '' : $output;
+			},
+			10,
+			2
+		);
+		add_filter(
+			'woocommerce_account_menu_items',
+			function ( $items ) {
+				if ( is_array( $items ) ) {
+					unset( $items[ Tack_Storefront_Forms::ENDPOINT_WHOLESALE ], $items[ Tack_Storefront_Forms::ENDPOINT_NET_TERMS ] );
+				}
+				return $items;
+			},
+			99
+		);
 	}
 
 	/**
@@ -651,6 +709,10 @@ final class Tack_Quotes {
 	 * Deactivation: clear scheduled events and the account endpoints' rewrite rules.
 	 */
 	public static function deactivate() {
+		// 1.12.0: tell TackQuote (best effort, short) so it pauses this store's connection;
+		// the next request after reactivation resumes the same connection.
+		Tack_Lifecycle::notify_deactivated();
+		wp_unschedule_hook( Tack_Standing::REFRESH_HOOK );
 		// The order-sync jobs, in Action Scheduler (group `tackquote`) and the WP-Cron
 		// fallback. This used to clear `tack_quotes_retry_sync`, a hook nothing schedules,
 		// and left the real jobs queued.

@@ -191,5 +191,10 @@ require __DIR__ . '/account-tabs-test.php';
 echo "\n-- 1.12.0 storefront (quote form, quick order, block grids, Cart block, net terms) --\n";
 require __DIR__ . '/storefront-1120-test.php';
 
+// 1.12.0 catalogue and order sync (WooCommerce REST keys), disconnect stand-down,
+// deactivation notice, update notice, GitHub-release updater of the zip build.
+echo "\n-- catalogue and order sync, stand-down, lifecycle, updates --\n";
+require __DIR__ . '/rest-keys-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

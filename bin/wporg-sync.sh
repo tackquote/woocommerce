@@ -7,8 +7,10 @@
 #   bin/wporg-sync.sh --self-test
 #
 # It builds tackquote.zip with the normal packaging (scripts/package.sh ->
-# bin/build.sh, staged from git HEAD), so trunk/ is byte-for-byte the shipped
-# zip. Then it mirrors that tree into <wc>/trunk/, copies it to
+# bin/build.sh, staged from git HEAD) for the WordPress.org target
+# (TACKQUOTE_BUILD_TARGET=wporg), so trunk/ is byte-for-byte that zip. Since
+# 1.12.0 it differs from the GitHub release zip in exactly two things: no
+# `Update URI` header and no includes/class-tack-release-updates.php. Then it mirrors that tree into <wc>/trunk/, copies it to
 # <wc>/tags/<version>/, mirrors the listing PNGs from .wordpress-org/ into
 # <wc>/assets/, schedules the svn adds/deletes, sets svn:mime-type on the PNGs
 # and prints the one command the owner runs to publish:
@@ -495,7 +497,8 @@ sync_cmd() { # <wc> <tag> <dry-run 0|1> <force-tag 0|1> <latest-wp>
 	trap "rm -rf '$work'" EXIT
 
 	step "Building $PLUGIN_SLUG.zip (scripts/package.sh)"
-	if ! bash "$ROOT/scripts/package.sh" "$work/out" >"$work/build.log" 2>&1; then
+	# The WordPress.org build: no Update URI header and no GitHub updater (bin/build.sh).
+	if ! TACKQUOTE_BUILD_TARGET=wporg bash "$ROOT/scripts/package.sh" "$work/out" >"$work/build.log" 2>&1; then
 		cat "$work/build.log" >&2
 		die $E_BUILD "scripts/package.sh failed (log above)." "fix the build, commit, and re-run."
 	fi

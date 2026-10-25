@@ -1945,6 +1945,9 @@ class Tack_Settings {
 				$this->action_result = Tack_Connect::take_notice();
 			}
 			$this->render_action_result();
+			// 1.12.0: "Update available", from WordPress's own update check or the newest
+			// release TackQuote names.
+			Tack_Update_Notice::render();
 			$this->render_tabs( $tab );
 
 			if ( self::DEFAULT_TAB === $tab ) {
@@ -1952,6 +1955,8 @@ class Tack_Settings {
 			} else {
 				if ( 'connection' === $tab ) {
 					Tack_Connect::render_card();
+					// 1.12.0: catalogue and order sync (WooCommerce REST keys), when the server offers it.
+					( new Tack_Rest_Keys() )->render_card();
 				}
 				$this->render_tab_form( $tab );
 			}

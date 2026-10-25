@@ -181,6 +181,29 @@ visitor's language only: no customer data.
 
 Quick order (since 1.12.0) sends nothing to TackQuote: SKUs are matched in your own catalogue.
 
+15. **Catalogue and order sync** (unreleased, needs a TackQuote server that offers it) —
+`POST /integrations/woocommerce/rest-keys/authorize` and `GET /integrations/woocommerce/rest-keys/status`.
+Sent when an administrator presses "Allow catalogue and order sync", or right after Connect with
+TackQuote. The first call sends your site's `wp-admin/admin-post.php` address; TackQuote answers
+with WooCommerce's own approval address on your site, and your browser goes there. If you
+approve, **WooCommerce itself** creates a Read/Write REST API key and sends it to TackQuote
+directly (WooCommerce's "Application Authentication Endpoint"); this plugin never sees it. The
+status call sends nothing but the headers above. TackQuote then uses that key to read your
+products, stock and categories, register store webhooks and write orders back; you can revoke it
+under WooCommerce → Settings → Advanced → REST API at any time, and deleting this plugin deletes it.
+
+16. **Plugin deactivated or deleted** (unreleased) — `POST /integrations/woocommerce/plugin-lifecycle`.
+Sent once when the plugin is deactivated or deleted (not when WordPress updates it), so TackQuote
+pauses a connection that runs through the plugin only. Sends `deactivated` or `uninstalled` and the
+headers above.
+
+17. **Update check of the zip from the TackQuote website** (unreleased; not in the WordPress.org
+build) — `GET https://api.github.com/repos/tackquote/woocommerce/releases/latest`, at most every
+twelve hours, by WordPress's own update check. Sends no data about your store beyond what any web
+request carries (the plugin version in the User-Agent). The update itself downloads `tackquote.zip`
+from the TackQuote GitHub release. GitHub privacy statement:
+https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
+
 This plugin sends data to no other external service.
 
 The TackQuote service is provided by TackQuote. By using this plugin you agree to their
@@ -444,6 +467,10 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 * **"Request a quote for your cart" inside the Cart block**, below the totals and above Proceed to checkout, instead of a fixed button at the bottom of the page. On a WooCommerce without that slot the fixed button is still used.
 * **Net terms at a block checkout follow the cart.** The Checkout block now asks again whether net terms can be offered whenever the cart changes (a coupon, a quantity), from the store itself, so the method appears or disappears with the total. Fixed: the method showed an empty label in the Checkout block when its settings held only "Enable"; it now reads "Pay on net terms" (translated) until you set your own title.
 * New storefront text translated in the seven bundled languages (machine-assisted, pending native review).
+* **Catalogue and order sync with one approval.** Stores connected through the plugin (Connect with TackQuote or a pasted key) can now let TackQuote sync the catalogue, stock and categories, receive WooCommerce webhooks for Flows and write orders back, with nothing to copy. Press **Allow catalogue and order sync** on the Connection tab (or approve it right after Connect with TackQuote): WooCommerce's own approval screen opens, and when you approve, WooCommerce creates a Read/Write REST API key and sends it to TackQuote directly. TackQuote checks the key with a live read before using it. Declining changes nothing: quotes, prices, forms and orders keep working through the plugin. Needs https and a TackQuote server that offers it.
+* **Disconnect stand-down.** When TackQuote revokes this store's key (for example when the store is disconnected in TackQuote), the storefront quote buttons, quote list, quote page, application forms and account tabs are hidden, and every admin screen says so, until a working key is saved. Only TackQuote's explicit refusal of the key, answered to the plugin's own connection check and confirmed by a second check, does this; a timeout, an outage, a proxy error or a shopper's sign-in prompt never hides anything. Store policies you set (quote-only mode, prices, restrictions) are left as they are.
+* **Deactivating or deleting the plugin tells TackQuote.** A connection that runs through the plugin only is paused, and activating the plugin again resumes the same connection, so customer links are kept; a connection with catalogue and order sync keeps syncing. Deleting the plugin also deletes the WooCommerce REST API key it approved for TackQuote, but only after TackQuote confirms it no longer uses that key; otherwise the key stays under WooCommerce → Settings → Advanced → REST API for you to revoke.
+* **Update available.** The settings page says when a newer version exists and links to Dashboard → Updates. The zip from the TackQuote website now receives WordPress updates from the TackQuote GitHub release (its header carries `Update URI`); the WordPress.org build keeps updating from WordPress.org.
 
 = 1.11.1 =
 Released 2026-10-18.
