@@ -47,12 +47,18 @@ final class Tack_Cart_Quote_Block implements IntegrationInterface {
 	const SCRIPT_HANDLE = 'tackquote-cart-quote-block';
 
 	/**
-	 * Set when WooCommerce initialised this integration for a Cart block: the footer
-	 * control then stands down on the cart page.
+	 * Set when a Cart block was RENDERED in this request with the integration
+	 * registered: the footer control then stands down on the cart page.
+	 *
+	 * Not set in initialize(): WooCommerce initialises every registered integration
+	 * when it registers the block types (AbstractBlock::initialize(), on every
+	 * request), which says nothing about whether this page has a Cart block. The
+	 * `render_block_woocommerce/cart` filter runs only when one is rendered, and the
+	 * footer is printed after the content (Fable P2).
 	 *
 	 * @var bool
 	 */
-	private static $initialized = false;
+	private static $rendered = false;
 
 	/**
 	 * Register on the Cart block's integration registry.
@@ -62,23 +68,35 @@ final class Tack_Cart_Quote_Block implements IntegrationInterface {
 	public static function register( $registry ) {
 		if ( is_object( $registry ) && method_exists( $registry, 'register' ) && 'yes' === get_option( Tack_Widget::OPT_CART_BUTTON, 'no' ) ) {
 			$registry->register( new self() );
+			add_filter( 'render_block_woocommerce/cart', array( __CLASS__, 'mark_rendered' ) );
 		}
 	}
 
 	/**
-	 * Did WooCommerce initialise the integration in this request?
+	 * `render_block_woocommerce/cart`: a Cart block is on this page; its content unchanged.
+	 *
+	 * @param string $block_content Rendered block.
+	 * @return string
+	 */
+	public static function mark_rendered( $block_content ) {
+		self::$rendered = true;
+		return $block_content;
+	}
+
+	/**
+	 * Was a Cart block rendered in this request with the integration registered?
 	 *
 	 * @return bool
 	 */
 	public static function active() {
-		return self::$initialized;
+		return self::$rendered;
 	}
 
 	/**
 	 * Forget the flag (tests).
 	 */
 	public static function reset() {
-		self::$initialized = false;
+		self::$rendered = false;
 	}
 
 	/**
@@ -94,7 +112,6 @@ final class Tack_Cart_Quote_Block implements IntegrationInterface {
 	 * Register the script; WooCommerce enqueues it with the Cart block.
 	 */
 	public function initialize() {
-		self::$initialized = true;
 		wp_register_script(
 			self::SCRIPT_HANDLE,
 			TACK_QUOTES_URL . 'assets/js/tack-cart-quote-block.js',

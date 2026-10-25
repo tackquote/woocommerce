@@ -229,8 +229,8 @@ class Tack_Widget {
 		 * (includes/wc-template-hooks.php); 25 places the quote control under it. The
 		 * Cart BLOCK renders no PHP hook at that spot; since 1.12.0 its control comes from
 		 * Tack_Cart_Quote_Block (the ExperimentalOrderMeta slot, above Proceed to
-		 * Checkout), and the `wp_footer` fixed control below is used only when that
-		 * integration is not available.
+		 * Checkout), and the `wp_footer` fixed control below is used only when no Cart
+		 * block carrying that integration was rendered on the page.
 		 */
 		add_action( 'woocommerce_proceed_to_checkout', array( $this, 'render_cart_quote_button' ), 25 );
 		add_action( 'wp_footer', array( $this, 'render_cart_quote_button_footer' ), 5 );
@@ -893,6 +893,48 @@ class Tack_Widget {
 	}
 
 	/**
+	 * Can a quote control open the quote modal on this page? (1.12.0, Fable P5.)
+	 *
+	 * Decides whether the seller-designed form is read and printed here: a page with
+	 * no launcher, no product-page buttons, no card buttons, no cart control and no
+	 * quote page cannot open the modal, so it costs no form read.
+	 *
+	 * @return bool
+	 */
+	public static function quote_controls_possible() {
+		if ( 'yes' === get_option( self::OPT_CARD_BUTTONS, 'no' ) ) {
+			return true; // Card controls can sit in any block grid, on any page.
+		}
+		$fab = self::fab_settings();
+		if ( 'all' === $fab['pages'] ) {
+			return true;
+		}
+		if ( function_exists( 'is_product' ) && is_product() ) {
+			return true;
+		}
+		if ( function_exists( 'is_cart' ) && is_cart() && ( 'cart' === $fab['pages'] || 'yes' === get_option( self::OPT_CART_BUTTON, 'no' ) ) ) {
+			return true;
+		}
+		// The quote page and quick order: their own shortcodes in this page's content.
+		$post = function_exists( 'get_post' ) ? get_post() : null;
+		if ( is_object( $post ) && isset( $post->post_content ) && function_exists( 'has_shortcode' ) ) {
+			$content = (string) $post->post_content;
+			if ( has_shortcode( $content, 'tackquote_quote_page' ) || has_shortcode( $content, Tack_Quick_Order::SHORTCODE ) || false !== strpos( $content, 'wp:' . Tack_Quick_Order::BLOCK ) ) {
+				return true;
+			}
+		}
+		/**
+		 * Filters whether a quote control can open the quote modal on this page, which
+		 * decides whether the seller-designed quote form is read and printed here.
+		 *
+		 * @since 1.12.0
+		 *
+		 * @param bool $possible False: nothing on this page opens the modal.
+		 */
+		return (bool) apply_filters( 'tackquote_quote_controls_possible', false );
+	}
+
+	/**
 	 * Does the launcher belong on THIS page, per the "Show on" setting?
 	 *
 	 * @param string $pages One of all|product|cart|none.
@@ -1543,7 +1585,8 @@ class Tack_Widget {
 					? map_deep( wp_unslash( (array) $_POST[ Tack_Quote_Form::FILES_FIELD ] ), 'sanitize_text_field' )
 					: array(),
 				sanitize_text_field( wp_unslash( $_POST[ Tack_Quote_Form::VERSION_FIELD ] ) ),
-				isset( $_POST['upload_ids'] ) && is_array( $_POST['upload_ids'] ) ? map_deep( wp_unslash( (array) $_POST['upload_ids'] ), 'sanitize_text_field' ) : array()
+				isset( $_POST['upload_ids'] ) && is_array( $_POST['upload_ids'] ) ? map_deep( wp_unslash( (array) $_POST['upload_ids'] ), 'sanitize_text_field' ) : array(),
+				isset( $_POST[ Tack_Quote_Form::LOCALE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_POST[ Tack_Quote_Form::LOCALE_FIELD ] ) ) : null
 			);
 			if ( is_wp_error( $collected ) ) {
 				$data = $collected->get_error_data();
@@ -1556,13 +1599,17 @@ class Tack_Widget {
 					400
 				);
 			}
-			$email        = sanitize_email( $collected['buyer']['email'] );
-			$first_name   = sanitize_text_field( $collected['buyer']['firstName'] );
-			$last_name    = sanitize_text_field( $collected['buyer']['lastName'] );
-			$phone        = sanitize_text_field( $collected['buyer']['phone'] );
-			$company_name = sanitize_text_field( $collected['buyer']['company'] );
+			$email      = sanitize_email( $collected['buyer']['email'] );
+			$first_name = sanitize_text_field( $collected['buyer']['firstName'] );
+			$last_name  = sanitize_text_field( $collected['buyer']['lastName'] );
+			$phone      = sanitize_text_field( $collected['buyer']['phone'] );
+
+			// The company name: the form's buyer_company answer when it has one, else the
+			// registration policy's own company-name field shown beneath the form (Fable R1).
+			// `company[...]` (the policy's required company details) is kept as posted.
+			$role_company = sanitize_text_field( $collected['buyer']['company'] );
+			$company_name = '' !== $role_company ? $role_company : $company_name;
 			$note         = sanitize_textarea_field( $collected['buyer']['message'] );
-			$company      = array();
 			$form_answers = array(
 				'answers'       => (object) $collected['answers'],
 				'formVersionId' => $collected['formVersionId'],
@@ -1715,6 +1762,12 @@ class Tack_Widget {
 					409
 				);
 			}
+			if ( null !== $form_answers && self::refused_form_fields( $result ) ) {
+				// The capability cache said `quote-form`, the server refused the fields: it is
+				// an older server now (Fable P7). Next page: the built-in form.
+				$client->forget_capabilities();
+				Tack_Quote_Form::forget();
+			}
 			if ( self::refused_attachment_fields( $result ) || self::refused_target_price( $result ) ) {
 				// The cache said "attachments" but the server refused the fields: it is
 				// an older server now. Ask it again next time instead of failing every request.
@@ -1783,6 +1836,24 @@ class Tack_Widget {
 		}
 		$message = (string) $error->get_error_message();
 		return false !== strpos( $message, 'uploadIds' ) || false !== strpos( $message, 'uploadToken' );
+	}
+
+	/**
+	 * Did TackQuote refuse the request BECAUSE of the form fields (a 400 naming
+	 * `answers` or `formVersionId`, an older server's `forbidNonWhitelisted`)?
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 * @return bool
+	 */
+	public static function refused_form_fields( $error ) {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || ! isset( $data['status'] ) || 400 !== (int) $data['status'] ) {
+			return false;
+		}
+		$message = (string) $error->get_error_message();
+		return false !== strpos( $message, 'answers' ) || false !== strpos( $message, 'formVersionId' );
 	}
 
 	/**

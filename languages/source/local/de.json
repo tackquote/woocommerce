@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "Geben Sie höchstens {max} Produkte auf einmal ein.",
   "woo.quick_order.view_cart": "Warenkorb anzeigen",
   "woo.quote_form.changed": "Dieses Formular wurde gerade aktualisiert. Bitte prüfen Sie Ihre Angaben und senden Sie es erneut.",
+  "woo.quote_form.field_files_max": "{label}: Hängen Sie höchstens {max} Dateien an.",
   "woo.visibility.invalid_id": "Ungültige Produkt-ID.",
   "woo.visibility.invalid_slug": "Ungültige Produkt-Titelform.",
   "woo.visibility.removed": "{product} wurde aus Ihrem Warenkorb entfernt, weil der Artikel für Ihr Konto nicht verfügbar ist.",

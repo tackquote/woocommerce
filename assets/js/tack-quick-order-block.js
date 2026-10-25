@@ -14,19 +14,14 @@
 		return;
 	}
 	var el = wp.element.createElement;
-	var __ = wp.i18n && wp.i18n.__ ? wp.i18n.__ : function ( text ) {
-		return text;
-	};
 	var useBlockProps = wp.blockEditor && wp.blockEditor.useBlockProps ? wp.blockEditor.useBlockProps : null;
 	var ServerSideRender = wp.serverSideRender || null;
 
 	wp.blocks.registerBlockType( 'tackquote/quick-order', {
+		// Title, description, icon, category and supports come from the server-side
+		// registration (Tack_Quick_Order::register_block(), translated there), which
+		// the editor bootstraps for every block registered in PHP.
 		apiVersion: 3,
-		title: __( 'TackQuote quick order', 'tackquote' ),
-		description: __( 'Buyers enter SKUs and quantities, then add them to the cart or to the quote list.', 'tackquote' ),
-		category: 'woocommerce',
-		icon: 'list-view',
-		supports: { html: false, align: [ 'wide', 'full' ] },
 		edit: function () {
 			var props = useBlockProps ? useBlockProps() : {};
 			return el(
@@ -34,7 +29,7 @@
 				props,
 				ServerSideRender
 					? el( ServerSideRender, { block: 'tackquote/quick-order' } )
-					: el( 'p', null, __( 'TackQuote quick order', 'tackquote' ) )
+					: el( 'p', null, 'TackQuote' )
 			);
 		},
 		save: function () {

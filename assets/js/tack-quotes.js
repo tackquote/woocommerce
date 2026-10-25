@@ -66,6 +66,7 @@
     fileSize: __('%1$s: files can be at most %2$d MB.', 'tackquote'),
     fileFailed: __('That file could not be attached. Please try again.', 'tackquote'),
     uploading: __('Uploading %s…', 'tackquote'),
+    fieldFilesMax: __('%1$s: attach at most %2$d files.', 'tackquote'),
     // Company field labels keyed by the names requiredCompanyFields returns; an
     // unlisted key falls back to a humanised version of itself.
     companyFields: {
@@ -497,9 +498,15 @@
       }) +
       field('tack-quote-phone', 'phone', i18n.phoneLabel, { type: 'tel' });
 
-    // Only offer the individual/company choice when the seller actually allows both.
-    // A company_only or buyer_only policy has nothing to choose, and rendering a
-    // single-option radio group is noise that implies a choice the seller does not offer.
+    return html + buildBuyingAs();
+  }
+
+  // Only offer the individual/company choice when the seller actually allows both.
+  // A company_only or buyer_only policy has nothing to choose, and rendering a
+  // single-option radio group is noise that implies a choice the seller does not offer.
+  function buildBuyingAs() {
+    var i18n = TackQuotes.i18n;
+    var html = '';
     var r = reg();
     if (r && r.allowCompany && r.allowIndividual) {
       html +=
@@ -531,7 +538,9 @@
       .trim();
   }
 
-  function buildCompanyFields() {
+  // `skipName` (1.12.0): the seller-designed form already asks for the company name
+  // (its buyer_company field), so the policy section must not ask twice.
+  function buildCompanyFields(skipName) {
     var r = reg();
     if (!r || !r.allowCompany) {
       return '';
@@ -545,7 +554,7 @@
     var html =
       '<div class="tack-quote-company-section"' + (alwaysCompany ? '' : ' hidden') + '>' +
       '<h3 class="tack-quote-company-heading">' + escapeHtml(i18n.companyHeading) + '</h3>' +
-      field('tack-quote-company-name', 'companyName', i18n.companyNameLabel, { required: true });
+      (skipName ? '' : field('tack-quote-company-name', 'companyName', i18n.companyNameLabel, { required: true }));
 
     for (var i = 0; i < required.length; i++) {
       var key = required[i];
@@ -687,7 +696,12 @@
   function roleInput($overlay, role) {
     var cfg = TackQuotes.quoteForm || {};
     var key = cfg.roles && cfg.roles[role];
-    return key ? $overlay.find('[name="tq_answers[' + key + ']"]') : $();
+    // The key comes from the TackQuote server: only TackQuote's own field-key shape is
+    // put into a selector (Fable P11).
+    if (typeof key !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(key)) {
+      return $();
+    }
+    return $overlay.find('[name="tq_answers[' + key + ']"]');
   }
 
   function buildModal() {
@@ -707,7 +721,9 @@
       escapeHtml(i18n.modalTitle) +
       '</h2>' +
       '<form class="tack-quote-modal-form" novalidate>' +
-      (seller ? '<div class="tack-quote-seller-fields"></div>' : buildBuiltInFields()) +
+      (seller
+        ? '<div class="tack-quote-seller-fields"></div>' + sellerPolicyFields(seller.cfg)
+        : buildBuiltInFields()) +
       '<p class="tack-quote-modal-error" hidden></p>' +
       '<div class="tack-quote-modal-actions">' +
       '<button type="button" class="' + buttonClass('tack-quote-modal-cancel') + '">' +
@@ -738,6 +754,14 @@
       }
     }
     return overlay;
+  }
+
+  // The seller's registration policy still decides whether a company is needed
+  // (company_only, or the company details it requires), and TackQuote refuses a
+  // request without them, so they follow the designed fields (Fable R1). A form with
+  // a buyer_company field already asks for the company name: not twice.
+  function sellerPolicyFields(cfg) {
+    return buildBuyingAs() + buildCompanyFields(!!(cfg && cfg.roles && cfg.roles.buyer_company));
   }
 
   // The built-in form: name, email, phone, the seller's company policy, a note, files.
@@ -1022,11 +1046,26 @@
       return;
     }
 
+    var companyState = companyAnswers($overlay);
+    if (companyState.missing) {
+      $error.text(TackQuotes.i18n.companyRequired).show();
+      return;
+    }
+
     var pairs = [
       { name: 'action', value: 'tack_request_quote' },
       { name: 'nonce', value: TackQuotes.nonce },
       { name: 'tq_version', value: TackQuotes.quoteForm.versionId },
+      { name: 'tq_locale', value: TackQuotes.quoteForm.locale || '' },
     ];
+    if (companyState.isCompany) {
+      if (companyState.name) {
+        pairs.push({ name: 'company_name', value: companyState.name });
+      }
+      Object.keys(companyState.company).forEach(function (k) {
+        pairs.push({ name: 'company[' + k + ']', value: companyState.company[k] });
+      });
+    }
     $form.serializeArray().forEach(function (pair) {
       if (pair.name.indexOf('tq_answers[') === 0) {
         pairs.push(pair);
@@ -1050,9 +1089,33 @@
         return;
       }
       var mine = Array.prototype.slice.call(this.files);
-      slots.push({ key: m[1], count: mine.length, input: this });
+      var label = $(this).closest('[data-tack-field]').find('label').first().text().replace(/\s*\*\s*$/, '').trim() || m[1];
+      slots.push({
+        key: m[1],
+        first: files.length,
+        count: mine.length,
+        max: Number(this.getAttribute('data-tack-max-files')) || 1,
+        maxMb: Number(this.getAttribute('data-tack-max-mb')) || 0,
+        label: label,
+      });
       files = files.concat(mine);
     });
+
+    // Each field's own cap first, naming the field, then the request's total (Fable P1):
+    // a refusal after the upload would leave orphaned files and a confusing message.
+    for (var si = 0; si < slots.length; si++) {
+      var slot = slots[si];
+      if (slot.count > slot.max) {
+        $error.text(sprintf(TackQuotes.i18n.fieldFilesMax, slot.label, slot.max)).show();
+        return;
+      }
+      for (var fi = slot.first; fi < slot.first + slot.count; fi++) {
+        if (slot.maxMb && files[fi].size > slot.maxMb * 1024 * 1024) {
+          $error.text(sprintf(TackQuotes.i18n.fileSize, files[fi].name, slot.maxMb)).show();
+          return;
+        }
+      }
+    }
 
     $submit.prop('disabled', true).text(TackQuotes.i18n.sending);
     if (!files.length) {
@@ -1072,10 +1135,17 @@
     var withUploads = function (uploaded) {
       $submit.text(TackQuotes.i18n.sending);
       var ids = uploaded.uploadIds || [];
-      var at = 0;
+      // Each id goes to the field its file came from, by the position the upload
+      // handler echoes (`files[].index`), never by counting (Fable P8).
+      var owner = {};
       slots.forEach(function (slot) {
-        for (var i = 0; i < slot.count && at < ids.length; i++, at++) {
-          pairs.push({ name: 'tq_files[' + slot.key + '][]', value: ids[at] });
+        for (var i = slot.first; i < slot.first + slot.count; i++) {
+          owner[i] = slot.key;
+        }
+      });
+      (uploaded.files || []).forEach(function (f) {
+        if (f && typeof f.uploadId === 'string' && Object.prototype.hasOwnProperty.call(owner, f.index)) {
+          pairs.push({ name: 'tq_files[' + owner[f.index] + '][]', value: f.uploadId });
         }
       });
       ids.forEach(function (id) {
@@ -1103,6 +1173,30 @@
       .fail(function (data) {
         sender.showFailure(data && data.message ? data : { message: TackQuotes.i18n.fileFailed, reload: data && data.reload });
       });
+  }
+
+  // The registration policy's company section: whether the shopper is buying as a
+  // company, the values, and whether a required one is empty.
+  function companyAnswers($overlay) {
+    var isCompany =
+      $overlay.find('input[name="buyingAs"]:checked').val() === 'company' ||
+      ($overlay.find('.tack-quote-company-section').length > 0 &&
+        !$overlay.find('input[name="buyingAs"]').length);
+    var company = {};
+    var missing = false;
+    if (isCompany) {
+      $overlay.find('.tack-quote-company-section input').each(function () {
+        var v = (this.value || '').trim();
+        if (this.required && !v) {
+          missing = true;
+        }
+        var m = this.name.match(/^company\[(.+)\]$/);
+        if (m) {
+          company[m[1]] = v;
+        }
+      });
+    }
+    return { isCompany: isCompany, company: company, missing: missing, name: ($overlay.find('#tack-quote-company-name').val() || '').trim() };
   }
 
   function submitRequest(context, $overlay) {
@@ -1681,6 +1775,6 @@
 
   // Node tests (tests/js/) load this file with a stand-in jQuery; browsers have no `module`.
   if (typeof module === 'object' && module && module.exports) {
-    module.exports = { showSubmitted: showSubmitted };
+    module.exports = { showSubmitted: showSubmitted, sellerPolicyFields: sellerPolicyFields, roleInput: roleInput };
   }
 })(jQuery);

@@ -105,11 +105,95 @@ check('cart block: renders the classic control with the cart lines, only in the 
   assert.equal(Control({ cart, context: 'woocommerce/checkout' }), null);
   assert.equal(Control({ cart: { cartItems: [] }, context: 'woocommerce/cart' }), null);
 });
-check('cart block: no slot -> the fixed control is added to the page', () => {
-  const { plugins, appended } = cartBlock(false);
-  assert.equal(plugins.length, 0);
-  assert.equal(appended.length, 1);
-  assert.equal(appended[0].className, 'tack-quote-cart-fixed');
+// No slot: the fixed control, only when the Store API cart has lines (async).
+const asyncChecks = [];
+function cartBlockFallback(items) {
+  const appended = [];
+  const document = {
+    readyState: 'complete',
+    querySelector: () => null,
+    createElement: (tag) => ({ tag, attrs: {}, children: [], setAttribute(k, v) { this.attrs[k] = v; }, appendChild(c) { this.children.push(c); } }),
+    body: { appendChild: (n) => appended.push(n) },
+    addEventListener() {},
+  };
+  const window = {
+    wc: { wcSettings: { getSetting: () => ({ label: 'Request a quote for your cart', buttonClass: 'button tack-quote-cart-btn' }) }, blocksCheckout: {} },
+    wp: { element: { createElement: () => ({}) }, plugins: { registerPlugin() {} } },
+    TackQuotes: { storeCartUrl: 'https://shop.example/wp-json/wc/store/v1/cart' },
+    fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve({ items }) }),
+  };
+  vm.runInNewContext(read('tack-cart-quote-block.js'), { window, document, JSON, Math, Number, String, Array, isFinite });
+  return new Promise((r) => setTimeout(() => r(appended), 20));
+}
+asyncChecks.push(
+  cartBlockFallback([{ id: 1 }]).then((appended) =>
+    check('cart block: no slot, cart has lines -> the fixed control is added', () => {
+      assert.equal(appended.length, 1);
+      assert.equal(appended[0].className, 'tack-quote-cart-fixed');
+    })
+  ),
+  cartBlockFallback([]).then((appended) =>
+    check('cart block: no slot, EMPTY cart -> no control', () => {
+      assert.equal(appended.length, 0);
+    })
+  )
+);
+
+// ── Seller form: the registration policy's company fields (Fable R1) ─────────
+function quotesApi(registration) {
+  const chain = new Proxy(function () {}, { get: () => () => chain, apply: () => chain });
+  const $ = new Proxy(function () { return chain; }, { get: (t, p) => (p in t ? t[p] : () => chain) });
+  const sandbox = {
+    jQuery: $,
+    TackQuotes: { registration },
+    setTimeout: (fn) => { fn(); return 0; },
+    clearTimeout: () => {},
+    localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+    document: {},
+    console,
+    module: { exports: {} },
+  };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(read('tack-quotes.js'), sandbox);
+  return sandbox.module.exports;
+}
+check('seller form + company_only policy: company name and required details follow the form', () => {
+  const api = quotesApi({ allowCompany: true, allowIndividual: false, requiredCompanyFields: ['companyName', 'taxId'] });
+  const html = api.sellerPolicyFields({ roles: { buyer_email: 'email', buyer_name: 'name' } });
+  assert.match(html, /name="companyName"/);
+  assert.match(html, /name="company\[taxId\]"/);
+  assert.doesNotMatch(html, /name="buyingAs"/);
+});
+check('seller form with a buyer_company field: the policy does not ask for the name twice', () => {
+  const api = quotesApi({ allowCompany: true, allowIndividual: false, requiredCompanyFields: ['taxId'] });
+  const html = api.sellerPolicyFields({ roles: { buyer_company: 'org' } });
+  assert.doesNotMatch(html, /name="companyName"/);
+  assert.match(html, /name="company\[taxId\]"/);
+});
+check('seller form + both allowed: the individual/company choice is offered', () => {
+  const api = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: [] });
+  assert.match(api.sellerPolicyFields({ roles: {} }), /name="buyingAs"/);
+});
+check('seller form + individuals only: nothing is added', () => {
+  const api = quotesApi({ allowCompany: false, allowIndividual: true });
+  assert.equal(api.sellerPolicyFields({ roles: {} }), '');
+});
+check('roleInput: a server key outside the field-key shape never reaches a selector (P11)', () => {
+  const seen = [];
+  const sandbox = quotesApi(null);
+  const overlay = { find: (sel) => (seen.push(sel), 'found') };
+  // roleInput reads TackQuotes.quoteForm from its own sandbox; set it through a fresh load.
+  const chain = new Proxy(function () {}, { get: () => () => chain, apply: () => chain });
+  const $ = new Proxy(function () { return arguments.length ? chain : 'empty'; }, { get: (t, p) => (p in t ? t[p] : () => chain) });
+  const box = { jQuery: $, TackQuotes: { quoteForm: { roles: { buyer_email: 'a"]evil', buyer_name: 'name' } } }, setTimeout: (f) => f(), localStorage: { getItem: () => null, setItem() {} }, document: {}, console, module: { exports: {} } };
+  box.window = box;
+  vm.createContext(box);
+  vm.runInContext(read('tack-quotes.js'), box);
+  assert.equal(box.module.exports.roleInput(overlay, 'buyer_email'), 'empty');
+  assert.equal(box.module.exports.roleInput(overlay, 'buyer_name'), 'found');
+  assert.deepEqual(seen, ['[name="tq_answers[name]"]']);
+  assert.ok(sandbox);
 });
 
 // ── Quick order: pasted lists ────────────────────────────────────────────────
@@ -132,8 +216,10 @@ check('quick order: a SKU with spaces keeps them when the quantity comes last', 
   assert.deepEqual(parsePasted('WIDGET BLUE 5'), [{ sku: 'WIDGET BLUE', quantity: 5 }]);
 });
 
-if (failures) {
-  console.log('\n' + failures + ' failure(s)');
-  process.exit(1);
-}
-console.log('\nAll checks passed');
+Promise.all(asyncChecks).then(() => {
+  if (failures) {
+    console.log('\n' + failures + ' failure(s)');
+    process.exit(1);
+  }
+  console.log('\nAll checks passed');
+});

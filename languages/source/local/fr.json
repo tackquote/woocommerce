@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "Saisissez au maximum {max} produits à la fois.",
   "woo.quick_order.view_cart": "Voir le panier",
   "woo.quote_form.changed": "Ce formulaire vient d’être mis à jour. Vérifiez vos réponses et envoyez-le à nouveau.",
+  "woo.quote_form.field_files_max": "{label} : joignez au maximum {max} fichiers.",
   "woo.visibility.invalid_id": "ID de produit non valide.",
   "woo.visibility.invalid_slug": "Identifiant d’URL de produit non valide.",
   "woo.visibility.removed": "{product} a été retiré de votre panier, car il n’est pas disponible pour votre compte.",

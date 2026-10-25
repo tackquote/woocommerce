@@ -47,6 +47,15 @@ class Tack_Quote_Form {
 	/** How long a definition is kept, in seconds. */
 	const CACHE_TTL = 300;
 
+	/** How long past CACHE_TTL a definition may still be served while one request refreshes it. */
+	const STALE_TTL = 1800;
+
+	/** Prefix of the short lock that elects the one refreshing request (+ md5 of the locale). */
+	const REFRESH_LOCK = 'tack_quotes_qf_refresh_';
+
+	/** Lifetime of that lock, in seconds. */
+	const REFRESH_LOCK_TTL = 30;
+
 	/** How long a failed read is remembered, in seconds. */
 	const FAILURE_TTL = 60;
 
@@ -55,6 +64,9 @@ class Tack_Quote_Form {
 
 	/** The POST array of each file field's upload ids. */
 	const FILES_FIELD = 'tq_files';
+
+	/** The POST key carrying the locale the form was shown in (Fable P6). */
+	const LOCALE_FIELD = 'tq_locale';
 
 	/** The POST key carrying the version the shopper saw. */
 	const VERSION_FIELD = 'tq_version';
@@ -134,7 +146,19 @@ class Tack_Quote_Form {
 	 */
 	public static function locale_tag() {
 		$locale = function_exists( 'determine_locale' ) ? (string) determine_locale() : ( function_exists( 'get_locale' ) ? (string) get_locale() : 'en_US' );
-		$tag    = str_replace( '_', '-', $locale );
+		return self::clean_locale( str_replace( '_', '-', $locale ) );
+	}
+
+	/**
+	 * A BCP 47 tag as TackQuote accepts it (`en`, `pt-BR`), else `en`. Applied to the
+	 * locale the browser posts back too (1.12.0, Fable P6), so it can only name a
+	 * cache entry, never anything else.
+	 *
+	 * @param mixed $tag Candidate tag.
+	 * @return string
+	 */
+	public static function clean_locale( $tag ) {
+		$tag = is_string( $tag ) ? trim( $tag ) : '';
 		return 1 === preg_match( '/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,2}$/', $tag ) ? $tag : 'en';
 	}
 
@@ -153,10 +177,11 @@ class Tack_Quote_Form {
 	/**
 	 * The seller-designed form to render, or null for the built-in one.
 	 *
+	 * @param string|null $locale BCP 47 tag the form is wanted in; null for the visitor's.
 	 * @return array|null `{versionId, fields, calendar?}`.
 	 */
-	public function definition() {
-		$locale = self::locale_tag();
+	public function definition( $locale = null ) {
+		$locale = null === $locale ? self::locale_tag() : self::clean_locale( $locale );
 		if ( array_key_exists( $locale, self::$memo ) ) {
 			return false === self::$memo[ $locale ] ? null : self::$memo[ $locale ];
 		}
@@ -184,12 +209,22 @@ class Tack_Quote_Form {
 		if ( ! isset( $roles['buyer_email'], $roles['buyer_name'] ) ) {
 			return false;
 		}
+		$required_files = 0;
+		foreach ( $form['fields'] as $field ) {
+			if ( is_array( $field ) && isset( $field['type'] ) && 'file' === $field['type'] && ! empty( $field['required'] ) ) {
+				++$required_files;
+			}
+		}
+		// Every required file field needs at least one file, and one request carries at
+		// most Tack_Attachments::MAX_FILES: more required file fields than that can never
+		// be sent (Fable P1).
+		if ( $required_files > ( class_exists( 'Tack_Attachments' ) ? Tack_Attachments::MAX_FILES : 3 ) ) {
+			self::log_once( 'The seller\'s quote request form requires more files than one quote request can carry: the built-in form is shown instead.' );
+			return false;
+		}
 		foreach ( $form['fields'] as $field ) {
 			if ( is_array( $field ) && isset( $field['type'] ) && 'file' === $field['type'] && ! empty( $field['required'] ) && ! $this->uploads_available() ) {
-				if ( ! get_transient( self::FILE_FALLBACK_LOGGED ) ) {
-					set_transient( self::FILE_FALLBACK_LOGGED, 1, DAY_IN_SECONDS );
-					self::log( 'The seller\'s quote request form has a required file field, but files cannot be attached on this store (Storefront > Attachments is off, or TackQuote does not take them): the built-in form is shown instead.' );
-				}
+				self::log_once( 'The seller\'s quote request form has a required file field, but files cannot be attached on this store (Storefront > Attachments is off, or TackQuote does not take them): the built-in form is shown instead.' );
 				return false;
 			}
 		}
@@ -208,23 +243,43 @@ class Tack_Quote_Form {
 		}
 		$cache = get_transient( self::CACHE_TRANSIENT );
 		$cache = is_array( $cache ) ? $cache : array();
-		if ( isset( $cache[ $locale ]['until'] ) && (int) $cache[ $locale ]['until'] > time() ) {
-			return isset( $cache[ $locale ]['form'] ) && is_array( $cache[ $locale ]['form'] ) ? $cache[ $locale ]['form'] : null;
+		$entry = isset( $cache[ $locale ] ) && is_array( $cache[ $locale ] ) ? $cache[ $locale ] : array();
+		$form  = isset( $entry['form'] ) && is_array( $entry['form'] ) ? $entry['form'] : null;
+		if ( isset( $entry['until'] ) && (int) $entry['until'] > time() ) {
+			return $form;
+		}
+
+		/*
+		 * Soft TTL (Fable P5): past `until`, a definition still within STALE_TTL is served
+		 * while ONE request refreshes it, the one that takes the short refresh lock;
+		 * every other request in that moment keeps the stale copy instead of also
+		 * calling TackQuote.
+		 */
+		if ( null !== $form && isset( $entry['stale'] ) && (int) $entry['stale'] > time() ) {
+			$lock = self::REFRESH_LOCK . md5( $locale );
+			if ( get_transient( $lock ) ) {
+				return $form;
+			}
+			set_transient( $lock, 1, self::REFRESH_LOCK_TTL );
 		}
 		if ( ! in_array( self::CAPABILITY, $this->client->server_capabilities(), true ) ) {
 			return null;
 		}
 		$result = $this->client->get_quote_form( $locale );
 		if ( is_wp_error( $result ) || ! is_array( $result ) ) {
-			$cache[ $locale ] = array( 'until' => time() + self::FAILURE_TTL );
-			set_transient( self::CACHE_TRANSIENT, $cache, 15 * MINUTE_IN_SECONDS );
-			return null;
+			// An outage keeps a stale copy rather than switching forms mid-session.
+			$cache[ $locale ] = null !== $form && isset( $entry['stale'] ) && (int) $entry['stale'] > time()
+				? array_merge( $entry, array( 'until' => time() + self::FAILURE_TTL ) )
+				: array( 'until' => time() + self::FAILURE_TTL );
+			set_transient( self::CACHE_TRANSIENT, $cache, HOUR_IN_SECONDS );
+			return isset( $cache[ $locale ]['form'] ) ? $cache[ $locale ]['form'] : null;
 		}
 		$cache[ $locale ] = array(
 			'until' => time() + self::CACHE_TTL,
+			'stale' => time() + self::STALE_TTL,
 			'form'  => $result,
 		);
-		set_transient( self::CACHE_TRANSIENT, $cache, 15 * MINUTE_IN_SECONDS );
+		set_transient( self::CACHE_TRANSIENT, $cache, HOUR_IN_SECONDS );
 		return $result;
 	}
 
@@ -258,12 +313,15 @@ class Tack_Quote_Form {
 	 * @return array{versionId:string,templateId:string,roles:array<string,string>}|null
 	 */
 	public function script_config() {
-		$form = $this->definition();
+		$form = Tack_Widget::quote_controls_possible() ? $this->definition() : null;
 		if ( null === $form ) {
 			return null;
 		}
 		return array(
 			'versionId'  => (string) $form['versionId'],
+			// Posted back with the answers (Fable P6): the answers are collected against
+			// the form in the language the shopper saw, whatever the AJAX request's own.
+			'locale'     => self::locale_tag(),
 			'templateId' => self::TEMPLATE_ID,
 			'roles'      => (object) self::roles( $form['fields'] ),
 			'maxFiles'   => class_exists( 'Tack_Attachments' ) ? Tack_Attachments::MAX_FILES : 3,
@@ -296,7 +354,7 @@ class Tack_Quote_Form {
 		if ( is_admin() ) {
 			return;
 		}
-		$form = $this->definition();
+		$form = Tack_Widget::quote_controls_possible() ? $this->definition() : null;
 		if ( null === $form ) {
 			return;
 		}
@@ -312,10 +370,11 @@ class Tack_Quote_Form {
 	 * @param array  $raw_files     Posted `tq_files`: field key => upload ids.
 	 * @param string $version       Posted `tq_version`.
 	 * @param array  $uploaded      Upload ids this request carries (`upload_ids`); a file answer must be one of them.
+	 * @param string $locale        Posted `tq_locale`: the language the form was shown in (null: the request's).
 	 * @return array|WP_Error `{answers, formVersionId, buyer: {email, firstName, lastName, company, phone, message}}`.
 	 */
-	public function collect( array $raw_answers, array $raw_files, $version, array $uploaded ) {
-		$form = $this->definition();
+	public function collect( array $raw_answers, array $raw_files, $version, array $uploaded, $locale = null ) {
+		$form = $this->definition( $locale );
 		if ( null === $form ) {
 			return new WP_Error( 'tack_form_gone', __( 'This form has just been updated. Please check your answers and send it again.', 'tackquote' ), array( 'reload' => true ) );
 		}
@@ -414,6 +473,19 @@ class Tack_Quote_Form {
 		$data = $error->get_error_data();
 		// The quote-requests route answers 409 for exactly one reason: FORM_CHANGED.
 		return is_array( $data ) && isset( $data['status'] ) && 409 === (int) $data['status'];
+	}
+
+	/**
+	 * Log a fallback reason at most once a day.
+	 *
+	 * @param string $message Message.
+	 */
+	private static function log_once( $message ) {
+		if ( get_transient( self::FILE_FALLBACK_LOGGED ) ) {
+			return;
+		}
+		set_transient( self::FILE_FALLBACK_LOGGED, 1, DAY_IN_SECONDS );
+		self::log( $message );
 	}
 
 	/**

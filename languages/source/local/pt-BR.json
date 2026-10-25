@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "Informe no máximo {max} produtos por vez.",
   "woo.quick_order.view_cart": "Ver carrinho",
   "woo.quote_form.changed": "Este formulário acabou de ser atualizado. Confira suas respostas e envie novamente.",
+  "woo.quote_form.field_files_max": "{label}: anexe no máximo {max} arquivos.",
   "woo.visibility.invalid_id": "ID de produto inválido.",
   "woo.visibility.invalid_slug": "Slug de produto inválido.",
   "woo.visibility.removed": "{product} foi removido do seu carrinho porque não está disponível para a sua conta.",

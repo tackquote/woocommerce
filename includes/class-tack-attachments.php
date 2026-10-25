@@ -550,15 +550,19 @@ class Tack_Attachments {
 
 		$data = array(
 			'uploadIds' => array_values( $ids ),
+			// `index`: the position of the file in the posted `files[]`, so a caller that
+			// sent files for several form fields maps each id back to its field (1.12.0).
 			'files'     => array_map(
-				function ( $answer ) {
+				function ( $answer, $index ) {
 					return array(
+						'index'    => (int) $index,
 						'uploadId' => $answer['uploadId'],
 						'size'     => isset( $answer['size'] ) ? (int) $answer['size'] : 0,
 						'mimeType' => isset( $answer['mimeType'] ) && is_string( $answer['mimeType'] ) ? sanitize_mime_type( $answer['mimeType'] ) : '',
 					);
 				},
-				$sent
+				array_values( $sent ),
+				array_keys( array_values( $sent ) )
 			),
 		);
 		if ( '' !== $token ) {

@@ -42,7 +42,8 @@
       "This TackQuote server has no storefront price-access route.": "WP_Error text written to the WooCommerce log, never shown",
       "This key lacks permission to connect a store: check its scopes in TackQuote, or create a new key.": "Settings > Connection test result, seen by the shop manager only",
       "Title": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
-      "What the buyer sees at checkout.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only"
+      "What the buyer sees at checkout.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
+      "Buyers enter SKUs and quantities, then add them to the cart or to the quote list.": "block inserter description of the quick-order block, seen by the shop manager in the editor only"
     }
   },
   "strings": [
@@ -1061,6 +1062,14 @@
     {
       "msgid": "Something went wrong. Please try again.",
       "key": "tackquote.widget.error_generic"
+    },
+    {
+      "msgid": "%1$s: attach at most %2$d files.",
+      "key": "woo.quote_form.field_files_max",
+      "placeholders": {
+        "label": "%1$s",
+        "max": "%2$d"
+      }
     }
   ]
 }

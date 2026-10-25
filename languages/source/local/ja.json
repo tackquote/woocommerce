@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "一度に入力できる商品は{max}件までです。",
   "woo.quick_order.view_cart": "カートを表示",
   "woo.quote_form.changed": "このフォームは更新されました。回答を確認して、もう一度送信してください。",
+  "woo.quote_form.field_files_max": "{label}：添付できるファイルは{max}件までです。",
   "woo.visibility.invalid_id": "商品 ID が無効です。",
   "woo.visibility.invalid_slug": "商品のスラッグが無効です。",
   "woo.visibility.removed": "{product} はお客様のアカウントではご購入いただけないため、お買い物カゴから削除されました。",

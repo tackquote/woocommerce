@@ -97,18 +97,17 @@ class Tack_Quick_Order {
 		wp_register_script(
 			self::EDITOR_SCRIPT,
 			TACK_QUOTES_URL . 'assets/js/tack-quick-order-block.js',
-			array( 'wp-blocks', 'wp-element', 'wp-i18n', 'wp-server-side-render', 'wp-block-editor' ),
+			array( 'wp-blocks', 'wp-element', 'wp-server-side-render', 'wp-block-editor' ),
 			TACK_QUOTES_VERSION,
 			true
 		);
-		if ( function_exists( 'wp_set_script_translations' ) ) {
-			wp_set_script_translations( self::EDITOR_SCRIPT, 'tackquote' );
-		}
 		register_block_type(
 			self::BLOCK,
 			array(
 				'api_version'     => 3,
 				'title'           => __( 'TackQuote quick order', 'tackquote' ),
+				'description'     => __( 'Buyers enter SKUs and quantities, then add them to the cart or to the quote list.', 'tackquote' ),
+				'icon'            => 'list-view',
 				'category'        => 'woocommerce',
 				'editor_script'   => self::EDITOR_SCRIPT,
 				'render_callback' => array( $this, 'render_block' ),
@@ -262,7 +261,8 @@ class Tack_Quick_Order {
 	 *
 	 * Statuses: `found` (orderable: the product, or the variation the SKU names),
 	 * `needs_options` (a variable product's own SKU, or a grouped one: choose on its
-	 * page), `not_found` (no product, or one this visitor may not see or quote).
+	 * page), `not_found` (no product, a draft, private or password-protected one, one
+	 * hidden from the buyer's group, or one WooCommerce's catalog visibility hides).
 	 *
 	 * @param array $rows parse_lines() output.
 	 * @return array
@@ -299,9 +299,7 @@ class Tack_Quick_Order {
 				return $base + array( 'status' => 'not_found' );
 			}
 		}
-		// The same rule as the quote buttons: published, not password-protected, and
-		// visible to this visitor (catalogue visibility per buyer group included).
-		if ( ! Tack_Widget::is_quotable( $item, $parent ) ) {
+		if ( ! self::visible( $item, $parent ) ) {
 			return $base + array( 'status' => 'not_found' );
 		}
 		$name = (string) $item->get_name();
@@ -327,6 +325,27 @@ class Tack_Quick_Order {
 			'purchasable' => $purchasable,
 			'url'         => (string) get_permalink( null !== $parent ? $parent->get_id() : $item->get_id() ),
 		);
+	}
+
+	/**
+	 * May this visitor find the product by SKU here?
+	 *
+	 * The quote buttons' rule (Tack_Widget::is_quotable(): published, not
+	 * password-protected, not hidden from the buyer's group), AND WooCommerce's own
+	 * catalogue visibility (Fable P4): a product set to "Hidden" in Catalog
+	 * visibility, or one WooCommerce hides out of stock, is not offered here, through
+	 * `WC_Product::is_visible()` (the parent's, for a variation).
+	 *
+	 * @param object      $item   The product, or the variation.
+	 * @param object|null $parent_product The variation's parent.
+	 * @return bool
+	 */
+	private static function visible( $item, $parent_product ) {
+		if ( ! Tack_Widget::is_quotable( $item, $parent_product ) ) {
+			return false;
+		}
+		$listed = null !== $parent_product ? $parent_product : $item;
+		return ! method_exists( $listed, 'is_visible' ) || (bool) $listed->is_visible();
 	}
 
 	/**
@@ -356,6 +375,17 @@ class Tack_Quick_Order {
 	 */
 	public function handle_add() {
 		$this->verify_nonce();
+		// Each add runs WooCommerce's cart code per line: limited like the lookup (Fable P10).
+		if ( Tack_Rate_Limit::exceeded( 'tack_qa_', 'quick-order-add', self::RATE_LIMIT_MAX ) ) {
+			wp_send_json_error(
+				array(
+					'code'    => 'tack_rate_limited',
+					'message' => __( 'Too many look-ups from this connection. Please wait a few minutes and try again.', 'tackquote' ),
+				),
+				429
+			);
+		}
+		Tack_Rate_Limit::hit( 'tack_qa_', 'quick-order-add', self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW );
 		if ( ! is_object( $this->cart() ) ) {
 			wp_send_json_error( array( 'message' => __( 'The cart is not available right now. Please reload the page and try again.', 'tackquote' ) ), 503 );
 		}
@@ -479,11 +509,11 @@ class Tack_Quick_Order {
 			if ( ! $variation instanceof WC_Product_Variation || (int) $variation->get_parent_id() !== (int) $product->get_id() ) {
 				return false;
 			}
-			if ( ! Tack_Widget::is_quotable( $variation, $product ) ) {
+			if ( ! self::visible( $variation, $product ) ) {
 				return false;
 			}
 			$attributes = function_exists( 'wc_get_product_variation_attributes' ) ? (array) wc_get_product_variation_attributes( $variation->get_id() ) : array();
-		} elseif ( $product->is_type( 'variable' ) || ! Tack_Widget::is_quotable( $product ) ) {
+		} elseif ( $product->is_type( 'variable' ) || ! self::visible( $product, null ) ) {
 			return false;
 		}
 

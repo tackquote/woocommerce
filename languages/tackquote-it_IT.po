@@ -28,6 +28,11 @@ msgstr "%1$s ha una quantità minima d’ordine di %2$d. Nel Suo carrello ce ne 
 msgid "%1$s: %2$s is required."
 msgstr "%1$s: il campo «%2$s» è obbligatorio."
 
+#. catalogue: woo.quote_form.field_files_max
+#. plugin catalogue (languages/source/local), pending native review
+msgid "%1$s: attach at most %2$d files."
+msgstr "%1$s: alleghi al massimo %2$d file."
+
 #. catalogue: tackquote.widget.file_size
 #. machine-translated, pending native review
 msgid "%1$s: files can be at most %2$d MB."

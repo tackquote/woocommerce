@@ -97,6 +97,12 @@ class Tack_1120_Product extends Tack_Parity_Product {
 	public function get_status() {
 		return $this->status;
 	}
+	/** @var bool WooCommerce catalog visibility (Hidden = false). */
+	public $visible = true;
+	/** @return bool */
+	public function is_visible() {
+		return $this->visible;
+	}
 }
 
 /** A variation double (instanceof WC_Product_Variation, defined by standards-audit-test.php). */
@@ -240,7 +246,49 @@ tack_parity_reset();
 list( $qf, $qc ) = tack_1120_reader( tack_1120_form() );
 check( 'QF1: a designed form (versionId + both buyer roles) is used', null !== $qf->definition() );
 check( 'QF1: it is read in the visitor\'s locale as BCP 47 (de-DE)', array( 'de-DE' ) === $qc->asked, implode( ',', $qc->asked ) );
-check( 'QF1: script config carries the version, the template id and role => key', array( 'versionId', 'templateId', 'roles', 'maxFiles' ) === array_keys( (array) $qf->script_config() ) );
+check( 'QF1: script config carries the version, the locale shown, the template id and role => key', array( 'versionId', 'locale', 'templateId', 'roles', 'maxFiles' ) === array_keys( (array) $qf->script_config() ) && 'de-DE' === $qf->script_config()['locale'] );
+
+// P5: no quote control can open the modal here -> no read at all.
+list( $qf, $qc ) = tack_1120_reader( tack_1120_form() );
+tack_test_set_option( Tack_Widget::OPT_FAB_PAGES, 'none' );
+check( 'P5: a page where nothing opens the modal reads no form (script config null, route never asked)', null === $qf->script_config() && array() === $qc->asked );
+tack_test_set_option( Tack_Widget::OPT_FAB_PAGES, 'all' );
+
+// P5: soft TTL - a stale copy is served while ONE request refreshes it.
+list( $qf, $qc ) = tack_1120_reader( tack_1120_form() );
+$stale_form              = tack_1120_form();
+$stale_form['versionId'] = '11111111-1111-4111-8111-111111111111';
+$GLOBALS['TACK_TRANSIENTS'][ Tack_Quote_Form::CACHE_TRANSIENT ] = array( 'de-DE' => array( 'until' => time() - 5, 'stale' => time() + 600, 'form' => $stale_form ) );
+$GLOBALS['TACK_TRANSIENTS'][ Tack_Quote_Form::REFRESH_LOCK . md5( 'de-DE' ) ] = 1;
+$got = $qf->definition();
+check( 'P5: past the TTL, while another request holds the refresh lock, the stale copy is served without a read', is_array( $got ) && $stale_form['versionId'] === $got['versionId'] && array() === $qc->asked );
+unset( $GLOBALS['TACK_TRANSIENTS'][ Tack_Quote_Form::REFRESH_LOCK . md5( 'de-DE' ) ] );
+Tack_Quote_Form::reset_request_cache();
+$got = $qf->definition();
+check( 'P5: the request that takes the lock refreshes, and gets the new form', 1 === count( $qc->asked ) && is_array( $got ) && tack_1120_form()['versionId'] === $got['versionId'] && ! empty( $GLOBALS['TACK_TRANSIENTS'][ Tack_Quote_Form::REFRESH_LOCK . md5( 'de-DE' ) ] ) );
+$GLOBALS['TACK_TRANSIENTS'][ Tack_Quote_Form::CACHE_TRANSIENT ] = array( 'de-DE' => array( 'until' => time() - 5, 'stale' => time() + 600, 'form' => $stale_form ) );
+Tack_Quote_Form::reset_request_cache();
+$qc->form = new WP_Error( 'tack_http_503', 'down', array( 'status' => 503 ) );
+$got      = $qf->definition();
+check( 'P5: a failed refresh keeps the stale copy (no form switch mid-session)', is_array( $got ) && $stale_form['versionId'] === $got['versionId'] );
+
+// P6: answers are collected against the form in the locale it was shown in.
+list( $qf, $qc ) = tack_1120_reader( tack_1120_form() );
+$qf->collect( array(), array(), 'x', array(), 'fr-FR' );
+check( 'P6: the posted locale picks the form the answers are checked against', array( 'fr-FR' ) === $qc->asked );
+Tack_Quote_Form::reset_request_cache();
+$qf->collect( array(), array(), 'x', array(), '../../etc' );
+check( 'P6: a posted locale that is not a BCP 47 tag is read as en', in_array( 'en', $qc->asked, true ) );
+
+// P1: more REQUIRED file fields than one request can carry -> built-in form.
+$four = array();
+for ( $f = 1; $f <= 4; $f++ ) {
+	$four[] = array( 'key' => 'f' . $f, 'label' => 'F' . $f, 'type' => 'file', 'required' => true );
+}
+list( $qf ) = tack_1120_reader( tack_1120_form( $four ) );
+check( 'P1: four required file fields (one request carries 3 files) -> built-in form', null === $qf->definition() );
+list( $qf ) = tack_1120_reader( tack_1120_form( array_slice( $four, 0, 3 ) ) );
+check( 'P1: three required file fields fit', null !== $qf->definition() );
 
 list( $qf, $qc ) = tack_1120_reader( tack_1120_form(), array( 'attachments' ) );
 check( 'QF5: no `quote-form` capability -> built-in form, and the route is never asked', null === $qf->definition() && array() === $qc->asked );
@@ -382,6 +430,12 @@ $res = $qo->lookup(
 check( 'QO: a simple product SKU is found, with its id, price HTML and purchasable', 'found' === $res[0]['status'] && 201 === $res[0]['productId'] && 0 === $res[0]['variationId'] && 100 === $res[0]['quantity'] && $res[0]['purchasable'] && false !== strpos( $res[0]['priceHtml'], '0.40' ) );
 check( 'QO1: a variable product\'s own SKU needs options (never orderable), with its page', 'needs_options' === $res[1]['status'] && ! isset( $res[1]['productId'] ) && '' !== $res[1]['url'] );
 check( 'QO: a variation SKU is found as parent + variation', 'found' === $res[2]['status'] && 202 === $res[2]['productId'] && 203 === $res[2]['variationId'] );
+$hidden_product          = new Tack_1120_Product( 205, 'simple', 'Catalog hidden', 'HIDDEN', 1.0 );
+$hidden_product->visible = false;
+$GLOBALS['TACK_TEST_PRODUCTS'][205] = $hidden_product;
+$GLOBALS['TACK_SKUS']['HIDDEN']     = 205;
+$hres = $qo->lookup( array( array( 'sku' => 'HIDDEN', 'quantity' => 1 ) ) );
+check( 'P4: a product WooCommerce\'s catalog visibility hides is not_found', 'not_found' === $hres[0]['status'] );
 check( 'QO2: a draft product is not_found (no name leaks)', 'not_found' === $res[3]['status'] && ! isset( $res[3]['name'] ) );
 check( 'QO: an unknown SKU is not_found', 'not_found' === $res[4]['status'] );
 tack_test_add_filter_return( 'woocommerce_product_is_visible', false );
@@ -538,7 +592,12 @@ check( 'CT1: without the Cart block integration the footer control is the fallba
 $integration->initialize();
 $fw2    = new Tack_Widget();
 $footer = tack_parity_capture( array( $fw2, 'render_cart_quote_button_footer' ) );
-check( 'CT1: with the integration active the footer control stands down', '' === $footer );
+check( 'P2: WooCommerce initialising the integration (every request) does NOT stand the footer down', false !== strpos( $footer, 'tack-quote-cart-fixed' ) );
+check( 'P2: registration watches the Cart block render', tack_parity_hooked( 'render_block_woocommerce/cart' ) );
+check( 'P2: the render filter leaves the block as it is', '<div>cart</div>' === Tack_Cart_Quote_Block::mark_rendered( '<div>cart</div>' ) );
+$fw3    = new Tack_Widget();
+$footer = tack_parity_capture( array( $fw3, 'render_cart_quote_button_footer' ) );
+check( 'CT1: once a Cart block with the integration rendered, the footer control stands down', '' === $footer );
 Tack_Cart_Quote_Block::reset();
 $GLOBALS['TACK_IS_CART']    = false;
 $GLOBALS['TACK_CART_LINES'] = array();
@@ -573,3 +632,16 @@ check( 'NT2: the answer is the gateway\'s own is_available() (fail closed)', fal
 // Uninstall forgets the new transients.
 $tack_1120_uninstall = (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' );
 check( 'uninstall: removes the quote-form cache and its log flag', false !== strpos( $tack_1120_uninstall, "'" . Tack_Quote_Form::CACHE_TRANSIENT . "'" ) && false !== strpos( $tack_1120_uninstall, "'" . Tack_Quote_Form::FILE_FALLBACK_LOGGED . "'" ) );
+
+// P7: a 400 naming the form fields drops the capability cache.
+check( 'P7: a 400 naming answers/formVersionId reads as "older server"', Tack_Widget::refused_form_fields( new WP_Error( 'tack_http_400', 'property answers should not exist', array( 'status' => 400 ) ) ) && Tack_Widget::refused_form_fields( new WP_Error( 'tack_http_400', 'property formVersionId should not exist', array( 'status' => 400 ) ) ) );
+check( 'P7: another 400 does not', ! Tack_Widget::refused_form_fields( new WP_Error( 'tack_http_400', 'Name and email are required', array( 'status' => 400 ) ) ) && ! Tack_Widget::refused_form_fields( new WP_Error( 'tack_http_502', 'answers', array( 'status' => 502 ) ) ) );
+$tack_1120_widget_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-widget.php' );
+check( 'P7: the handler forgets the capabilities and the form on that refusal', false !== strpos( $tack_1120_widget_src, "if ( null !== \$form_answers && self::refused_form_fields( \$result ) ) {\n\t\t\t\t// The capability cache said `quote-form`, the server refused the fields: it is\n\t\t\t\t// an older server now (Fable P7). Next page: the built-in form.\n\t\t\t\t\$client->forget_capabilities();" ) );
+// R1: the seller form keeps the posted company details and company name.
+check( 'R1: the seller-form branch no longer discards company[...]', 1 !== preg_match( '/\$form_answers = null;.*?\$company\s*= array\(\);.*?\$form_answers = array\(/s', $tack_1120_widget_src ) );
+check( 'R1: the company name falls back to the posted policy field when the form has none', false !== strpos( $tack_1120_widget_src, "\$company_name = '' !== \$role_company ? \$role_company : \$company_name;" ) );
+// P10: the add handler is rate limited too.
+check( 'P10: add to cart is rate limited', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quick-order.php' ), "Tack_Rate_Limit::exceeded( 'tack_qa_', 'quick-order-add', self::RATE_LIMIT_MAX )" ) );
+// P8: the upload answer names each file's position.
+check( 'P8: the upload answer echoes each file\'s index', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-attachments.php' ), "'index'    => (int) \$index," ) );

@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "Inserisca al massimo {max} prodotti alla volta.",
   "woo.quick_order.view_cart": "Visualizza carrello",
   "woo.quote_form.changed": "Questo modulo è stato appena aggiornato. Controlli le Sue risposte e lo invii di nuovo.",
+  "woo.quote_form.field_files_max": "{label}: alleghi al massimo {max} file.",
   "woo.visibility.invalid_id": "ID prodotto non valido.",
   "woo.visibility.invalid_slug": "Slug del prodotto non valido.",
   "woo.visibility.removed": "{product} è stato rimosso dal Suo carrello perché non è disponibile per il Suo account.",

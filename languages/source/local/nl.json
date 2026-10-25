@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "Voer maximaal {max} producten tegelijk in.",
   "woo.quick_order.view_cart": "Bekijk winkelwagen",
   "woo.quote_form.changed": "Dit formulier is net bijgewerkt. Controleer uw antwoorden en verstuur het opnieuw.",
+  "woo.quote_form.field_files_max": "{label}: voeg maximaal {max} bestanden toe.",
   "woo.visibility.invalid_id": "Ongeldige product-ID.",
   "woo.visibility.invalid_slug": "Ongeldige productslug.",
   "woo.visibility.removed": "{product} is uit uw winkelwagen verwijderd omdat het niet beschikbaar is voor uw account.",

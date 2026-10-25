@@ -9,6 +9,9 @@
                 "lang": "fr_FR",
                 "plural-forms": "nplurals=2; plural=n > 1;"
             },
+            "%1$s: attach at most %2$d files.": [
+                "%1$s : joignez au maximum %2$d fichiers."
+            ],
             "%1$s: files can be at most %2$d MB.": [
                 "%1$s : les fichiers ne peuvent pas dépasser %2$d Mo."
             ],

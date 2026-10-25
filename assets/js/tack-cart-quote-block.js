@@ -73,8 +73,9 @@
 		return;
 	}
 
-	// No slot: the fixed control (1.10.0), once.
-	function fallback() {
+	// No slot: the fixed control (1.10.0), once, and only while the cart has lines
+	// (Fable P2): read from WooCommerce's own Store API, the shopper's session.
+	function addFixed() {
 		if ( document.querySelector( '.tack-quote-cart-btn' ) ) {
 			return;
 		}
@@ -87,6 +88,23 @@
 		button.textContent = label;
 		box.appendChild( button );
 		document.body.appendChild( box );
+	}
+	function fallback() {
+		var url = window.TackQuotes && window.TackQuotes.storeCartUrl;
+		if ( ! url || typeof window.fetch !== 'function' ) {
+			return;
+		}
+		window
+			.fetch( url, { credentials: 'same-origin', headers: { Accept: 'application/json' } } )
+			.then( function ( r ) {
+				return r.ok ? r.json() : null;
+			} )
+			.then( function ( cart ) {
+				if ( cart && Array.isArray( cart.items ) && cart.items.length ) {
+					addFixed();
+				}
+			} )
+			.catch( function () {} );
 	}
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', fallback );

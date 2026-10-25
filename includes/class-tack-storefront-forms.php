@@ -1688,7 +1688,7 @@ class Tack_Storefront_Forms {
 					);
 					return '<p class="form-row form-row-wide tackquote-field tackquote-field-file" data-tack-field="' . esc_attr( $key ) . '"' . $cond . '>'
 						. '<label for="' . esc_attr( $id ) . '">' . $label_html . '</label>'
-						. '<input type="file" name="' . esc_attr( $file_name . '[' . $key . ']' ) . '" id="' . esc_attr( $id ) . '" accept="' . esc_attr( $attr ) . '"' . $req_attr . ' aria-describedby="' . esc_attr( $id . '_file' ) . '"' . ( $multiple ? ' multiple="multiple" data-tack-max-files="' . esc_attr( (string) $multiple ) . '"' : '' ) . ' />'
+						. '<input type="file" name="' . esc_attr( $file_name . '[' . $key . ']' ) . '" id="' . esc_attr( $id ) . '" accept="' . esc_attr( $attr ) . '"' . $req_attr . ' aria-describedby="' . esc_attr( $id . '_file' ) . '"' . ( $multiple ? ' multiple="multiple" data-tack-max-files="' . esc_attr( (string) $multiple ) . '"' : '' ) . ( 'tack_sf_files' !== $file_name ? ' data-tack-max-mb="' . esc_attr( (string) $max_mb ) . '"' : '' ) . ' />'
 						. '<span class="description" id="' . esc_attr( $id . '_file' ) . '">' . esc_html( '' !== $help ? $help . ' ' . $hint : $hint ) . '</span>'
 						. '</p>';
 				}

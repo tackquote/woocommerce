@@ -148,6 +148,7 @@
   "woo.quick_order.too_many": "Enter at most {max} products at a time.",
   "woo.quick_order.view_cart": "View cart",
   "woo.quote_form.changed": "This form has just been updated. Please check your answers and send it again.",
+  "woo.quote_form.field_files_max": "{label}: attach at most {max} files.",
   "woo.visibility.invalid_id": "Invalid product ID.",
   "woo.visibility.invalid_slug": "Invalid product slug.",
   "woo.visibility.removed": "{product} was removed from your cart because it is not available to your account.",
