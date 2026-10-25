@@ -51,7 +51,16 @@ The storefront controls take the active theme's buttons, fields, fonts and colou
 3. Activate the plugin.
 4. Go to **TackQuote** in the admin menu and open the **Connection** tab. Press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; the plugin stores the key it receives and runs the connection test. Or paste your **TackQuote API key** (found in TackQuote under **Settings → Developer → API Keys**), save, then click **Test TackQuote connection** to verify. The **Overview** tab then shows the connection, storefront, order sync and B2B switches at a glance.
 
+5. *(Unreleased, needs a TackQuote server that offers it.)* Right after Connect with TackQuote, or later with **Allow catalogue and order sync** on the Connection tab, WooCommerce's own approval screen opens ("TackQuote would like to connect to your store", Read/Write). Approve it and WooCommerce sends TackQuote a REST API key directly, so TackQuote can sync the catalogue, stock and categories, receive store webhooks (Flows) and write orders back. Deny it and the plugin keeps working as before.
+
    > **The key must carry the `quotes:write` scope.** *Test connection* uses the unscoped `ping` route, so a key without it passes the test and then fails every real quote submission with a 403. Order sync additionally needs `orders:write`.
+
+## Updates
+
+* **Installed from WordPress.org:** WordPress updates it from WordPress.org as usual.
+* **Installed from the zip** (the website's Download button, `releases/latest/download/tackquote.zip`): from the next release that zip carries `Update URI: https://github.com/tackquote/woocommerce`, and `includes/class-tack-release-updates.php` answers WordPress's `update_plugins_github.com` check from the GitHub "latest" release, so WordPress offers each new release under **Dashboard → Updates**. A zip installed before that release (folder `tackquote/`, no `Update URI`) is matched by WordPress.org on its slug and keeps receiving WordPress.org updates until it takes that release.
+* **Two builds from one tree.** `TACKQUOTE_BUILD_TARGET=github` (the default; `scripts/package.sh`, the GitHub release) adds the header and keeps the updater. `TACKQUOTE_BUILD_TARGET=wporg` (`bin/wporg-sync.sh`) removes both, because a WordPress.org-hosted plugin may not carry an updater or a foreign `Update URI` (Plugin Check `plugin_updater_detected`). `bin/build.sh` asserts each target's shape.
+* The settings page shows **Update available** when WordPress knows a newer version, or when TackQuote names one on its ping (`latestPluginVersion`).
 
 ## Requirements
 

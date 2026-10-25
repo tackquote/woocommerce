@@ -174,7 +174,7 @@ class Tack_Api_Client {
 			 * kept, never the request or the key.
 			 */
 			$retry_after = wp_remote_retrieve_header( $response, 'retry-after' );
-			return new WP_Error(
+			$error       = new WP_Error(
 				'tack_http_' . $code,
 				$message,
 				array(
@@ -192,6 +192,12 @@ class Tack_Api_Client {
 					'retryAfterHeader'  => is_array( $retry_after ) ? (string) reset( $retry_after ) : (string) $retry_after,
 				)
 			);
+			// 1.12.0: TackQuote's own 401 on this key is how a disconnect reaches the
+			// storefront (Tack_Standing decides; a proxy's 401 or any other status is ignored).
+			if ( '' !== $key && class_exists( 'Tack_Standing', false ) ) {
+				Tack_Standing::observe_refusal( $error->get_error_data(), $key );
+			}
+			return $error;
 		}
 
 		return is_array( $data ) ? $data : array();
@@ -228,7 +234,7 @@ class Tack_Api_Client {
 	public function test_connection() {
 		$result = $this->request( 'GET', '/integrations/woocommerce/ping' );
 		if ( ! is_wp_error( $result ) ) {
-			$this->remember_capabilities( self::capabilities_of( $result ), DAY_IN_SECONDS );
+			$this->remember_ping( $result );
 			return true;
 		}
 		$status = self::status_of( $result );
@@ -355,16 +361,18 @@ class Tack_Api_Client {
 	/**
 	 * Cache the server's capability list for the saved key.
 	 *
-	 * @param string[] $caps Capability names.
-	 * @param int      $ttl  Seconds to keep it.
+	 * @param string[] $caps   Capability names.
+	 * @param int      $ttl    Seconds to keep it.
+	 * @param string   $latest Newest plugin release the server named (1.12.0), or ''.
 	 */
-	private function remember_capabilities( array $caps, $ttl ) {
+	private function remember_capabilities( array $caps, $ttl, $latest = '' ) {
 		set_transient(
 			self::CAPABILITIES_TRANSIENT,
 			array(
-				'key'   => $this->key_fingerprint(),
-				'caps'  => $caps,
-				'until' => time() + (int) $ttl,
+				'key'    => $this->key_fingerprint(),
+				'caps'   => $caps,
+				'until'  => time() + (int) $ttl,
+				'latest' => (string) $latest,
 			),
 			(int) $ttl
 		);
@@ -427,9 +435,64 @@ class Tack_Api_Client {
 			$this->remember_failure( 401 === $status || 403 === $status ? self::STATE_REJECTED : self::STATE_FAILED );
 			return array();
 		}
-		$caps = self::capabilities_of( $result );
-		$this->remember_capabilities( $caps, DAY_IN_SECONDS );
+		return $this->remember_ping( $result );
+	}
+
+	/**
+	 * Record a passing ping: the capability list (a day), the newest plugin release the
+	 * server named (1.12.0, `plugin_release`), and the store's standing (Tack_Standing).
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param array $answer Decoded ping answer.
+	 * @return string[] The capabilities.
+	 */
+	private function remember_ping( $answer ) {
+		$caps = self::capabilities_of( $answer );
+		$this->remember_capabilities( $caps, DAY_IN_SECONDS, self::latest_version_of( $answer, $caps ) );
+		if ( class_exists( 'Tack_Standing', false ) ) {
+			Tack_Standing::observe_ping( $answer, $caps, $this->api_key() );
+		}
 		return $caps;
+	}
+
+	/**
+	 * The newest plugin release a `plugin_release` server named, or ''.
+	 *
+	 * @param mixed    $answer Decoded ping answer.
+	 * @param string[] $caps   Its capabilities.
+	 * @return string
+	 */
+	private static function latest_version_of( $answer, array $caps ) {
+		if ( ! in_array( 'plugin_release', $caps, true ) || ! is_array( $answer ) || ! isset( $answer['latestPluginVersion'] ) || ! is_string( $answer['latestPluginVersion'] ) ) {
+			return '';
+		}
+		return 1 === preg_match( '/^\d{1,5}\.\d{1,5}\.\d{1,5}$/', $answer['latestPluginVersion'] ) ? $answer['latestPluginVersion'] : '';
+	}
+
+	/**
+	 * The newest plugin release the server named on its last passing ping, or ''.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return string
+	 */
+	public function latest_plugin_version() {
+		$this->server_capabilities();
+		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
+		return is_array( $cached ) && isset( $cached['latest'] ) && is_string( $cached['latest'] ) ? $cached['latest'] : '';
+	}
+
+	/**
+	 * Does the server list `$capability` on its ping (cached)?
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param string $capability Capability name.
+	 * @return bool
+	 */
+	public function supports( $capability ) {
+		return in_array( (string) $capability, $this->server_capabilities(), true );
 	}
 
 	/**
