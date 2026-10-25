@@ -156,11 +156,13 @@ check('the success text no longer promises a redirect, and says the seller repli
 });
 
 check('the request handler itself starts no navigation or timer', () => {
-  const start = source.indexOf('function send(body, allowRetry)');
-  const end = source.indexOf('.fail(function (xhr)', start);
+  // Whitespace removed: the pin checks the code, not its formatting.
+  const flat = source.replace(/\s+/g, '');
+  const start = flat.indexOf('functionsend(body,allowRetry)');
+  const end = flat.indexOf('.fail(function(xhr)', start);
   assert.ok(start > 0 && end > start, 'send() anchors not found');
-  const done = source.slice(start, end);
-  assert.ok(done.includes('showSubmitted($success, res.data);'), 'send() does not call showSubmitted');
+  const done = flat.slice(start, end);
+  assert.ok(done.includes('showSubmitted($success,res.data);'), 'send() does not call showSubmitted');
   assert.doesNotMatch(done, /location|setTimeout/);
 });
 

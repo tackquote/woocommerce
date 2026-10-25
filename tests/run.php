@@ -208,5 +208,10 @@ require __DIR__ . '/live-qa-1120-test.php';
 echo "\n-- 1.12.0 back office (store profile, variation keys) --\n";
 require __DIR__ . '/backoffice-1120-test.php';
 
+// 1.12.0 coding-standards pass: eval-free i18n scan, escaping where markup is echoed,
+// the claim handler's own capability and nonce check. Last: it reuses earlier fixtures.
+echo "\n-- coding-standards pass (escape late, nonce in scope, no eval) --\n";
+require __DIR__ . '/standards-1120-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

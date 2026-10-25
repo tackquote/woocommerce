@@ -19,6 +19,9 @@
 // ── D3: the success message is outside the form ─────────────────────────────
 
 $e2e_js    = (string) file_get_contents( TACK_QUOTES_DIR . 'assets/js/tack-quotes.js' );
+// Whitespace-free copy for the pins below: they check the code, not its formatting
+// (1.12.0 moved the script to WordPress's Prettier style).
+$e2e_flat  = (string) preg_replace( '/\s+/', '', $e2e_js );
 $e2e_start = strpos( $e2e_js, 'function buildModal()' );
 $e2e_end   = false === $e2e_start ? false : strpos( $e2e_js, 'function openModal(', $e2e_start );
 $e2e_build = ( false !== $e2e_start && false !== $e2e_end ) ? substr( $e2e_js, $e2e_start, $e2e_end - $e2e_start ) : '';
@@ -32,9 +35,9 @@ check(
 );
 check( 'D3: exactly one success node in the modal', 1 === substr_count( $e2e_build, 'tack-quote-modal-success' ) );
 check( 'D3: the success node can take focus (tabindex -1) and is a status region', 1 === preg_match( '/<p class="tack-quote-modal-success" role="status" tabindex="-1" hidden><\/p>/', $e2e_build ) );
-check( 'D3: the success branch moves focus to the message', false !== strpos( $e2e_js, "\$success.trigger('focus');" ) );
-check( 'D3: opening the modal again hides the message and shows the form', false !== strpos( $e2e_js, "\$success.hide().text('');" ) && false !== strpos( $e2e_js, '$form.show();' ) );
-check( 'D3: Escape still closes the dialog', 1 === preg_match( "/e\\.key === 'Escape' && modal && !modal\\.hasAttribute\\('hidden'\\)\\) \\{\\s*closeModal\\(\\);/", $e2e_js ) );
+check( 'D3: the success branch moves focus to the message', false !== strpos( $e2e_flat, "\$success.trigger('focus');" ) );
+check( 'D3: opening the modal again hides the message and shows the form', false !== strpos( $e2e_flat, "\$success.hide().text('');" ) && false !== strpos( $e2e_flat, '$form.show();' ) );
+check( 'D3: Escape still closes the dialog', false !== strpos( $e2e_flat, "e.key==='Escape'&&modal&&!modal.hasAttribute('hidden')){closeModal();" ) );
 
 // ── D4: a variation's quote-list row carries the variation's SKU and price ──
 
@@ -86,7 +89,7 @@ $e2e_out = tack_parity_capture(
 );
 check( 'D4: no map when "Add to Quote" is off (only that button reads it)', false === strpos( $e2e_out, 'data-tack-variation-lines' ), $e2e_out );
 $GLOBALS['TACK_OPTIONS']['tack_quotes_show_add_to_quote'] = 'yes';
-check( 'D4: the click handler builds the row through TackWithOptions.listRow with the map', false !== strpos( $e2e_js, "api.parseStates(\$btn.closest('.tack-quote-buttons').attr('data-tack-variation-lines'))" ) && false !== strpos( $e2e_js, 'var row = api.listRow(' ) );
+check( 'D4: the click handler builds the row through TackWithOptions.listRow with the map', false !== strpos( $e2e_flat, "api.parseStates(\$btn.closest('.tack-quote-buttons').attr('data-tack-variation-lines'))" ) && false !== strpos( $e2e_flat, 'constrow=api.listRow(' ) );
 
 // ── D5: target prices as lineItems[].targetPrice, gated on the server ───────
 
@@ -184,7 +187,7 @@ check( 'D6: any other part is refused', '' === $e2e_w->current_customer_name( 'u
 unset( $GLOBALS['TACK_WC_CUSTOMER'], $GLOBALS['TACK_USER_FIRST_NAME'], $GLOBALS['TACK_USER_LAST_NAME'] );
 tack_test_set_logged_in( false, '' );
 check( 'D6: the names are localized to the script', false !== strpos( $e2e_widget_src, "'customerFirstName'   => \$this->current_customer_name( 'first' )," ) && false !== strpos( $e2e_widget_src, "'customerLastName'    => \$this->current_customer_name( 'last' )," ) );
-check( 'D6: openModal() fills both name fields after the form reset', 1 === preg_match( "/\\\$form\\[0\\]\\.reset\\(\\);.*\\\$firstName\\.val\\(TackQuotes\\.customerFirstName \\|\\| ''\\);\\s*\\\$overlay\\.find\\('#tack-quote-last-name'\\)\\.val\\(TackQuotes\\.customerLastName \\|\\| ''\\);/s", $e2e_js ) );
+check( 'D6: openModal() fills both name fields after the form reset', 1 === preg_match( "/\\\$form\\[0\\]\\.reset\\(\\);.*\\\$firstName\\.val\\(TackQuotes\\.customerFirstName\\|\\|''\\);\\\$overlay\\.find\\('#tack-quote-last-name'\\)\\.val\\(TackQuotes\\.customerLastName\\|\\|''\\);/s", $e2e_flat ) );
 
 // ── D8: modal, drawer and launcher strings mapped to the catalogue ──────────
 

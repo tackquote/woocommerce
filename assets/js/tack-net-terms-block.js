@@ -11,28 +11,30 @@
 ( function () {
 	'use strict';
 
-	var wc = window.wc || {};
-	var wp = window.wp || {};
+	const wc = window.wc || {};
+	const wp = window.wp || {};
 	if ( ! wc.wcBlocksRegistry || ! wc.wcSettings || ! wp.element ) {
 		return;
 	}
 
-	var el = wp.element.createElement;
-	var decode = wp.htmlEntities && wp.htmlEntities.decodeEntities
-		? wp.htmlEntities.decodeEntities
-		: function ( text ) {
-			return text;
-		};
-	var data = wc.wcSettings.getSetting( 'tackquote_net_terms_data', {} ) || {};
-	var title = decode( data.title || '' );
-	var description = decode( data.description || '' );
+	const el = wp.element.createElement;
+	const decode =
+		wp.htmlEntities && wp.htmlEntities.decodeEntities
+			? wp.htmlEntities.decodeEntities
+			: function ( text ) {
+					return text;
+			  };
+	const data =
+		wc.wcSettings.getSetting( 'tackquote_net_terms_data', {} ) || {};
+	const title = decode( data.title || '' );
+	const description = decode( data.description || '' );
 
-	var Content = function () {
+	const Content = function () {
 		return el( 'div', null, description );
 	};
 
-	var Label = function ( props ) {
-		var components = props && props.components ? props.components : {};
+	const Label = function ( props ) {
+		const components = props && props.components ? props.components : {};
 		if ( components.PaymentMethodLabel ) {
 			return el( components.PaymentMethodLabel, { text: title } );
 		}
@@ -48,15 +50,21 @@
 		// 1.12.0: WooCommerce re-runs this whenever the cart changes, with the Store API
 		// cart (`cart.extensions`). The server's answer for THAT cart wins; the answer
 		// printed with the page is the fallback (an older server, or no Store API data).
-		canMakePayment: function ( arg ) {
-			var ext = arg && arg.cart && arg.cart.extensions && arg.cart.extensions.tackquote;
+		canMakePayment( arg ) {
+			const ext =
+				arg &&
+				arg.cart &&
+				arg.cart.extensions &&
+				arg.cart.extensions.tackquote;
 			if ( ext && typeof ext.netTermsAvailable === 'boolean' ) {
 				return ext.netTermsAvailable;
 			}
 			return true === data.canPay;
 		},
 		supports: {
-			features: Array.isArray( data.supports ) ? data.supports : [ 'products' ],
+			features: Array.isArray( data.supports )
+				? data.supports
+				: [ 'products' ],
 		},
 	} );
 } )();

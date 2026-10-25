@@ -175,6 +175,10 @@ $qa_v       = function ( $message ) {
 check( 'R-3: class-validator wording is never shown ("property answers should not exist")', $qa_generic === Tack_Widget::shopper_error( $qa_v( 'property answers should not exist' ) ) );
 check( 'R-3: nor "must be a string"', $qa_generic === Tack_Widget::shopper_error( $qa_v( 'note must be a string' ) ) );
 check( 'R-3: nor a refusal of a field the plugin sent (uploadIds)', $qa_generic === Tack_Widget::shopper_error( $qa_v( 'uploadIds: each value is not a valid id' ) ) );
+foreach ( array( 'items must contain at least 1 elements', 'email must match /^[^@]+@[^@]+$/ regular expression', 'note must not be empty', 'company should not be empty', 'quantity must be a positive number', 'tags must be an array' ) as $qa_validator ) {
+	check( 'R-3 (Fable nit): validator wording "' . $qa_validator . '" is never shown', $qa_generic === Tack_Widget::shopper_error( $qa_v( $qa_validator ) ) );
+}
+check( 'R-3 (Fable nit): a word that only contains "must" or "should" is not mistaken for one', 'Mustard-coloured items ship in 3 days; you should notify us of changes.' === Tack_Widget::shopper_error( $qa_v( 'Mustard-coloured items ship in 3 days; you should notify us of changes.' ) ) );
 check( 'R-3: a plain shopper-fixable sentence still is', 'An attached file has expired or was not uploaded from this session. Please upload it again.' === Tack_Widget::shopper_error( $qa_v( 'An attached file has expired or was not uploaded from this session. Please upload it again.' ) ) );
 
 $qa_any = Tack_Quotes::cart_item_data(
@@ -185,7 +189,7 @@ $qa_any = Tack_Quotes::cart_item_data(
 		'data'         => $qa_var,
 	)
 );
-check( 'R-4: the cart line\'s own attributes name it (an "Any" value is kept)', 'Glove - Large, Yes please' === $qa_any['name'], $qa_any['name'] );
+check( 'R-4: the cart line\'s own attributes name it (an "Any" value is kept as typed)', 'Glove - Large, yes please' === $qa_any['name'], $qa_any['name'] );
 $qa_none = Tack_Quotes::cart_item_data(
 	array(
 		'product_id'   => 301,

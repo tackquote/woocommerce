@@ -25,9 +25,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
-echo $notices; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html() by Tack_Storefront_Forms::notice().
+echo wp_kses( $notices, Tack_Storefront_Forms::allowed_html() );
 echo '<p class="tackquote-form-description">' . esc_html( $description ) . '</p>';
 echo '<form method="post" action="' . esc_url( $action_url ) . '" class="woocommerce-form tackquote-form" data-tack-form="credit">';
-echo $fields; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped per attribute by Tack_Storefront_Forms.
-echo $hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() values and wp_nonce_field().
+echo wp_kses( $fields, Tack_Storefront_Forms::allowed_html() );
+echo wp_kses( $hidden, Tack_Storefront_Forms::allowed_html() );
 echo '<p class="form-row"><button type="submit" class="' . esc_attr( $submit_class ) . '">' . esc_html( $submit_label ) . '</button></p></form>';

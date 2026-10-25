@@ -778,7 +778,7 @@ class Tack_Widget {
 			$label = self::button_label( 'tack_quotes_request_button_label' );
 			// The final action is `alt` (the theme's primary button) when it is the
 			// product's only action: not purchasable means quote-only or unpriced.
-			$primary = method_exists( $product, 'is_purchasable' ) && ! $product->is_purchasable();
+			$primary = ! $product->is_purchasable();
 			$this->button( array( 'product-id' => $product->get_id() ), $primary ? 'alt tack-quote-btn' : 'tack-quote-btn', $label );
 		}
 
@@ -920,7 +920,7 @@ class Tack_Widget {
 		// widget, a template part or a block template is not seen here; the
 		// `tackquote_quote_controls_possible` filter below lets a site say so.
 		$post = function_exists( 'get_post' ) ? get_post() : null;
-		if ( is_object( $post ) && isset( $post->post_content ) && function_exists( 'has_shortcode' ) ) {
+		if ( $post instanceof WP_Post && function_exists( 'has_shortcode' ) ) {
 			$content = (string) $post->post_content;
 			if ( has_shortcode( $content, 'tackquote_quote_page' ) || has_shortcode( $content, Tack_Quick_Order::SHORTCODE ) || false !== strpos( $content, 'wp:' . Tack_Quick_Order::BLOCK ) ) {
 				return true;
@@ -1160,7 +1160,7 @@ class Tack_Widget {
 			--$this->block_cards[ $id ];
 			return;
 		}
-		echo $this->card_button_html( $product ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped per attribute in card_button_html().
+		echo wp_kses( $this->card_button_html( $product ), self::card_button_allowed_html() );
 	}
 
 	/**
@@ -1178,7 +1178,7 @@ class Tack_Widget {
 	 * @param WP_Block|object|null $instance      Block instance; `postId` context names the product.
 	 * @return string
 	 */
-	public function append_card_to_product_button( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+	public function append_card_to_product_button( $block_content, $parsed_block = array(), $instance = null ) {
 		if ( 'yes' !== get_option( self::OPT_CARD_BUTTONS, 'no' ) ) {
 			return $block_content;
 		}
@@ -1230,6 +1230,33 @@ class Tack_Widget {
 			}
 		}
 		return implode( ' ', array_unique( $classes ) );
+	}
+
+	/**
+	 * Exactly the markup card_button_html() builds, for escaping it where it is echoed.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return array
+	 */
+	private static function card_button_allowed_html() {
+		return array(
+			'button' => array(
+				'type'               => true,
+				'class'              => true,
+				'data-product-id'    => true,
+				'data-product-name'  => true,
+				'data-product-sku'   => true,
+				'data-product-price' => true,
+				'aria-label'         => true,
+			),
+			'a'      => array(
+				'href'            => true,
+				'class'           => true,
+				'data-product-id' => true,
+				'aria-label'      => true,
+			),
+		);
 	}
 
 	/**
@@ -1457,16 +1484,11 @@ class Tack_Widget {
 	 * @param string $label     Visible button text.
 	 */
 	private function button( $data, $css_class, $label ) {
-		$attrs = '';
+		echo '<button type="button" class="' . esc_attr( self::button_class( $css_class ) ) . '"';
 		foreach ( $data as $k => $v ) {
-			$attrs .= sprintf( ' data-%s="%s"', esc_attr( $k ), esc_attr( $v ) );
+			echo ' data-' . esc_attr( $k ) . '="' . esc_attr( $v ) . '"';
 		}
-		printf(
-			'<button type="button" class="%s"%s>%s</button>',
-			esc_attr( self::button_class( $css_class ) ),
-			$attrs, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_attr above.
-			esc_html( $label )
-		);
+		echo '>' . esc_html( $label ) . '</button>';
 	}
 
 	/**
@@ -1769,9 +1791,7 @@ class Tack_Widget {
 		 */
 		$payload = $this->attach_uploads(
 			$payload,
-			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified at the top of this handler.
 			isset( $_POST['upload_ids'] ) ? map_deep( wp_unslash( $_POST['upload_ids'] ), 'sanitize_text_field' ) : array(),
-			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified at the top of this handler.
 			isset( $_POST['upload_token'] ) ? sanitize_text_field( wp_unslash( $_POST['upload_token'] ) ) : '',
 			new Tack_Attachments( $client )
 		);
@@ -1909,11 +1929,12 @@ class Tack_Widget {
 		}
 		// A refusal of a field the plugin itself sent (an older server, a form that changed)
 		// is never the shopper's to fix, and neither is a validator's wording about the
-		// request's shape ("property answers should not exist", "must be a string").
+		// request's shape ("property answers should not exist", "must be a string",
+		// "must contain at least 1 elements", "must match /…/", "must not be empty").
 		$ours = self::refused_form_fields( $error ) || self::refused_attachment_fields( $error ) || self::refused_target_price( $error );
 		if ( ! $ours && $own && in_array( $status, array( 400, 422 ), true ) ) {
 			$message = trim( wp_strip_all_tags( (string) $error->get_error_message() ) );
-			if ( '' !== $message && 1 !== preg_match( '/^property |should not exist|must be (?:a|an) /i', $message ) ) {
+			if ( '' !== $message && 1 !== preg_match( '/^property |\bshould not\b|\bmust (?:be|contain|match|not)\b/i', $message ) ) {
 				return function_exists( 'mb_substr' ) ? mb_substr( $message, 0, 300 ) : substr( $message, 0, 300 );
 			}
 		}

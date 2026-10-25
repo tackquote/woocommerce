@@ -363,7 +363,7 @@ class Tack_Storefront_Forms {
 		if ( ! self::wholesale_tab_enabled() ) {
 			return;
 		}
-		echo $this->render_wholesale_form( self::default_slug(), $this->account_url( self::ENDPOINT_WHOLESALE ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_wholesale_form() returns wp_kses()-filtered markup.
+		echo wp_kses( $this->render_wholesale_form( self::default_slug(), $this->account_url( self::ENDPOINT_WHOLESALE ) ), self::allowed_html() );
 	}
 
 	/**
@@ -373,7 +373,7 @@ class Tack_Storefront_Forms {
 		if ( ! self::net_terms_tab_enabled() ) {
 			return;
 		}
-		echo $this->render_net_terms_form( $this->account_url( self::ENDPOINT_NET_TERMS ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- render_net_terms_form() returns wp_kses()-filtered markup.
+		echo wp_kses( $this->render_net_terms_form( $this->account_url( self::ENDPOINT_NET_TERMS ) ), self::allowed_html() );
 	}
 
 	/**
@@ -1114,7 +1114,12 @@ class Tack_Storefront_Forms {
 				$out[ $key ] = $by_key[ $key ][1];
 			}
 		}
-		return array_filter( $out, 'strlen' );
+		return array_filter(
+			$out,
+			static function ( $value ) {
+				return '' !== (string) $value;
+			}
+		);
 	}
 
 	/**
@@ -2028,7 +2033,12 @@ class Tack_Storefront_Forms {
 			'postalCode' => $read( 'get_billing_postcode' ),
 			'country'    => $read( 'get_billing_country' ),
 		);
-		$out['address'] = array_filter( $address, 'strlen' );
+		$out['address'] = array_filter(
+			$address,
+			static function ( $value ) {
+				return '' !== (string) $value;
+			}
+		);
 		return $out;
 	}
 
@@ -2356,9 +2366,12 @@ class Tack_Storefront_Forms {
 	}
 
 	/**
-	 * Allow exactly the markup the forms are built from.
-	 *
-	 * `wp_kses_post()` strips form controls, so the forms carry their own list.
+	 * Allow exactly the markup the application forms and the My Account views are built
+	 * from: form controls (which `wp_kses_post()` strips), notices, and the net-terms
+	 * standing summary, whose amounts are wc_price() markup (`<bdi>` and, in WooCommerce
+	 * 11.2, a currency symbol `<span … translate="no" dir="auto">`). Both
+	 * render_net_terms_form() and the tab that prints it filter through this list, so
+	 * anything missing here is dropped from the page.
 	 *
 	 * @return array
 	 */
@@ -2411,6 +2424,11 @@ class Tack_Storefront_Forms {
 				'aria-describedby'       => true,
 				'data-tack-seller-zone'  => true,
 				'data-tack-seller-today' => true,
+				// The quote form's file field only (render_field() with a file array other
+				// than `tack_sf_files`); the storefront script reads both data attributes.
+				'multiple'               => true,
+				'data-tack-max-files'    => true,
+				'data-tack-max-mb'       => true,
 			),
 			'select'   => $common + array(
 				'name'             => true,
@@ -2439,13 +2457,38 @@ class Tack_Storefront_Forms {
 			'span'     => $common + array(
 				'aria-hidden' => true,
 				'hidden'      => true,
+				'translate'   => true,
+				'dir'         => true,
 			),
+			'bdi'      => array(),
 			'a'        => $common + array( 'href' => true ),
 			'h2'       => $common,
 			'h3'       => $common,
 			'strong'   => array(),
 			'em'       => array(),
 			'br'       => array(),
+		);
+	}
+
+	/**
+	 * The markup of one net-terms summary line: text escaped with esc_html() and an
+	 * amount from wc_price() (`<span class="woocommerce-Price-amount amount"><bdi>`, and
+	 * in WooCommerce 11.2 a currency symbol `<span … translate="no" dir="auto">`), for
+	 * the template that prints one line. wp_kses_post() would drop the `<bdi>`, which
+	 * WordPress does not list; allowed_html() carries the same entries for the outer filter.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return array
+	 */
+	public static function price_line_allowed_html() {
+		return array(
+			'span' => array(
+				'class'     => true,
+				'translate' => true,
+				'dir'       => true,
+			),
+			'bdi'  => array(),
 		);
 	}
 

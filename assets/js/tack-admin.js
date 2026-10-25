@@ -19,9 +19,9 @@
 	 * @return {string|null} Value, or null when the form has no such control.
 	 */
 	function valueOf( form, name ) {
-		var value = null;
-		var i;
-		var el;
+		let value = null;
+		let i;
+		let el;
 		for ( i = 0; i < form.elements.length; i++ ) {
 			el = form.elements[ i ];
 			if ( el.name !== name ) {
@@ -52,15 +52,15 @@
 	 * @param {HTMLFormElement} form Form.
 	 */
 	function apply( form ) {
-		var markers = form.querySelectorAll( '[data-tack-when]' );
-		var targets = [];
-		var visible = [];
-		var i;
-		var marker;
-		var target;
-		var current;
-		var wanted;
-		var index;
+		const markers = form.querySelectorAll( '[data-tack-when]' );
+		const targets = [];
+		const visible = [];
+		let i;
+		let marker;
+		let target;
+		let current;
+		let wanted;
+		let index;
 
 		for ( i = 0; i < markers.length; i++ ) {
 			marker = markers[ i ];
@@ -69,8 +69,12 @@
 				// The controller is on another tab: leave the element alone.
 				continue;
 			}
-			wanted = ( marker.getAttribute( 'data-tack-when-value' ) || '' ).split( ' ' );
-			target = marker.classList.contains( 'tack-when--row' ) ? marker.closest( 'tr' ) : marker;
+			wanted = (
+				marker.getAttribute( 'data-tack-when-value' ) || ''
+			).split( ' ' );
+			target = marker.classList.contains( 'tack-when--row' )
+				? marker.closest( 'tr' )
+				: marker;
 			if ( ! target ) {
 				continue;
 			}
@@ -91,9 +95,11 @@
 	}
 
 	function init() {
-		var forms = document.querySelectorAll( '.tack-admin form.tack-form' );
-		var confirmForms = document.querySelectorAll( '.tack-admin form[data-tack-confirm]' );
-		var i;
+		const forms = document.querySelectorAll( '.tack-admin form.tack-form' );
+		const confirmForms = document.querySelectorAll(
+			'.tack-admin form[data-tack-confirm]'
+		);
+		let i;
 
 		for ( i = 0; i < forms.length; i++ ) {
 			( function ( form ) {
@@ -106,8 +112,10 @@
 
 		for ( i = 0; i < confirmForms.length; i++ ) {
 			confirmForms[ i ].addEventListener( 'submit', function ( event ) {
-				// eslint-disable-next-line no-alert -- a native confirm is the accessible, dependency-free choice here.
-				if ( ! window.confirm( this.getAttribute( 'data-tack-confirm' ) ) ) {
+				if (
+					// eslint-disable-next-line no-alert -- a native confirm is the accessible, dependency-free choice here.
+					! window.confirm( this.getAttribute( 'data-tack-confirm' ) )
+				) {
 					event.preventDefault();
 				}
 			} );
@@ -119,4 +127,4 @@
 	} else {
 		init();
 	}
-}() );
+} )();

@@ -283,8 +283,7 @@ class Tack_Catalog_Visibility {
 		if ( function_exists( 'WC' ) && is_object( WC() ) && method_exists( WC(), 'is_store_api_request' ) ) {
 			return (bool) WC()->is_store_api_request();
 		}
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared, never output.
-		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
 		return false !== strpos( $uri, '/wc/store/' );
 	}
 
@@ -481,7 +480,7 @@ class Tack_Catalog_Visibility {
 			// A site search lists products too; NOT IN on product_cat leaves posts alone.
 			return true;
 		}
-		if ( $query->is_tax() && isset( $query->tax_query ) && is_object( $query->tax_query ) && isset( $query->tax_query->queried_terms ) ) {
+		if ( $query->is_tax() && isset( $query->tax_query ) && is_object( $query->tax_query ) ) {
 			foreach ( array_keys( (array) $query->tax_query->queried_terms ) as $taxonomy ) {
 				if ( function_exists( 'is_object_in_taxonomy' ) && is_object_in_taxonomy( 'product', $taxonomy ) ) {
 					return true;

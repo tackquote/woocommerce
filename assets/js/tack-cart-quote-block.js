@@ -16,48 +16,65 @@
 ( function () {
 	'use strict';
 
-	var wc = window.wc || {};
-	var wp = window.wp || {};
-	var settings = wc.wcSettings && wc.wcSettings.getSetting ? wc.wcSettings.getSetting( 'tackquote-cart-quote_data', {} ) : {};
-	var label = settings && settings.label ? String( settings.label ) : '';
-	var classes = settings && settings.buttonClass ? String( settings.buttonClass ) : 'button tack-quote-cart-btn';
+	const wc = window.wc || {};
+	const wp = window.wp || {};
+	const settings =
+		wc.wcSettings && wc.wcSettings.getSetting
+			? wc.wcSettings.getSetting( 'tackquote-cart-quote_data', {} )
+			: {};
+	const label = settings && settings.label ? String( settings.label ) : '';
+	const classes =
+		settings && settings.buttonClass
+			? String( settings.buttonClass )
+			: 'button tack-quote-cart-btn';
 	if ( ! label ) {
 		return;
 	}
 
 	// The slot's camelCase cart items as the lines tack-quotes.js reads (`data-lines`).
 	function linesOf( cart ) {
-		var items = cart && Array.isArray( cart.cartItems ) ? cart.cartItems : [];
+		const items =
+			cart && Array.isArray( cart.cartItems ) ? cart.cartItems : [];
 		// The parent and variation ids come from the plugin's Store API data on each item
 		// (TackWithOptions.cartLine, tack-with-options.js): the Store API itself names a
 		// variation only by its own id.
-		var toLine = window.TackWithOptions && window.TackWithOptions.cartLine;
+		const toLine =
+			window.TackWithOptions && window.TackWithOptions.cartLine;
 		return items.map( function ( it ) {
 			if ( toLine ) {
 				return toLine( it );
 			}
-			var minor = it.prices ? Number( it.prices.currency_minor_unit ) : NaN;
-			var raw = it.prices ? Number( it.prices.price ) : NaN;
+			const minor = it.prices
+				? Number( it.prices.currency_minor_unit )
+				: NaN;
+			const raw = it.prices ? Number( it.prices.price ) : NaN;
 			return {
 				product_id: Number( it.id ) || 0,
 				variation_id: 0,
 				name: String( it.name || '' ),
 				sku: String( it.sku || '' ),
-				price: isFinite( raw ) && isFinite( minor ) ? raw / Math.pow( 10, minor ) : 0,
+				price:
+					isFinite( raw ) && isFinite( minor )
+						? raw / Math.pow( 10, minor )
+						: 0,
 				quantity: Number( it.quantity ) || 1,
 			};
 		} );
 	}
 
-	var Slot = wc.blocksCheckout && wc.blocksCheckout.ExperimentalOrderMeta;
+	const Slot = wc.blocksCheckout && wc.blocksCheckout.ExperimentalOrderMeta;
 	if ( Slot && wp.plugins && wp.plugins.registerPlugin && wp.element ) {
-		var el = wp.element.createElement;
-		var Control = function ( props ) {
+		const el = wp.element.createElement;
+		const Control = function ( props ) {
 			// The fill renders in the Checkout block too; the control belongs to the cart.
-			if ( props && props.context && props.context !== 'woocommerce/cart' ) {
+			if (
+				props &&
+				props.context &&
+				props.context !== 'woocommerce/cart'
+			) {
 				return null;
 			}
-			var lines = linesOf( props && props.cart );
+			const lines = linesOf( props && props.cart );
 			if ( props && props.cart && ! lines.length ) {
 				return null;
 			}
@@ -66,13 +83,17 @@
 				{ className: 'tack-quote-cart-block' },
 				el(
 					'button',
-					{ type: 'button', className: classes, 'data-lines': JSON.stringify( lines ) },
+					{
+						type: 'button',
+						className: classes,
+						'data-lines': JSON.stringify( lines ),
+					},
 					label
 				)
 			);
 		};
 		wp.plugins.registerPlugin( 'tackquote-cart-quote', {
-			render: function () {
+			render() {
 				return el( Slot, null, el( Control, null ) );
 			},
 			scope: 'woocommerce-checkout',
@@ -86,9 +107,9 @@
 		if ( document.querySelector( '.tack-quote-cart-btn' ) ) {
 			return;
 		}
-		var box = document.createElement( 'div' );
+		const box = document.createElement( 'div' );
 		box.className = 'tack-quote-cart-fixed';
-		var button = document.createElement( 'button' );
+		const button = document.createElement( 'button' );
 		button.type = 'button';
 		button.className = classes;
 		button.setAttribute( 'data-lines', '[]' );
@@ -97,17 +118,24 @@
 		document.body.appendChild( box );
 	}
 	function fallback() {
-		var url = window.TackQuotes && window.TackQuotes.storeCartUrl;
+		const url = window.TackQuotes && window.TackQuotes.storeCartUrl;
 		if ( ! url || typeof window.fetch !== 'function' ) {
 			return;
 		}
 		window
-			.fetch( url, { credentials: 'same-origin', headers: { Accept: 'application/json' } } )
+			.fetch( url, {
+				credentials: 'same-origin',
+				headers: { Accept: 'application/json' },
+			} )
 			.then( function ( r ) {
 				return r.ok ? r.json() : null;
 			} )
 			.then( function ( cart ) {
-				if ( cart && Array.isArray( cart.items ) && cart.items.length ) {
+				if (
+					cart &&
+					Array.isArray( cart.items ) &&
+					cart.items.length
+				) {
 					addFixed();
 				}
 			} )
@@ -118,4 +146,4 @@
 	} else {
 		fallback();
 	}
-}() );
+} )();

@@ -29,7 +29,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-echo $notices; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html() by Tack_Storefront_Forms::notice().
+echo wp_kses( $notices, Tack_Storefront_Forms::allowed_html() );
 if ( '' !== $title ) {
 	echo '<h2 class="tackquote-form-title">' . esc_html( $title ) . '</h2>';
 }
@@ -37,11 +37,11 @@ if ( '' !== $description ) {
 	echo '<p class="tackquote-form-description">' . esc_html( $description ) . '</p>';
 }
 echo '<form method="post" action="' . esc_url( $action_url ) . '"' . ( $multipart ? ' enctype="multipart/form-data"' : '' ) . ' class="woocommerce-form tackquote-form" data-tack-form="wholesale">';
-echo $fields; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped per attribute by Tack_Storefront_Forms::render_field().
+echo wp_kses( $fields, Tack_Storefront_Forms::allowed_html() );
 if ( '' !== $blocked ) {
-	echo $blocked; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped by Tack_Storefront_Forms.
+	echo wp_kses( $blocked, Tack_Storefront_Forms::allowed_html() );
 } else {
-	echo $hidden; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_attr() values and wp_nonce_field().
+	echo wp_kses( $hidden, Tack_Storefront_Forms::allowed_html() );
 	echo '<p class="form-row"><button type="submit" class="' . esc_attr( $submit_class ) . '">' . esc_html( $submit_label ) . '</button></p>';
 }
 echo '</form>';

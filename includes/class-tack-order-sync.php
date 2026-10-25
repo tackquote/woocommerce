@@ -208,7 +208,12 @@ class Tack_Order_Sync {
 				'return'        => 'ids',
 			)
 		);
-		$ids   = is_array( $ids ) ? $ids : array();
+		/**
+		 * `'return' => 'ids'`: order ids.
+		 *
+		 * @var int[] $ids
+		 */
+		$ids = is_array( $ids ) ? $ids : array();
 		if ( count( $ids ) > self::REQUEUE_LIMIT && function_exists( 'wc_get_logger' ) && wc_get_logger() ) {
 			wc_get_logger()->warning(
 				sprintf(
@@ -592,6 +597,11 @@ class Tack_Order_Sync {
 		$items = array();
 
 		foreach ( $order->get_items() as $item ) {
+			/**
+			 * The default `line_item` type: every item is a product line.
+			 *
+			 * @var WC_Order_Item_Product $item
+			 */
 			// $item is a WC_Order_Item_Product; get_product() returns false for a deleted
 			// product, which is why the SKU below is guarded rather than read directly.
 			$product      = $item->get_product();
@@ -678,6 +688,11 @@ class Tack_Order_Sync {
 	private function shipping_lines_payload( $order ) {
 		$lines = array();
 		foreach ( $order->get_items( 'shipping' ) as $line ) {
+			/**
+			 * Items of type `shipping`.
+			 *
+			 * @var WC_Order_Item_Shipping $line
+			 */
 			$lines[] = array(
 				'methodId'    => $line->get_method_id(),
 				'methodTitle' => $line->get_method_title(),

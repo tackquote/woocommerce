@@ -375,7 +375,12 @@ class Tack_Connect {
 		if ( defined( 'WC_VERSION' ) ) {
 			$body['wcVersion'] = self::clip( (string) WC_VERSION, 20 );
 		}
-		$body = array_filter( $body, 'strlen' );
+		$body = array_filter(
+			$body,
+			static function ( $value ) {
+				return '' !== (string) $value;
+			}
+		);
 
 		$answer = $this->client()->public_request( 'POST', '/woocommerce-connect/requests', $body );
 		if ( is_wp_error( $answer ) ) {

@@ -157,7 +157,7 @@ class Tack_Role_Mirror {
 		}
 
 		$added   = $this->added_roles( $user );
-		$roles   = isset( $user->roles ) ? (array) $user->roles : array();
+		$roles   = (array) $user->roles;
 		$changed = false;
 
 		// Remove what WE added and no longer applies. Nothing else.

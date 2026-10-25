@@ -40,6 +40,7 @@
 /* ── Floating launcher + drawer ────────────────────────────────────────────── */
 .tack-quote-list-widget {
   position: fixed;
+
   /* The merchant's offsets (settings) arrive as --tack-fab-x/-y on the element. */
   inset-inline-end: var(--tackquote-launcher-offset-x, var(--tack-fab-x, 20px));
   inset-block-end: var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px));
@@ -135,6 +136,7 @@
 }
 
 @media (max-width: 768px) {
+
   .tack-quote-list-widget.tack-fab-hide-mobile {
     display: none;
   }
@@ -143,6 +145,7 @@
 /* Narrow phones: always compact, at least 48px tall, lifted above the home
  * indicator; the label stays for assistive technology (aria-label carries it too). */
 @media (max-width: 480px) {
+
   .tack-quote-list-widget {
     inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + env(safe-area-inset-bottom, 0px));
   }
@@ -213,12 +216,14 @@ body.tack-quote-modal-open {
 
 .tack-quote-field-half {
   flex: 1 1 0;
+
   /* Without min-width:0 a long placeholder makes a flex item refuse to shrink and
      the row overflows the modal on narrow screens. */
   min-width: 0;
 }
 
 @media (max-width: 480px) {
+
   .tack-quote-field-row {
     flex-direction: column;
     gap: 0;
@@ -354,6 +359,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
 }
 
 /* ── Product Button block grids: the card control follows the card's button ── */
+
 /* The wrapper wears the Product Button block's own alignment and font-size classes
  * (Tack_Widget::card_wrapper_class()); this mirrors WooCommerce's own layout rules for
  * that block (product-button.css: a centred column, align-left / align-right). */
@@ -377,6 +383,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
 }
 
 /* ── Quick order on block themes: inputs take the theme's form styling ───────── */
+
 /* Zero specificity (:where), so any theme or WooCommerce rule for inputs wins; this
  * only replaces the browser's small default inputs that block themes leave unstyled. */
 :where(.tack-quick-order) :where(input.input-text, textarea.input-text) {
@@ -387,7 +394,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   font: inherit;
   color: inherit;
   background-color: var(--wp--preset--color--base, transparent);
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border: 1px solid color-mix(in srgb, currentcolor 35%, transparent);
   border-radius: var(--wp--custom--form--border-radius, 0);
 }
 
@@ -396,6 +403,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
  * collapses and the next row's label rides up over it. The cell contains its float,
  * and an empty one shows a dash. */
 @media (max-width: 768px) {
+
   .tack-quick-order-table td {
     overflow: hidden;
   }
@@ -406,10 +414,12 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
 }
 
 /* ── Storefront's handheld footer bar (fixed, below 768px) ───────────────────── */
+
 /* Storefront fixes a bar of links to the bottom of small screens (woocommerce.scss,
  * `.storefront-handheld-footer-bar`, links ms(7) = 4.236em tall, hidden from 768px):
  * the launcher sits above it rather than over its cart link. */
 @media (max-width: 767px) {
+
   body:has(.storefront-handheld-footer-bar) {
     --tackquote-bottom-bar: var(--tackquote-bottom-bar-height, 4.236em);
   }

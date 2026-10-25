@@ -267,6 +267,13 @@ class Tack_Wholesale_Pricing {
 			}
 
 			/**
+			 * A cart line's `data` is its product.
+			 *
+			 * @var WC_Product $line_product
+			 */
+			$line_product = $item['data'];
+
+			/**
 			 * Filters the Tack-resolved NET unit price before it is applied to a cart line.
 			 *
 			 * Runs only for a SKU TackQuote actually priced; a line with no answer keeps
@@ -278,7 +285,7 @@ class Tack_Wholesale_Pricing {
 			 * @param mixed  $store_price The product's own price, as `WC_Product::get_price()` returns it.
 			 * @param string $sku         Product SKU.
 			 */
-			$unit = apply_filters( 'tackquote_wholesale_price', $unit, $item['data']->get_price(), $sku );
+			$unit = apply_filters( 'tackquote_wholesale_price', $unit, $line_product->get_price(), $sku );
 
 			if ( method_exists( $item['data'], 'set_price' ) ) {
 				$item['data']->set_price( Tack_Tax_Basis::entry_price( $unit, $item['data'], $qty ) );
@@ -524,7 +531,7 @@ class Tack_Wholesale_Pricing {
 	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
 	 * @return string
 	 */
-	public function append_quantity_breaks_to_block( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+	public function append_quantity_breaks_to_block( $block_content, $parsed_block = array(), $instance = null ) {
 		$product = Tack_Block_Product::from_block( $instance );
 		if ( null === $product ) {
 			return $block_content;

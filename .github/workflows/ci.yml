@@ -95,3 +95,34 @@ jobs:
 
       - name: PHPCS
         run: vendor/bin/phpcs -q --report=summary
+
+  # PHPStan level 5 with WordPress + WooCommerce stubs (phpstan.neon.dist). No
+  # baseline: the few ignoreErrors entries there are narrow and each states why.
+  phpstan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dev tooling (locked)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: PHPStan
+        run: composer phpstan -- --no-progress

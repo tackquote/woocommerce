@@ -35,6 +35,52 @@ function tack_i18n_scan_functions() {
 }
 
 /**
+ * The value of one PHP string-literal token (T_CONSTANT_ENCAPSED_STRING), decoded the
+ * way PHP decodes it, without eval().
+ *
+ * Single quotes: only `\\` and `\'` are escapes. Double quotes (a token of this type
+ * has no interpolation): `\n \r \t \v \e \f \\ \$ \"`, octal `\0`-`\777`, hex `\xH[H]` and
+ * `\u{H...}`; any other backslash stays as written, as in PHP.
+ * https://www.php.net/manual/en/language.types.string.php
+ *
+ * @param string $token The token text, quotes included.
+ * @return string
+ */
+function tack_i18n_unquote( $token ) {
+	$body = substr( $token, 1, -1 );
+	if ( "'" === $token[0] ) {
+		return (string) preg_replace( '/\\\\([\\\\\'])/', '$1', $body );
+	}
+	$simple = array(
+		'n'  => "\n",
+		'r'  => "\r",
+		't'  => "\t",
+		'v'  => "\v",
+		'e'  => "\e",
+		'f'  => "\f",
+		'\\' => '\\',
+		'$'  => '$',
+		'"'  => '"',
+	);
+	return (string) preg_replace_callback(
+		'/\\\\(?:([nrtvef\\\\$"])|([0-7]{1,3})|x([0-9A-Fa-f]{1,2})|u\{([0-9A-Fa-f]+)\})/',
+		static function ( $m ) use ( $simple ) {
+			if ( isset( $m[1] ) && '' !== $m[1] ) {
+				return $simple[ $m[1] ];
+			}
+			if ( isset( $m[2] ) && '' !== $m[2] ) {
+				return chr( octdec( $m[2] ) & 255 );
+			}
+			if ( isset( $m[3] ) && '' !== $m[3] ) {
+				return chr( hexdec( $m[3] ) );
+			}
+			return html_entity_decode( '&#x' . $m[4] . ';', ENT_QUOTES, 'UTF-8' );
+		},
+		$body
+	);
+}
+
+/**
  * Translatable strings in one PHP file.
  *
  * @param string $file Path.
@@ -91,8 +137,7 @@ function tack_i18n_scan_php( $file ) {
 			if ( ! is_array( $arg ) || 1 !== count( $arg ) || ! is_array( $arg[0] ) || T_CONSTANT_ENCAPSED_STRING !== $arg[0][0] ) {
 				return null;
 			}
-			// phpcs:ignore Squiz.PHP.Eval.Discouraged -- a single PHP string-literal token, unquoted exactly as PHP would.
-			return eval( 'return ' . $arg[0][1] . ';' );
+			return tack_i18n_unquote( $arg[0][1] );
 		};
 		list( $s, $p, $d ) = $fns[ $tokens[ $i ][1] ];
 		if ( ! isset( $args[ $d ] ) || 'tackquote' !== $literal( $args[ $d ] ) ) {
