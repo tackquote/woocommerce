@@ -11,8 +11,8 @@
  * The store's own catalogue is the authority for what its cart can take, so a
  * SKU is resolved HERE with `wc_get_product_id_by_sku()`. TackQuote's shared
  * `GET /storefront/v1/quick-order` answers `501 Not Implemented` for an API-key
- * caller (the API-key identity resolver has no catalogue binding from a SKU to a
- * WooCommerce cart item; tack `storefront-v1.controller.ts` `quickOrder`), and its
+ * caller (TackQuote has no mapping from a SKU to a WooCommerce cart item for a
+ * request authenticated with a store's API key), and its
  * catalogue rows exist only for stores that synced through the WooCommerce REST
  * API, so it could not resolve a SKU for a plugin-only store or a guest at all.
  *
