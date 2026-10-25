@@ -91,10 +91,59 @@
     var key = String(id);
     var line = lines && typeof lines === 'object' && Object.prototype.hasOwnProperty.call(lines, key) ? lines[key] : null;
     row.sku = line && typeof line.s === 'string' ? line.s : '';
+    // WooCommerce's own wording of the variation ("Large, Blue"), when the page sent it:
+    // the same name the quick order and the cart give the line.
+    if (line && typeof line.l === 'string' && line.l) {
+      row.name = String(b.name || '') + ' - ' + line.l;
+    }
     var price = line ? Number(line.p) : NaN;
     row.price = line && line.p !== null && line.p !== '' && isFinite(price) && price >= 0 ? price : 0;
     return row;
   }
 
-  return { parseStates: parseStates, resolve: resolve, listRow: listRow };
+  /**
+   * One Store API cart item (`/wc/store/v1/cart` items, or the Cart block's `cartItems`)
+   * as a quote-list line `{product_id, variation_id, name, sku, price, quantity}`.
+   *
+   * The Store API names a variation by its OWN id, with no parent id. The plugin adds
+   * `extensions.tackquote` to every cart item (`productId`, `variationId`, `name`, `sku`,
+   * `price`; Tack_Quotes::cart_item_data()), so the line carries the parent and the
+   * variation and merges with the same variation added from its product page. Without
+   * it (an older plugin build serving the page) the item's own id is sent, which the
+   * server resolves either way, and the name keeps the variation's attribute values.
+   */
+  function cartLine(it) {
+    var item = it || {};
+    var quantity = Math.max(1, Number(item.quantity) || 1);
+    var ext = item.extensions && item.extensions.tackquote;
+    if (ext && positiveInt(ext.productId)) {
+      return {
+        product_id: positiveInt(ext.productId),
+        variation_id: positiveInt(ext.variationId),
+        name: String(ext.name || item.name || ''),
+        sku: String(ext.sku || item.sku || ''),
+        price: Number(ext.price) || 0,
+        quantity: quantity,
+      };
+    }
+    var minor = item.prices ? Number(item.prices.currency_minor_unit) : NaN;
+    var raw = item.prices ? Number(item.prices.price) : NaN;
+    var values = Array.isArray(item.variation)
+      ? item.variation
+          .map(function (v) {
+            return v && v.value ? String(v.value) : '';
+          })
+          .filter(Boolean)
+      : [];
+    return {
+      product_id: positiveInt(item.id),
+      variation_id: 0,
+      name: String(item.name || '') + (values.length ? ' - ' + values.join(', ') : ''),
+      sku: String(item.sku || ''),
+      price: isFinite(raw) && isFinite(minor) ? raw / Math.pow(10, minor) : 0,
+      quantity: quantity,
+    };
+  }
+
+  return { parseStates: parseStates, resolve: resolve, listRow: listRow, cartLine: cartLine };
 });

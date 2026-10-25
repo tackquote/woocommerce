@@ -88,6 +88,8 @@ final class Tack_Quotes {
 		// from the GitHub release. The updater file is absent from the WordPress.org build.
 		( new Tack_Rest_Keys() )->init();
 		Tack_Standing::init();
+		// Why shoppers' quote requests fail, for administrators (the shopper sees a calm sentence).
+		add_action( 'admin_notices', array( 'Tack_Widget', 'failure_notice' ) );
 		$updater = TACK_QUOTES_DIR . 'includes/class-tack-release-updates.php';
 		if ( is_readable( $updater ) ) {
 			require_once $updater;
@@ -174,8 +176,10 @@ final class Tack_Quotes {
 		// payment method's canMakePayment() reads it (assets/js/tack-net-terms-block.js).
 		if ( did_action( 'woocommerce_blocks_loaded' ) ) {
 			self::register_net_terms_store_api();
+			self::register_cart_item_store_api();
 		} else {
 			add_action( 'woocommerce_blocks_loaded', array( __CLASS__, 'register_net_terms_store_api' ) );
+			add_action( 'woocommerce_blocks_loaded', array( __CLASS__, 'register_cart_item_store_api' ) );
 		}
 		// 1.12.0: "Request a quote for your cart" inside the Cart block (Blocks Integration API).
 		add_action( 'woocommerce_blocks_cart_block_registration', array( __CLASS__, 'register_cart_block_integration' ) );
@@ -330,6 +334,77 @@ final class Tack_Quotes {
 				'schema_callback' => array( __CLASS__, 'net_terms_cart_schema' ),
 				'schema_type'     => ARRAY_A,
 			)
+		);
+	}
+
+	/**
+	 * Add `extensions.tackquote` to each Store API cart item: the product and variation
+	 * ids and the line's name as a quote line names it (1.12.0).
+	 *
+	 * The Store API's own cart item gives `id` = the VARIATION id for a variation and no
+	 * parent id (CartItemSchema::get_item_response(), WooCommerce 11.2.1), so "Request a
+	 * quote for your cart" in the Cart block could only send the bare variation id: the
+	 * line lost its variation label and did not merge with the same variation added from
+	 * the product page. The cart line itself knows both ids (`product_id`, `variation_id`).
+	 */
+	public static function register_cart_item_store_api() {
+		if ( ! function_exists( 'woocommerce_store_api_register_endpoint_data' ) ) {
+			return;
+		}
+		woocommerce_store_api_register_endpoint_data(
+			array(
+				'endpoint'        => class_exists( 'Automattic\\WooCommerce\\StoreApi\\Schemas\\V1\\CartItemSchema' )
+					? \Automattic\WooCommerce\StoreApi\Schemas\V1\CartItemSchema::IDENTIFIER
+					: 'cart-item',
+				'namespace'       => self::STORE_API_NAMESPACE,
+				'data_callback'   => array( __CLASS__, 'cart_item_data' ),
+				'schema_callback' => array( __CLASS__, 'cart_item_schema' ),
+				'schema_type'     => ARRAY_A,
+			)
+		);
+	}
+
+	/**
+	 * One cart line as the quote list keys it.
+	 *
+	 * @param array $cart_item WooCommerce cart item.
+	 * @return array{productId:int,variationId:int,name:string,sku:string,price:float}|array
+	 */
+	public static function cart_item_data( $cart_item = array() ) {
+		$product = is_array( $cart_item ) && isset( $cart_item['data'] ) && is_object( $cart_item['data'] ) ? $cart_item['data'] : null;
+		if ( null === $product || empty( $cart_item['product_id'] ) ) {
+			return array();
+		}
+		$variation_id = (int) ( $cart_item['variation_id'] ?? 0 );
+		return array(
+			'productId'   => (int) $cart_item['product_id'],
+			'variationId' => $variation_id,
+			'name'        => $variation_id > 0 ? Tack_Block_Product::cart_line_name( $cart_item, $product ) : ( method_exists( $product, 'get_name' ) ? (string) $product->get_name() : '' ),
+			'sku'         => method_exists( $product, 'get_sku' ) ? (string) $product->get_sku() : '',
+			'price'       => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $product ) : 0.0,
+		);
+	}
+
+	/**
+	 * Schema of cart_item_data().
+	 *
+	 * @return array
+	 */
+	public static function cart_item_schema() {
+		$field = function ( $type, $description ) {
+			return array(
+				'description' => $description,
+				'type'        => $type,
+				'context'     => array( 'view', 'edit' ),
+				'readonly'    => true,
+			);
+		};
+		return array(
+			'productId'   => $field( 'integer', 'Product id (the parent, for a variation).' ),
+			'variationId' => $field( 'integer', 'Variation id, or 0.' ),
+			'name'        => $field( 'string', 'The line name as a quote line names it.' ),
+			'sku'         => $field( 'string', 'SKU.' ),
+			'price'       => $field( 'number', 'Unit price excluding tax.' ),
 		);
 	}
 

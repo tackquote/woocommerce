@@ -187,6 +187,8 @@ $tack_quotes_transients = array(
 	'tack_quotes_quote_form_file_fallback',
 	// What TackQuote said about catalogue and order sync (Tack_Rest_Keys::STATUS_TRANSIENT) — 1.12.0.
 	'tack_quotes_rest_keys_status',
+	// Why the last shopper's quote request failed, for administrators (Tack_Widget::FAILURE_TRANSIENT) — 1.12.0.
+	'tack_quotes_storefront_failure',
 );
 
 /**

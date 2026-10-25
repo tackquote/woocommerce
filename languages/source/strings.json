@@ -43,7 +43,11 @@
       "This key lacks permission to connect a store: check its scopes in TackQuote, or create a new key.": "Settings > Connection test result, seen by the shop manager only",
       "Title": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
       "What the buyer sees at checkout.": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
-      "Buyers enter SKUs and quantities, then add them to the cart or to the quote list.": "block inserter description of the quick-order block, seen by the shop manager in the editor only"
+      "Buyers enter SKUs and quantities, then add them to the cart or to the quote list.": "block inserter description of the quick-order block, seen by the shop manager in the editor only",
+      "A shopper's quote request could not be sent to TackQuote.": "admin notice about a failed shopper quote request, shown to store administrators only",
+      "TackQuote refused this store's API key.": "admin notice about a failed shopper quote request, shown to store administrators only",
+      "TackQuote answered HTTP %1$d: %2$s": "admin notice about a failed shopper quote request, shown to store administrators only",
+      "Check the connection": "admin notice about a failed shopper quote request, shown to store administrators only"
     }
   },
   "strings": [
@@ -1074,6 +1078,10 @@
     {
       "msgid": "Too many additions to the cart from this connection. Please wait a few minutes and try again.",
       "key": "woo.quick_order.add_rate_limited"
+    },
+    {
+      "msgid": "We could not send your quote request right now. Please try again in a few minutes.",
+      "key": "woo.quote.request_failed"
     }
   ]
 }

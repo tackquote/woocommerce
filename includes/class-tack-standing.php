@@ -18,9 +18,12 @@
  *     attach files" to a guest, and that must never hide a store;
  *   - the ping came from an administrator's connection test or the background refresh,
  *     never from a shopper's page view or a storefront call;
- *   - a second, fresh ping confirms it;
- *   - the key had been answered before by a server listing the `standing` capability,
- *     so an older TackQuote server never causes it.
+ *   - a second, fresh ping confirms it.
+ *
+ * TackQuote's API-key check sends `api_key_invalid` with EVERY refused key (unknown,
+ * revoked or expired), so a key that was never accepted (for example one revoked before
+ * this store ever pinged a server that lists `standing`) stands the store down too, once
+ * confirmed. A server that does not send the code never causes it.
  *
  * A timeout, a 5xx, a 429, a 403 (a key without a scope) or a 401 from a proxy in front
  * of the API leaves the state as it was.
@@ -44,14 +47,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Tack_Standing {
 
 	/**
-	 * `{state: active|stood_down, reason: key_revoked|disconnected|'', key: fingerprint,
+	 * `{state: active|stood_down|unknown, reason: key_revoked|'', key: fingerprint,
 	 * supported: bool, checked: int}`. Small and read on every storefront request, so it
-	 * is autoloaded.
+	 * is autoloaded. `supported` (the server listed `standing` for this key) is a record
+	 * for diagnostics only: no decision reads it since 1.12.0's live QA.
 	 */
 	const OPTION = 'tack_quotes_standing';
 
 	const STATE_ACTIVE     = 'active';
 	const STATE_STOOD_DOWN = 'stood_down';
+
+	/** Checked, but nothing is known yet about the key (a failed or inconclusive ping). */
+	const STATE_UNKNOWN = 'unknown';
 
 	const REASON_REVOKED = 'key_revoked';
 
@@ -134,6 +141,9 @@ class Tack_Standing {
 	 */
 	public static function observe_ping( $answer, array $capabilities, $key ) {
 		unset( $answer );
+		if ( class_exists( 'Tack_Widget', false ) ) {
+			Tack_Widget::clear_request_failure();
+		}
 		self::write(
 			array(
 				'state'     => self::STATE_ACTIVE,
@@ -159,24 +169,23 @@ class Tack_Standing {
 	}
 
 	/**
-	 * A ping (admin test or background refresh only) was refused. Stands down only on
-	 * TackQuote's key refusal, for a key a `standing` server answered before, and only
-	 * after a second, fresh ping confirms it.
+	 * A ping (admin test or background refresh only) failed. Stands down only on
+	 * TackQuote's key refusal (`api_key_invalid`), and only after a second, fresh ping
+	 * confirms it. Every outcome records the check time, so the background refresh keeps
+	 * its ten-minute floor while the key is refused or TackQuote is unreachable.
 	 *
 	 * @param mixed           $error_data WP_Error data from the refused ping.
 	 * @param string          $key        The key it was sent with.
 	 * @param Tack_Api_Client $client     Client for the confirming ping.
 	 */
 	public static function observe_ping_refusal( $error_data, $key, $client ) {
-		if ( ! self::is_key_refusal( $error_data ) ) {
-			return;
-		}
 		$fingerprint = self::fingerprint( $key );
-		$record      = self::record();
-		if ( empty( $record['supported'] ) || ! hash_equals( (string) ( $record['key'] ?? '' ), $fingerprint ) ) {
-			return;
-		}
-		if ( ! is_object( $client ) || ! method_exists( $client, 'key_refused_now' ) || ! $client->key_refused_now() ) {
+		if ( ! self::is_key_refusal( $error_data )
+			|| ! is_object( $client ) || ! method_exists( $client, 'key_refused_now' ) || ! $client->key_refused_now() ) {
+			// Any other outcome (a timeout, a 5xx, a 403, an unconfirmed 401) leaves the state
+			// as it was, but the check is RECORDED: without it the next page view saw an old
+			// (or no) check time and scheduled another refresh at once, every time.
+			self::touch( $fingerprint );
 			return;
 		}
 		self::write(
@@ -185,6 +194,25 @@ class Tack_Standing {
 				'reason'    => self::REASON_REVOKED,
 				'key'       => $fingerprint,
 				'supported' => true,
+				'checked'   => time(),
+			)
+		);
+	}
+
+	/**
+	 * Record that the key was checked now, keeping what is known about it.
+	 *
+	 * @param string $fingerprint Fingerprint of the key the ping was sent with.
+	 */
+	private static function touch( $fingerprint ) {
+		$record = self::record();
+		$same   = hash_equals( (string) ( $record['key'] ?? '' ), (string) $fingerprint );
+		self::write(
+			array(
+				'state'     => $same ? (string) ( $record['state'] ?? self::STATE_UNKNOWN ) : self::STATE_UNKNOWN,
+				'reason'    => $same ? (string) ( $record['reason'] ?? '' ) : '',
+				'key'       => (string) $fingerprint,
+				'supported' => $same && ! empty( $record['supported'] ),
 				'checked'   => time(),
 			)
 		);

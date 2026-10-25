@@ -648,7 +648,20 @@ class Tack_Connect {
 
 		echo '<section class="tack-card tack-connect" aria-labelledby="tack-connect-heading"><div class="tack-card__head"><h2 id="tack-connect-heading">' . esc_html__( 'Connect with TackQuote', 'tackquote' ) . '</h2>';
 		if ( $has_key ) {
-			printf( '<span class="tack-pill tack-pill--ok">%s</span>', esc_html( sprintf( /* translators: %s: Connect with TackQuote, or API key. */ __( 'Connected via %s', 'tackquote' ), self::connected_via_label() ) ) );
+			// Green only when the last check of the key saved now passed; otherwise what is
+			// known about it (the Overview's own states), never "Connected".
+			$state = Tack_Settings::connection_status()['state'];
+			if ( 'ok' === $state ) {
+				printf( '<span class="tack-pill tack-pill--ok">%s</span>', esc_html( sprintf( /* translators: %s: Connect with TackQuote, or API key. */ __( 'Connected via %s', 'tackquote' ), self::connected_via_label() ) ) );
+			} elseif ( 'rejected' === $state ) {
+				printf( '<span class="tack-pill tack-pill--error">%s</span>', esc_html__( 'Key rejected', 'tackquote' ) );
+			} elseif ( 'failed' === $state ) {
+				printf( '<span class="tack-pill tack-pill--error">%s</span>', esc_html__( 'Connection failed', 'tackquote' ) );
+			} elseif ( 'unverified' === $state ) {
+				printf( '<span class="tack-pill tack-pill--warn">%s</span>', esc_html__( 'Reachable, key not verified', 'tackquote' ) );
+			} else {
+				printf( '<span class="tack-pill tack-pill--warn">%s</span>', esc_html__( 'Key saved, not tested', 'tackquote' ) );
+			}
 		}
 		echo '</div><div class="tack-card__body">';
 

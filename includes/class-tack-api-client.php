@@ -460,6 +460,10 @@ class Tack_Api_Client {
 		if ( class_exists( 'Tack_Standing', false ) ) {
 			Tack_Standing::observe_ping( $answer, $caps, $this->api_key() );
 		}
+		// The key works: a recorded storefront failure no longer describes the store.
+		if ( class_exists( 'Tack_Widget', false ) ) {
+			Tack_Widget::clear_request_failure();
+		}
 		return $caps;
 	}
 
@@ -502,6 +506,24 @@ class Tack_Api_Client {
 	public function key_refused_now() {
 		$result = $this->request( 'GET', '/integrations/woocommerce/ping', null, self::INTERACTIVE_TIMEOUT );
 		return is_wp_error( $result ) && Tack_Standing::is_key_refusal( $result->get_error_data() );
+	}
+
+	/**
+	 * Why the last ping for the saved key failed, from the cache: STATE_REJECTED (401 or
+	 * 403), STATE_FAILED (anything else), or '' when the last ping passed or there is no
+	 * fresh answer. No ping is made.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return string
+	 */
+	public function last_ping_failure() {
+		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
+		if ( is_array( $cached ) && isset( $cached['key'], $cached['until'], $cached['failed'] )
+			&& $cached['key'] === $this->key_fingerprint() && (int) $cached['until'] > time() ) {
+			return (string) $cached['failed'];
+		}
+		return '';
 	}
 
 	/**
