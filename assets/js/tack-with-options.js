@@ -90,7 +90,7 @@
 	// price; a variation missing from the map shows no SKU and no price rather than the
 	// parent's, which is the minimum of the range and would understate the price.
 	// The server re-derives every value from the ids; this is only what the drawer shows.
-	function listRow( base, variationId, label, lines ) {
+	function listRow( base, variationId, label, lines, chosen, terms ) {
 		const b = base || {};
 		const id = positiveInt( variationId );
 		const row = {
@@ -116,6 +116,17 @@
 		if ( line && typeof line.l === 'string' && line.l ) {
 			row.name = String( b.name || '' ) + ' - ' + line.l;
 		}
+		// A variation with "Any …" attributes (1.12.0): the variation's own label lacks the
+		// shopper's choice, so the row carries the choice (the server names the quote line
+		// from it) and is named from it. Two choices of one variation are two rows.
+		const attributes = anyAttributes( chosen, line && line.a );
+		if ( Object.keys( attributes ).length ) {
+			row.attributes = attributes;
+			const named = attributesLabel( chosen, terms );
+			if ( named ) {
+				row.name = String( b.name || '' ) + ' - ' + named;
+			}
+		}
 		const price = line ? Number( line.p ) : NaN;
 		row.price =
 			line &&
@@ -126,6 +137,155 @@
 				? price
 				: 0;
 		return row;
+	}
+
+	// The chosen values (`{ attribute_pa_color: 'blue' }`) of the attributes the variation
+	// leaves open (`keys`, `data-tack-variation-lines` `a`); empty values are dropped.
+	function anyAttributes( chosen, keys ) {
+		const out = {};
+		if (
+			! chosen ||
+			typeof chosen !== 'object' ||
+			! Array.isArray( keys )
+		) {
+			return out;
+		}
+		keys.forEach( function ( key ) {
+			const value = Object.prototype.hasOwnProperty.call( chosen, key )
+				? String( chosen[ key ] === null ? '' : chosen[ key ] )
+				: '';
+			if ( value !== '' ) {
+				out[ String( key ) ] = value;
+			}
+		} );
+		return out;
+	}
+
+	// "Blue, Large": each chosen value as WooCommerce names it (`data-tack-attribute-terms`,
+	// `Tack_Block_Product::attribute_terms()`), in the product's attribute order, the way
+	// wc_get_formatted_variation() words a cart line. '' without the names.
+	function attributesLabel( chosen, terms ) {
+		if ( ! chosen || ! terms || typeof terms !== 'object' ) {
+			return '';
+		}
+		const parts = [];
+		Object.keys( terms ).forEach( function ( key ) {
+			const value = Object.prototype.hasOwnProperty.call( chosen, key )
+				? String( chosen[ key ] === null ? '' : chosen[ key ] )
+				: '';
+			if ( value === '' ) {
+				return;
+			}
+			const names = terms[ key ] || {};
+			parts.push(
+				Object.prototype.hasOwnProperty.call( names, value )
+					? String( names[ value ] )
+					: value
+			);
+		} );
+		return parts.join( ', ' );
+	}
+
+	// What makes two quote-list rows the same line: product, variation and the "Any …"
+	// choices. Anything else (Hoodie Blue vs Hoodie Red of one "Any colour" variation, or
+	// two children of a group) is a line of its own.
+	function attributesKey( attributes ) {
+		if ( ! attributes || typeof attributes !== 'object' ) {
+			return '';
+		}
+		return Object.keys( attributes )
+			.filter( function ( k ) {
+				return String( attributes[ k ] ) !== '';
+			} )
+			.sort()
+			.map( function ( k ) {
+				return k + '=' + String( attributes[ k ] );
+			} )
+			.join( '&' );
+	}
+
+	function sameLine( a, b ) {
+		return (
+			!! a &&
+			!! b &&
+			positiveInt( a.productId ) === positiveInt( b.productId ) &&
+			positiveInt( a.variationId ) === positiveInt( b.variationId ) &&
+			attributesKey( a.attributes ) === attributesKey( b.attributes )
+		);
+	}
+
+	// A quantity within a row's ceiling (`max`: 1 for a product sold individually), at
+	// least 1; no ceiling when there is none.
+	function capQuantity( quantity, max ) {
+		const q = Math.max( 1, Math.floor( Number( quantity ) || 1 ) );
+		const m = positiveInt( max );
+		return m ? Math.min( q, m ) : q;
+	}
+
+	/**
+	 * The quote-list rows for a grouped product (1.12.0): one per child the shopper gave a
+	 * quantity above zero, in the page's order, never the group itself. That is what
+	 * WooCommerce adds to the cart from the same form
+	 * (`WC_Form_Handler::add_to_cart_handler_grouped()`, 11.2.1).
+	 *
+	 * @param {Object} group      `data-tack-group` parsed: `{ "<child id>": { n, s, p } }`.
+	 * @param {Array}  quantities `[ [ childId, quantity ], … ]` read from the form's
+	 *                            `quantity[<id>]` (and quote-only `tack_quantity[<id>]`) inputs.
+	 * @return {Array} Rows `{ productId, variationId: 0, name, sku, price, quantity }`.
+	 */
+	function groupRows( group, quantities ) {
+		const rows = [];
+		if (
+			! group ||
+			typeof group !== 'object' ||
+			! Array.isArray( quantities )
+		) {
+			return rows;
+		}
+		quantities.forEach( function ( pair ) {
+			const id = positiveInt( pair && pair[ 0 ] );
+			const quantity = positiveInt( pair && pair[ 1 ] );
+			const key = String( id );
+			if (
+				! id ||
+				! quantity ||
+				! Object.prototype.hasOwnProperty.call( group, key )
+			) {
+				return;
+			}
+			const child = group[ key ] || {};
+			const max = positiveInt( child.m );
+			const price = Number( child.p );
+			const row = {
+				productId: id,
+				variationId: 0,
+				name: String( child.n || '' ),
+				sku: String( child.s || '' ),
+				price:
+					child.p !== null &&
+					child.p !== '' &&
+					isFinite( price ) &&
+					price >= 0
+						? price
+						: 0,
+				quantity: max ? Math.min( quantity, max ) : quantity,
+			};
+			if ( max ) {
+				row.max = max;
+			}
+			// One input per child; a second entry for the same child adds to its row.
+			for ( let i = 0; i < rows.length; i++ ) {
+				if ( sameLine( rows[ i ], row ) ) {
+					rows[ i ].quantity = capQuantity(
+						rows[ i ].quantity + row.quantity,
+						max
+					);
+					return;
+				}
+			}
+			rows.push( row );
+		} );
+		return rows;
 	}
 
 	/**
@@ -147,7 +307,7 @@
 		const quantity = Math.max( 1, Number( item.quantity ) || 1 );
 		const ext = item.extensions && item.extensions.tackquote;
 		if ( ext && positiveInt( ext.productId ) ) {
-			return {
+			const line = {
 				product_id: positiveInt( ext.productId ),
 				variation_id: positiveInt( ext.variationId ),
 				name: String( ext.name || item.name || '' ),
@@ -155,6 +315,11 @@
 				price: Number( ext.price ) || 0,
 				quantity,
 			};
+			// The line's "Any …" choices (1.12.0), kept on the quote line.
+			if ( attributesKey( ext.attributes ) ) {
+				line.attributes = ext.attributes;
+			}
+			return line;
 		}
 		const minor = item.prices
 			? Number( item.prices.currency_minor_unit )
@@ -187,5 +352,11 @@
 		resolve,
 		listRow,
 		cartLine,
+		anyAttributes,
+		attributesLabel,
+		attributesKey,
+		sameLine,
+		groupRows,
+		capQuantity,
 	};
 } );

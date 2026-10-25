@@ -549,6 +549,11 @@ msgstr "Veuillez choisir l’un des délais de paiement proposés."
 msgid "Please choose the product options before requesting a quote."
 msgstr "Veuillez choisir les options du produit avant de demander un devis."
 
+#. catalogue: woo.widget.choose_quantities
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose the quantity of each product you want quoted."
+msgstr "Veuillez choisir la quantité de chaque produit pour lequel vous voulez un devis."
+
 #. catalogue: woo.modal.company_required
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Please complete the required company details."
@@ -617,6 +622,12 @@ msgstr "Le devis %1$s est établi en %2$s, mais cette boutique vend en %3$s : il
 #. catalogue: tackquote.widget.drawer_title
 msgid "Quote list"
 msgstr "Panier de devis"
+
+#. catalogue: woo.widget.quote_one
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Quote one %s"
+msgstr "Demander un devis pour un exemplaire de %s"
 
 #. catalogue: woo.forms.reference_n
 #. plugin catalogue (languages/source/local), pending native review

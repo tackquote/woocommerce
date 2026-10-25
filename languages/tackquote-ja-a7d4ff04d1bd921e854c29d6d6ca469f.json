@@ -102,6 +102,9 @@
             "Phone": [
                 "電話番号"
             ],
+            "Please choose the quantity of each product you want quoted.": [
+                "見積りを希望する各商品の数量を選択してください。"
+            ],
             "Please complete the required company details.": [
                 "必須の会社情報を入力してください。"
             ],

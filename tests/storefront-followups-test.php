@@ -25,8 +25,17 @@ if ( ! function_exists( 'woocommerce_quantity_input' ) ) {
 	 * @param array      $args    Args.
 	 * @param WC_Product $product Product.
 	 */
-	function woocommerce_quantity_input( $args = array(), $product = null ) {
-		echo '<div class="quantity"><input type="number" class="input-text qty text" name="quantity" min="' . (int) $args['min_value'] . '" value="' . (int) $args['input_value'] . '" /></div>';
+	function woocommerce_quantity_input( $args = array(), $product = null, $echo = true ) {
+		// WooCommerce's input: `input_name` (default `quantity`), `max_value` -1 = none,
+		// and the markup returned instead of printed when $echo is false.
+		$html = '<div class="quantity"><input type="number" class="input-text qty text" name="' . esc_attr( $args['input_name'] ?? 'quantity' ) . '" min="' . (int) $args['min_value'] . '"'
+			. ( isset( $args['max_value'] ) && (int) $args['max_value'] > 0 ? ' max="' . (int) $args['max_value'] . '"' : '' )
+			. ' value="' . esc_attr( (string) $args['input_value'] ) . '" /></div>';
+		if ( ! $echo ) {
+			return $html;
+		}
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub.
+		return '';
 	}
 }
 

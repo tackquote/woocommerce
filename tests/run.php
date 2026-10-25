@@ -213,5 +213,8 @@ require __DIR__ . '/backoffice-1120-test.php';
 echo "\n-- coding-standards pass (escape late, nonce in scope, no eval) --\n";
 require __DIR__ . '/standards-1120-test.php';
 
+echo "\n-- product types: grouped children, Any attributes, own quantity --\n";
+require __DIR__ . '/product-types-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

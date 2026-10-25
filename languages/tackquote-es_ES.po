@@ -549,6 +549,11 @@ msgstr "Elija uno de los plazos de pago ofrecidos."
 msgid "Please choose the product options before requesting a quote."
 msgstr "Elija las opciones del producto antes de solicitar un presupuesto."
 
+#. catalogue: woo.widget.choose_quantities
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose the quantity of each product you want quoted."
+msgstr "Elija la cantidad de cada producto que quiere presupuestar."
+
 #. catalogue: woo.modal.company_required
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Please complete the required company details."
@@ -617,6 +622,12 @@ msgstr "El presupuesto %1$s está en %2$s, pero esta tienda vende en %3$s, por l
 #. catalogue: tackquote.widget.drawer_title
 msgid "Quote list"
 msgstr "Carrito de presupuesto"
+
+#. catalogue: woo.widget.quote_one
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Quote one %s"
+msgstr "Presupuestar una unidad de %s"
 
 #. catalogue: woo.forms.reference_n
 #. plugin catalogue (languages/source/local), pending native review

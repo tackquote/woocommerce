@@ -566,6 +566,11 @@ msgstr "Scelga uno dei termini di pagamento proposti."
 msgid "Please choose the product options before requesting a quote."
 msgstr "Scelga le opzioni del prodotto prima di richiedere un preventivo."
 
+#. catalogue: woo.widget.choose_quantities
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose the quantity of each product you want quoted."
+msgstr "Scelga la quantità di ciascun prodotto per cui desidera un preventivo."
+
 #. catalogue: woo.modal.company_required
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Please complete the required company details."
@@ -638,6 +643,12 @@ msgstr "Il preventivo %1$s è espresso in %2$s, ma questo negozio vende in %3$s,
 #. machine-translated, pending native review
 msgid "Quote list"
 msgstr "Carrello del preventivo"
+
+#. catalogue: woo.widget.quote_one
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Quote one %s"
+msgstr "Richiedere un preventivo per un pezzo di %s"
 
 #. catalogue: woo.forms.reference_n
 #. plugin catalogue (languages/source/local), pending native review

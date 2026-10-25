@@ -549,6 +549,11 @@ msgstr "提示された支払期日のいずれかを選択してください。
 msgid "Please choose the product options before requesting a quote."
 msgstr "見積りを依頼する前に、商品のオプションを選択してください。"
 
+#. catalogue: woo.widget.choose_quantities
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose the quantity of each product you want quoted."
+msgstr "見積りを希望する各商品の数量を選択してください。"
+
 #. catalogue: woo.modal.company_required
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Please complete the required company details."
@@ -617,6 +622,12 @@ msgstr "見積り %1$s の通貨は %2$s ですが、このストアの販売通
 #. catalogue: tackquote.widget.drawer_title
 msgid "Quote list"
 msgstr "見積りカート"
+
+#. catalogue: woo.widget.quote_one
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Quote one %s"
+msgstr "%s を1点見積り依頼"
 
 #. catalogue: woo.forms.reference_n
 #. plugin catalogue (languages/source/local), pending native review

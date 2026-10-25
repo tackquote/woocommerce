@@ -214,6 +214,10 @@ class Tack_Parity_Product extends WC_Product {
 	public function is_in_stock() {
 		return true;
 	}
+	/** @return bool Not sold individually (the quote quantity reads it, 1.12.0). */
+	public function is_sold_individually() {
+		return false;
+	}
 	/** @return bool */
 	public function has_purchasable_variations() {
 		return $this->is_purchasable();

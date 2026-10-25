@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} è stato rimosso dal Suo carrello perché non è disponibile per il Suo account.",
   "woo.widget.checkout_as_quote": "Concludi come preventivo",
   "woo.widget.choose_options": "Scelga le opzioni del prodotto prima di richiedere un preventivo.",
+  "woo.widget.choose_quantities": "Scelga la quantità di ciascun prodotto per cui desidera un preventivo.",
+  "woo.widget.quote_one": "Richiedere un preventivo per un pezzo di {product}",
   "woo.widget.email_required": "È necessario un indirizzo email valido.",
   "woo.widget.no_products": "Nessun prodotto da inserire nel preventivo.",
   "woo.widget.rate_limited": "Troppe richieste di preventivo da questa connessione. Attenda qualche minuto e riprovi.",

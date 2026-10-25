@@ -37,6 +37,38 @@
   margin: 0;
 }
 
+/*
+ * The quote quantity the plugin prints itself (1.12.0): beside the buttons for a
+ * quote-only, out-of-stock or external product, and for a quote-only child in the Add
+ * to Cart with Options block's grouped list. Outside WooCommerce's form no theme rule
+ * for `form.cart .quantity .qty` reaches it, so it is sized here: as tall as the
+ * buttons beside it, and wide enough for a few digits.
+ */
+.tack-quote-buttons > .quantity {
+  display: flex;
+  align-self: stretch;
+  margin: 0;
+}
+
+.tack-quote-buttons > .quantity input.qty,
+.wc-block-add-to-cart-with-options-grouped-product-item-selector input.qty[name^="tack_quantity"] {
+  box-sizing: border-box;
+  width: 4.5em;
+  max-width: 100%;
+  min-height: 2.6em;
+  padding: 0.4em 0.5em;
+  border: 1px solid color-mix(in srgb, currentcolor 25%, transparent);
+  border-radius: 2px;
+  text-align: center;
+}
+
+/* "Please choose the quantity …" under the buttons (grouped products, 1.12.0). */
+.tack-quote-buttons-notice {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.875em;
+}
+
 /* ── Floating launcher + drawer ────────────────────────────────────────────── */
 .tack-quote-list-widget {
   position: fixed;
