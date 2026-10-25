@@ -566,7 +566,7 @@ class Tack_Embed_Admin {
 	/**
 	 * "Unlink my login": TackQuote removes this WordPress user's link (only with their own
 	 * secret). Only when it confirms the removal is the secret replaced; on any failure the
-	 * secret stays (Fable P1).
+	 * secret stays.
 	 */
 	public function handle_unlink() {
 		self::guard( self::UNLINK_ACTION );
