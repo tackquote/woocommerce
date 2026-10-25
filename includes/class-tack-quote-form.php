@@ -65,7 +65,7 @@ class Tack_Quote_Form {
 	/** The POST array of each file field's upload ids. */
 	const FILES_FIELD = 'tq_files';
 
-	/** The POST key carrying the locale the form was shown in ). */
+	/** The POST key carrying the locale the form was shown in. */
 	const LOCALE_FIELD = 'tq_locale';
 
 	/** The POST key carrying the version the shopper saw. */
