@@ -835,6 +835,10 @@
       }
     }
 
+    // Before the focus pick below: the company section must already be in the state
+    // the reset radio says (Fable R1b).
+    syncCompanySection($overlay);
+
     modal.removeAttribute('hidden');
     document.body.classList.add('tack-quote-modal-open');
     // Focus the first required field still empty, else the submit button.
@@ -842,7 +846,7 @@
       ? $form
           .find('input, select, textarea')
           .filter(function () {
-            return this.required && !this.value && !$(this).closest('[hidden]').length;
+            return this.required && !this.disabled && !this.value && !$(this).closest('[hidden]').length;
           })
           .first()
       : !$firstName.val()
@@ -855,16 +859,21 @@
     // Company section follows the individual/company choice. Only present when the seller
     // allows both; a company_only policy renders it always-visible with no radio to drive it.
     $overlay
-      .off('change.tackBuyingAs')
+      .off('change.tackBuyingAs input.tackBuyingAs')
       .on('change.tackBuyingAs', 'input[name="buyingAs"]', function () {
-        var isCompany = $overlay.find('input[name="buyingAs"]:checked').val() === 'company';
-        var $section = $overlay.find('.tack-quote-company-section');
-        $section.prop('hidden', !isCompany);
-        // Required-ness has to follow visibility, or the browser blocks submission on a
-        // field the shopper cannot see. novalidate is set on the form, but the server
-        // validates too and a hidden required field would fail there instead.
-        $section.find('input').prop('disabled', !isCompany);
+        syncCompanySection($overlay);
       });
+    // A seller-designed form's company answer also makes the request a company one.
+    var $companyRole = roleInput($overlay, 'buyer_company');
+    if ($companyRole.length) {
+      $overlay.on('change.tackBuyingAs input.tackBuyingAs', '[name="' + $companyRole.attr('name') + '"]', function () {
+        syncCompanySection($overlay);
+      });
+    }
+    // The reset above put the radio back to its default: the section follows it NOW,
+    // not only on the next change (Fable R1b: a hidden, still-enabled required input
+    // blocked an individual shopper's first submit).
+    syncCompanySection($overlay);
 
     $form.off('submit').on('submit', function (e) {
       e.preventDefault();
@@ -1177,15 +1186,55 @@
 
   // The registration policy's company section: whether the shopper is buying as a
   // company, the values, and whether a required one is empty.
+  // Is the request a company one? Pure, so it can be tested without a DOM.
+  //   no company section        -> no (the policy takes individuals only)
+  //   section, no radio         -> yes (company_only)
+  //   radio                     -> the radio, OR a non-empty company answer on a
+  //                                seller-designed form (the shopper named a company)
+  function companyChosen(state) {
+    if (!state.hasSection) {
+      return false;
+    }
+    if (!state.hasRadio) {
+      return true;
+    }
+    return state.radio === 'company' || !!(state.formCompany && String(state.formCompany).trim());
+  }
+
+  function companyStateOf($overlay) {
+    return {
+      hasSection: $overlay.find('.tack-quote-company-section').length > 0,
+      hasRadio: $overlay.find('input[name="buyingAs"]').length > 0,
+      radio: $overlay.find('input[name="buyingAs"]:checked').val(),
+      formCompany: roleInput($overlay, 'buyer_company').val(),
+    };
+  }
+
+  // The company section follows companyChosen(): hidden AND disabled when not chosen,
+  // so neither the browser's validation nor the submit reads its inputs. On a seller
+  // form, its optional company field is required while the request is a company one
+  // (company_only, or the radio says company), since the policy asks for a name.
+  function syncCompanySection($overlay) {
+    var isCompany = companyChosen(companyStateOf($overlay));
+    var $section = $overlay.find('.tack-quote-company-section');
+    $section.prop('hidden', !isCompany);
+    $section.find('input').prop('disabled', !isCompany);
+    var $role = roleInput($overlay, 'buyer_company');
+    if ($role.length) {
+      if ($role.attr('data-tack-required') === undefined) {
+        $role.attr('data-tack-required', $role.prop('required') ? '1' : '0');
+      }
+      $role.prop('required', $role.attr('data-tack-required') === '1' || isCompany);
+    }
+    return isCompany;
+  }
+
   function companyAnswers($overlay) {
-    var isCompany =
-      $overlay.find('input[name="buyingAs"]:checked').val() === 'company' ||
-      ($overlay.find('.tack-quote-company-section').length > 0 &&
-        !$overlay.find('input[name="buyingAs"]').length);
+    var isCompany = companyChosen(companyStateOf($overlay));
     var company = {};
     var missing = false;
     if (isCompany) {
-      $overlay.find('.tack-quote-company-section input').each(function () {
+      $overlay.find('.tack-quote-company-section input:enabled').each(function () {
         var v = (this.value || '').trim();
         if (this.required && !v) {
           missing = true;
@@ -1775,6 +1824,6 @@
 
   // Node tests (tests/js/) load this file with a stand-in jQuery; browsers have no `module`.
   if (typeof module === 'object' && module && module.exports) {
-    module.exports = { showSubmitted: showSubmitted, sellerPolicyFields: sellerPolicyFields, roleInput: roleInput };
+    module.exports = { showSubmitted: showSubmitted, sellerPolicyFields: sellerPolicyFields, roleInput: roleInput, companyChosen: companyChosen };
   }
 })(jQuery);

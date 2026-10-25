@@ -128,6 +128,7 @@
   "woo.pricing.account_price": "Uw accountprijs",
   "woo.pricing.volume_for_account": "Staffelprijzen voor uw account",
   "woo.quick_order.add_failed": "Dit product kon niet aan de winkelwagen worden toegevoegd.",
+  "woo.quick_order.add_rate_limited": "Te veel toevoegingen aan de winkelwagen vanaf deze verbinding. Wacht een paar minuten en probeer het opnieuw.",
   "woo.quick_order.add_row": "Regel toevoegen",
   "woo.quick_order.add_to_cart": "Toevoegen aan winkelwagen",
   "woo.quick_order.added_cart": "Artikelen toegevoegd aan uw winkelwagen: {count}",

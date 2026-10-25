@@ -871,6 +871,11 @@ msgstr "このストアは現在、見積りのみ受け付けているため、
 msgid "This store is currently quote-only. Request a quote instead and we will get back to you."
 msgstr "このストアは現在、見積りのみ受け付けています。代わりに見積りを依頼していただければ、折り返しご連絡します。"
 
+#. catalogue: woo.quick_order.add_rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many additions to the cart from this connection. Please wait a few minutes and try again."
+msgstr "この接続からのカートへの追加が多すぎます。数分待ってから、もう一度お試しください。"
+
 #. catalogue: woo.forms.rate_limited
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Too many applications were sent in a short time. Please wait a few minutes and try again."

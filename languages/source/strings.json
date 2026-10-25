@@ -1070,6 +1070,10 @@
         "label": "%1$s",
         "max": "%2$d"
       }
+    },
+    {
+      "msgid": "Too many additions to the cart from this connection. Please wait a few minutes and try again.",
+      "key": "woo.quick_order.add_rate_limited"
     }
   ]
 }

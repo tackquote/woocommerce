@@ -128,6 +128,7 @@
   "woo.pricing.account_price": "Ihr Kontopreis",
   "woo.pricing.volume_for_account": "Mengenpreise für Ihr Konto",
   "woo.quick_order.add_failed": "Dieses Produkt konnte nicht in den Warenkorb gelegt werden.",
+  "woo.quick_order.add_rate_limited": "Zu viele Warenkorb-Hinzufügungen von dieser Verbindung. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
   "woo.quick_order.add_row": "Zeile hinzufügen",
   "woo.quick_order.add_to_cart": "In den Warenkorb",
   "woo.quick_order.added_cart": "In den Warenkorb gelegte Artikel: {count}",

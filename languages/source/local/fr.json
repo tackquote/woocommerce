@@ -128,6 +128,7 @@
   "woo.pricing.account_price": "Prix de votre compte",
   "woo.pricing.volume_for_account": "Prix par quantité pour votre compte",
   "woo.quick_order.add_failed": "Ce produit n’a pas pu être ajouté au panier.",
+  "woo.quick_order.add_rate_limited": "Trop d’ajouts au panier depuis cette connexion. Veuillez patienter quelques minutes et réessayer.",
   "woo.quick_order.add_row": "Ajouter une ligne",
   "woo.quick_order.add_to_cart": "Ajouter au panier",
   "woo.quick_order.added_cart": "Articles ajoutés au panier : {count}",

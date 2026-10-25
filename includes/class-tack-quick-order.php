@@ -380,7 +380,7 @@ class Tack_Quick_Order {
 			wp_send_json_error(
 				array(
 					'code'    => 'tack_rate_limited',
-					'message' => __( 'Too many look-ups from this connection. Please wait a few minutes and try again.', 'tackquote' ),
+					'message' => __( 'Too many additions to the cart from this connection. Please wait a few minutes and try again.', 'tackquote' ),
 				),
 				429
 			);

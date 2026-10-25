@@ -871,6 +871,11 @@ msgstr "Esta tienda solo admite presupuestos en este momento, por lo que esos ar
 msgid "This store is currently quote-only. Request a quote instead and we will get back to you."
 msgstr "Esta tienda solo admite presupuestos en este momento. Solicite un presupuesto y nos pondremos en contacto con usted."
 
+#. catalogue: woo.quick_order.add_rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many additions to the cart from this connection. Please wait a few minutes and try again."
+msgstr "Demasiadas adiciones al carrito desde esta conexión. Espere unos minutos y vuelva a intentarlo."
+
 #. catalogue: woo.forms.rate_limited
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Too many applications were sent in a short time. Please wait a few minutes and try again."

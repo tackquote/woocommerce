@@ -900,6 +900,11 @@ msgstr "Questo negozio al momento funziona solo su preventivo, quindi questi art
 msgid "This store is currently quote-only. Request a quote instead and we will get back to you."
 msgstr "Questo negozio al momento funziona solo su preventivo. Richieda un preventivo e La ricontatteremo."
 
+#. catalogue: woo.quick_order.add_rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many additions to the cart from this connection. Please wait a few minutes and try again."
+msgstr "Troppe aggiunte al carrello da questa connessione. Attenda qualche minuto e riprovi."
+
 #. catalogue: woo.forms.rate_limited
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Too many applications were sent in a short time. Please wait a few minutes and try again."

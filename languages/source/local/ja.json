@@ -128,6 +128,7 @@
   "woo.pricing.account_price": "お客様のアカウント価格",
   "woo.pricing.volume_for_account": "お客様のアカウントの数量別価格",
   "woo.quick_order.add_failed": "この商品をカートに追加できませんでした。",
+  "woo.quick_order.add_rate_limited": "この接続からのカートへの追加が多すぎます。数分待ってから、もう一度お試しください。",
   "woo.quick_order.add_row": "行を追加",
   "woo.quick_order.add_to_cart": "カートに追加",
   "woo.quick_order.added_cart": "カートに追加した商品：{count}件",

@@ -179,6 +179,37 @@ check('seller form + individuals only: nothing is added', () => {
   const api = quotesApi({ allowCompany: false, allowIndividual: true });
   assert.equal(api.sellerPolicyFields({ roles: {} }), '');
 });
+check('R1b: default "both" policy, individual radio, no company answer -> NOT a company request', () => {
+  const api = quotesApi(null);
+  assert.equal(api.companyChosen({ hasSection: true, hasRadio: true, radio: 'individual', formCompany: '' }), false);
+});
+check('R1b: "both" + company radio -> company; + a company answer on the form -> company too', () => {
+  const api = quotesApi(null);
+  assert.equal(api.companyChosen({ hasSection: true, hasRadio: true, radio: 'company', formCompany: '' }), true);
+  assert.equal(api.companyChosen({ hasSection: true, hasRadio: true, radio: 'individual', formCompany: 'Acme' }), true);
+  assert.equal(api.companyChosen({ hasSection: true, hasRadio: true, radio: 'individual', formCompany: '   ' }), false);
+});
+check('R1b: company_only (no radio) -> company; individuals only (no section) -> not', () => {
+  const api = quotesApi(null);
+  assert.equal(api.companyChosen({ hasSection: true, hasRadio: false }), true);
+  assert.equal(api.companyChosen({ hasSection: false, hasRadio: true, radio: 'company' }), false);
+});
+check('R1b: openModal applies the section state right after the reset, before the focus pick', () => {
+  const src = read('tack-quotes.js');
+  const open = src.slice(src.indexOf('function openModal('), src.indexOf('function closeModal('));
+  const reset = open.indexOf('$form[0].reset();');
+  const sync = open.indexOf('syncCompanySection($overlay);');
+  const focus = open.indexOf('var $emptyRequired');
+  assert.ok(reset > 0 && sync > reset && focus > sync, 'reset ' + reset + ' sync ' + sync + ' focus ' + focus);
+});
+check('R1b: the section is hidden AND disabled when not chosen; only enabled inputs are read', () => {
+  const src = read('tack-quotes.js');
+  const sync = src.slice(src.indexOf('function syncCompanySection('), src.indexOf('function companyAnswers('));
+  assert.match(sync, /\$section\.prop\('hidden', !isCompany\);/);
+  assert.match(sync, /\$section\.find\('input'\)\.prop\('disabled', !isCompany\);/);
+  assert.match(sync, /\$role\.prop\('required', \$role\.attr\('data-tack-required'\) === '1' \|\| isCompany\);/);
+  assert.match(src, /\.tack-quote-company-section input:enabled'\)\.each/);
+});
 check('roleInput: a server key outside the field-key shape never reaches a selector (P11)', () => {
   const seen = [];
   const sandbox = quotesApi(null);

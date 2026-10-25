@@ -128,6 +128,7 @@
   "woo.pricing.account_price": "Precio de su cuenta",
   "woo.pricing.volume_for_account": "Precios por volumen para su cuenta",
   "woo.quick_order.add_failed": "No se pudo añadir este producto al carrito.",
+  "woo.quick_order.add_rate_limited": "Demasiadas adiciones al carrito desde esta conexión. Espere unos minutos y vuelva a intentarlo.",
   "woo.quick_order.add_row": "Añadir una fila",
   "woo.quick_order.add_to_cart": "Añadir al carrito",
   "woo.quick_order.added_cart": "Artículos añadidos al carrito: {count}",

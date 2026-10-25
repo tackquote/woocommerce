@@ -871,6 +871,11 @@ msgstr "Deze winkel werkt op dit moment alleen met offertes, daarom zijn die art
 msgid "This store is currently quote-only. Request a quote instead and we will get back to you."
 msgstr "Deze winkel werkt op dit moment alleen met offertes. Vraag in plaats daarvan een offerte aan, dan nemen we contact met u op."
 
+#. catalogue: woo.quick_order.add_rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many additions to the cart from this connection. Please wait a few minutes and try again."
+msgstr "Te veel toevoegingen aan de winkelwagen vanaf deze verbinding. Wacht een paar minuten en probeer het opnieuw."
+
 #. catalogue: woo.forms.rate_limited
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Too many applications were sent in a short time. Please wait a few minutes and try again."

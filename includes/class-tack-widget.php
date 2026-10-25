@@ -915,7 +915,10 @@ class Tack_Widget {
 		if ( function_exists( 'is_cart' ) && is_cart() && ( 'cart' === $fab['pages'] || 'yes' === get_option( self::OPT_CART_BUTTON, 'no' ) ) ) {
 			return true;
 		}
-		// The quote page and quick order: their own shortcodes in this page's content.
+		// The quote page and quick order: their own shortcodes or block in this page's
+		// content. has_shortcode() reads post_content only, so a shortcode placed in a
+		// widget, a template part or a block template is not seen here; the
+		// `tackquote_quote_controls_possible` filter below lets a site say so.
 		$post = function_exists( 'get_post' ) ? get_post() : null;
 		if ( is_object( $post ) && isset( $post->post_content ) && function_exists( 'has_shortcode' ) ) {
 			$content = (string) $post->post_content;

@@ -128,6 +128,7 @@
   "woo.pricing.account_price": "Your account price",
   "woo.pricing.volume_for_account": "Volume pricing for your account",
   "woo.quick_order.add_failed": "This product could not be added to the cart.",
+  "woo.quick_order.add_rate_limited": "Too many additions to the cart from this connection. Please wait a few minutes and try again.",
   "woo.quick_order.add_row": "Add a row",
   "woo.quick_order.add_to_cart": "Add to cart",
   "woo.quick_order.added_cart": "Items added to your cart: {count}",
