@@ -1,0 +1,65 @@
+{
+    "generator": "bin/build-translations.php",
+    "domain": "messages",
+    "source": "assets/js/tack-quick-order.js",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "ja",
+                "plural-forms": "nplurals=1; plural=0;"
+            },
+            "Adding…": [
+                "追加中…"
+            ],
+            "Available on quote": [
+                "見積りで購入可能"
+            ],
+            "Check items": [
+                "商品を確認"
+            ],
+            "Checking…": [
+                "確認中…"
+            ],
+            "Choose options": [
+                "オプションを選択"
+            ],
+            "Enter at least one SKU.": [
+                "SKUを1つ以上入力してください。"
+            ],
+            "Enter at most %d products at a time.": [
+                "一度に入力できる商品は%d件までです。"
+            ],
+            "Items added to your cart: %d": [
+                "カートに追加した商品：%d件"
+            ],
+            "Items added to your quote list: %d": [
+                "見積りリストに追加した商品：%d件"
+            ],
+            "Not found": [
+                "見つかりません"
+            ],
+            "Price": [
+                "価格"
+            ],
+            "Product": [
+                "商品"
+            ],
+            "Quantity": [
+                "数量"
+            ],
+            "SKU": [
+                "SKU"
+            ],
+            "Something went wrong. Please try again.": [
+                "問題が発生しました。もう一度お試しください。"
+            ],
+            "View cart": [
+                "カートを表示"
+            ],
+            "We could not check these items right now. Please try again.": [
+                "現在これらの商品を確認できません。もう一度お試しください。"
+            ]
+        }
+    }
+}

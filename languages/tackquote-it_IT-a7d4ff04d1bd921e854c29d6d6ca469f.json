@@ -9,6 +9,9 @@
                 "lang": "it_IT",
                 "plural-forms": "nplurals=2; plural=n != 1;"
             },
+            "%1$s: attach at most %2$d files.": [
+                "%1$s: alleghi al massimo %2$d file."
+            ],
             "%1$s: files can be at most %2$d MB.": [
                 "%1$s: i file possono essere al massimo di %2$d MB."
             ],

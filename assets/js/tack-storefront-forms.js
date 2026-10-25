@@ -176,24 +176,41 @@
 		} );
 	}
 
-	function init() {
-		var forms = document.querySelectorAll( 'form[data-tack-form]' );
-		Array.prototype.forEach.call( forms, function ( form ) {
-			sellerCalendar( form, new Date() );
-			form.addEventListener( 'focusin', function ( event ) {
-				// Re-read on the way into a date field: the seller's day may have turned.
-				if ( event.target && event.target.hasAttribute && event.target.hasAttribute( 'data-tack-seller-today' ) ) {
-					sellerCalendar( form, new Date() );
-				}
-			} );
-			apply( form );
-			form.addEventListener( 'change', function () {
+	/**
+	 * Wire one form: the seller calendar and the conditional fields. Exposed as
+	 * `window.TackQuoteForms.bind` (1.12.0) for the quote modal, which builds its
+	 * seller-designed form after this script has run. Binding a form twice is a no-op.
+	 */
+	function bind( form ) {
+		if ( ! form || form.getAttribute( 'data-tack-bound' ) === '1' ) {
+			if ( form ) {
 				apply( form );
-			} );
-			form.addEventListener( 'input', function () {
-				apply( form );
-			} );
+			}
+			return;
+		}
+		form.setAttribute( 'data-tack-bound', '1' );
+		sellerCalendar( form, new Date() );
+		form.addEventListener( 'focusin', function ( event ) {
+			// Re-read on the way into a date field: the seller's day may have turned.
+			if ( event.target && event.target.hasAttribute && event.target.hasAttribute( 'data-tack-seller-today' ) ) {
+				sellerCalendar( form, new Date() );
+			}
 		} );
+		apply( form );
+		form.addEventListener( 'change', function () {
+			apply( form );
+		} );
+		form.addEventListener( 'input', function () {
+			apply( form );
+		} );
+	}
+
+	if ( typeof window !== 'undefined' ) {
+		window.TackQuoteForms = { bind: bind, apply: apply };
+	}
+
+	function init() {
+		Array.prototype.forEach.call( document.querySelectorAll( 'form[data-tack-form]' ), bind );
 	}
 
 	if ( document.readyState === 'loading' ) {

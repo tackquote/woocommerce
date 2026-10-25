@@ -11,7 +11,11 @@
  *
  * The browser receives the title, the description and ONE boolean, `canPay`,
  * computed here from the same fail-closed decision the classic checkout uses
- * (Tack_Gateway_Net_Terms::is_available()). Never the credit limit, the terms,
+ * (Tack_Gateway_Net_Terms::is_available()). Since 1.12.0 the same yes/no also
+ * rides on the Store API cart (`extensions.tackquote.netTermsAvailable`,
+ * Tack_Quotes::net_terms_cart_data()), recomputed for the cart as it is now, and
+ * the client prefers it: a coupon or quantity change in the block checkout can
+ * push the total past the buyer's available credit. Never the credit limit, the terms,
  * or anything else about the buyer's credit line. `canPay` decides only whether
  * the option is shown; the order itself is re-checked server-side in
  * process_payment(), so a tampered client cannot place a terms order.
@@ -106,12 +110,40 @@ final class Tack_Net_Terms_Block extends AbstractPaymentMethodType {
 				$can_pay = false; // Fail closed.
 			}
 		}
+
+		/*
+		 * 1.12.0: the gateway's own defaults when the saved settings hold no title or
+		 * description. A store that only ticked "Enable" (or enabled the method from the
+		 * Payments list) saves `enabled` alone, and the Checkout block showed a payment
+		 * method with an empty label. WC_Settings_API::get_option() falls back to the
+		 * form field default for the classic checkout; this mirrors that, translated.
+		 */
+		$title       = trim( (string) $this->get_setting( 'title', '' ) );
+		$description = trim( (string) $this->get_setting( 'description', '' ) );
 		return array(
-			'title'       => (string) $this->get_setting( 'title', '' ),
-			'description' => (string) $this->get_setting( 'description', '' ),
+			'title'       => '' !== $title ? $title : self::default_title(),
+			'description' => '' !== $description ? $description : self::default_description(),
 			'canPay'      => $can_pay,
 			'supports'    => array( 'products' ),
 		);
+	}
+
+	/**
+	 * The gateway's default title (Tack_Gateway_Net_Terms::init_form_fields()).
+	 *
+	 * @return string
+	 */
+	public static function default_title() {
+		return __( 'Pay on net terms', 'tackquote' );
+	}
+
+	/**
+	 * The gateway's default description (Tack_Gateway_Net_Terms::init_form_fields()).
+	 *
+	 * @return string
+	 */
+	public static function default_description() {
+		return __( 'Place this order on your approved payment terms. We will send an invoice.', 'tackquote' );
 	}
 
 	/**

@@ -9,6 +9,9 @@
                 "lang": "ja",
                 "plural-forms": "nplurals=1; plural=0;"
             },
+            "%1$s: attach at most %2$d files.": [
+                "%1$s：添付できるファイルは%2$d件までです。"
+            ],
             "%1$s: files can be at most %2$d MB.": [
                 "%1$s：ファイルは%2$dMB以下にしてください。"
             ],

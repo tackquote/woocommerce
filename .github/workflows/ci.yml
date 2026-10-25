@@ -46,6 +46,11 @@ jobs:
           node tests/js/quote-success.test.js
           node --check assets/js/tack-storefront-forms.js
           node tests/js/seller-calendar.test.js
+          node --check assets/js/tack-quick-order.js
+          node --check assets/js/tack-quick-order-block.js
+          node --check assets/js/tack-cart-quote-block.js
+          node --check assets/js/tack-net-terms-block.js
+          node tests/js/blocks-1120.test.js
 
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist

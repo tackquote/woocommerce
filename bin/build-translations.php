@@ -58,12 +58,13 @@ function tack_tr_locales() {
  * The storefront scripts that get a JED file (relative to the plugin root).
  *
  * The forms and net-terms block scripts are not listed: neither has a string of its
- * own (the block's title and description are the merchant's gateway settings).
+ * own (the block's title and description are the merchant's gateway settings). The
+ * quick-order script (1.12.0) is; its block editor script is shop-manager text.
  *
  * @return string[]
  */
 function tack_tr_scripts() {
-	return array( 'assets/js/tack-quotes.js' );
+	return array( 'assets/js/tack-quotes.js', 'assets/js/tack-quick-order.js' );
 }
 
 /**

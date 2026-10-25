@@ -1,0 +1,65 @@
+{
+    "generator": "bin/build-translations.php",
+    "domain": "messages",
+    "source": "assets/js/tack-quick-order.js",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "pt_BR",
+                "plural-forms": "nplurals=2; plural=n > 1;"
+            },
+            "Adding…": [
+                "Adicionando…"
+            ],
+            "Available on quote": [
+                "Disponível sob orçamento"
+            ],
+            "Check items": [
+                "Verificar itens"
+            ],
+            "Checking…": [
+                "Verificando…"
+            ],
+            "Choose options": [
+                "Escolher opções"
+            ],
+            "Enter at least one SKU.": [
+                "Informe pelo menos um SKU."
+            ],
+            "Enter at most %d products at a time.": [
+                "Informe no máximo %d produtos por vez."
+            ],
+            "Items added to your cart: %d": [
+                "Itens adicionados ao carrinho: %d"
+            ],
+            "Items added to your quote list: %d": [
+                "Itens adicionados à sua lista de orçamento: %d"
+            ],
+            "Not found": [
+                "Não encontrado"
+            ],
+            "Price": [
+                "Preço"
+            ],
+            "Product": [
+                "Produto"
+            ],
+            "Quantity": [
+                "Quantidade"
+            ],
+            "SKU": [
+                "SKU"
+            ],
+            "Something went wrong. Please try again.": [
+                "Algo deu errado. Tente novamente."
+            ],
+            "View cart": [
+                "Ver carrinho"
+            ],
+            "We could not check these items right now. Please try again.": [
+                "Não foi possível verificar esses itens agora. Tente novamente."
+            ]
+        }
+    }
+}

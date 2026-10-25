@@ -5,6 +5,8 @@
  * window.wc.wcBlocksRegistry and the settings as window.wc.wcSettings
  * (WooCommerce docs, "Payment method integration"). The server sends title,
  * description and a boolean canPay only; the credit line never reaches here.
+ * Since 1.12.0 canMakePayment also reads the Store API cart's own yes/no
+ * (`extensions.tackquote.netTermsAvailable`), so a cart change re-checks it.
  */
 ( function () {
 	'use strict';
@@ -43,7 +45,14 @@
 		content: el( Content, null ),
 		edit: el( Content, null ),
 		ariaLabel: title,
-		canMakePayment: function () {
+		// 1.12.0: WooCommerce re-runs this whenever the cart changes, with the Store API
+		// cart (`cart.extensions`). The server's answer for THAT cart wins; the answer
+		// printed with the page is the fallback (an older server, or no Store API data).
+		canMakePayment: function ( arg ) {
+			var ext = arg && arg.cart && arg.cart.extensions && arg.cart.extensions.tackquote;
+			if ( ext && typeof ext.netTermsAvailable === 'boolean' ) {
+				return ext.netTermsAvailable;
+			}
 			return true === data.canPay;
 		},
 		supports: {

@@ -187,5 +187,9 @@ require __DIR__ . '/e2e-fixes-test.php';
 echo "\n-- My Account tabs: net terms standing, wholesale prefill --\n";
 require __DIR__ . '/account-tabs-test.php';
 
+// 1.12.0 storefront: seller-designed quote form, quick order, block grids, Cart block, net terms.
+echo "\n-- 1.12.0 storefront (quote form, quick order, block grids, Cart block, net terms) --\n";
+require __DIR__ . '/storefront-1120-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

@@ -120,6 +120,20 @@ class Tack_Widget {
 	private $cart_button_rendered = false;
 
 	/**
+	 * Cards whose control the Product Button block filter printed, product id => count.
+	 *
+	 * On a shop or category archive built with blocks, WooCommerce's compatibility layer
+	 * renders a card's blocks first and THEN fires `woocommerce_after_shop_loop_item` for
+	 * that card from inside its own `render_block` filter
+	 * (ArchiveProductTemplatesCompatibility::inject_hooks(), WooCommerce 11.2.1). The
+	 * classic callback skips a card counted here only in that situation, so a classic
+	 * product loop elsewhere on the page still gets its controls.
+	 *
+	 * @var array<int, int>
+	 */
+	private $block_cards = array();
+
+	/**
 	 * Target prices collected while building the quote-list line items: sent per line
 	 * as `targetPrice`, or in the request note to an older server (`with_target_prices()`).
 	 *
@@ -180,6 +194,14 @@ class Tack_Widget {
 		add_action( 'wp_footer', array( $this, 'render_quote_list_drawer' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
+		// 1.12.0: the seller-designed quote request form's fields, as a template the
+		// modal clones (only when TackQuote serves one; see Tack_Quote_Form).
+		( new Tack_Quote_Form() )->init();
+
+		// 1.12.0: quick order (`[tackquote_quick_order]` and its block). Part of the
+		// storefront widget: its quote-list half is this script's list.
+		( new Tack_Quick_Order() )->init();
+
 		/*
 		 * Product cards (1.10.0, off by default). `woocommerce_after_shop_loop_item`
 		 * is the hook WooCommerce's own loop button uses, at priority 10
@@ -190,14 +212,25 @@ class Tack_Widget {
 		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_card_button' ), 11 );
 
 		/*
+		 * Product grids built with blocks (1.12.0): the Product Collection block on a home
+		 * or landing page, related products, any custom query. WooCommerce fires
+		 * `woocommerce_after_shop_loop_item` there ONLY on a shop or category archive
+		 * whose collection inherits the template's query (ArchiveProductTemplatesCompatibility,
+		 * WooCommerce 11.2.1), so the card control also follows the card's own Product
+		 * Button block (`woocommerce/product-button`). On an archive both fire for one
+		 * card; `render_card_button()` then stands down (see `$block_cards`).
+		 */
+		add_filter( 'render_block_woocommerce/product-button', array( $this, 'append_card_to_product_button' ), 10, 3 );
+
+		/*
 		 * Cart page (1.10.0, off by default). The classic cart fires
 		 * `woocommerce_proceed_to_checkout` inside `.wc-proceed-to-checkout`
 		 * (templates/cart/cart-totals.php) with the Proceed button at priority 20
 		 * (includes/wc-template-hooks.php); 25 places the quote control under it. The
-		 * Cart BLOCK renders no PHP hook at that spot — UNVERIFIED: no Cart block
-		 * extensibility slot for a server-rendered control was confirmed — so a
-		 * `wp_footer` fallback renders a fixed control on `is_cart()` when the classic
-		 * hook did not fire. The fallback does not depend on such a slot existing.
+		 * Cart BLOCK renders no PHP hook at that spot; since 1.12.0 its control comes from
+		 * Tack_Cart_Quote_Block (the ExperimentalOrderMeta slot, above Proceed to
+		 * Checkout), and the `wp_footer` fixed control below is used only when no Cart
+		 * block carrying that integration was rendered on the page.
 		 */
 		add_action( 'woocommerce_proceed_to_checkout', array( $this, 'render_cart_quote_button' ), 25 );
 		add_action( 'wp_footer', array( $this, 'render_cart_quote_button_footer' ), 5 );
@@ -370,7 +403,15 @@ class Tack_Widget {
 			? (string) filemtime( $wo )
 			: TACK_QUOTES_VERSION;
 		wp_register_script( 'tackquote-with-options', TACK_QUOTES_URL . 'assets/js/tack-with-options.js', array(), $wo_ver, true );
-		wp_enqueue_script( 'tackquote', TACK_QUOTES_URL . 'assets/js/tack-quotes.js', array( 'jquery', 'wp-i18n', 'tackquote-with-options' ), $js_ver, true );
+		// 1.12.0: the seller-designed form's conditional fields and seller calendar run on
+		// the same script as the application forms (`window.TackQuoteForms.bind`).
+		$quote_form = ( new Tack_Quote_Form() )->script_config();
+		$deps       = array( 'jquery', 'wp-i18n', 'tackquote-with-options' );
+		if ( null !== $quote_form ) {
+			wp_register_script( 'tackquote-storefront-forms', TACK_QUOTES_URL . 'assets/js/tack-storefront-forms.js', array(), self::asset_version( 'assets/js/tack-storefront-forms.js' ), true );
+			$deps[] = 'tackquote-storefront-forms';
+		}
+		wp_enqueue_script( 'tackquote', TACK_QUOTES_URL . 'assets/js/tack-quotes.js', $deps, $js_ver, true );
 
 		/*
 		 * The storefront text lives in the script as wp.i18n __() calls. No path is
@@ -421,6 +462,8 @@ class Tack_Widget {
 				// upload calls, no fields on the request) unless the merchant switched
 				// attachments on AND the TackQuote server advertises `attachments`.
 				'attachments'         => ( new Tack_Attachments() )->script_config(),
+				// 1.12.0: the seller-designed quote request form, or null for the built-in one.
+				'quoteForm'           => $quote_form,
 			)
 		);
 	}
@@ -850,6 +893,51 @@ class Tack_Widget {
 	}
 
 	/**
+	 * Can a quote control open the quote modal on this page? (1.12.0, Fable P5.)
+	 *
+	 * Decides whether the seller-designed form is read and printed here: a page with
+	 * no launcher, no product-page buttons, no card buttons, no cart control and no
+	 * quote page cannot open the modal, so it costs no form read.
+	 *
+	 * @return bool
+	 */
+	public static function quote_controls_possible() {
+		if ( 'yes' === get_option( self::OPT_CARD_BUTTONS, 'no' ) ) {
+			return true; // Card controls can sit in any block grid, on any page.
+		}
+		$fab = self::fab_settings();
+		if ( 'all' === $fab['pages'] ) {
+			return true;
+		}
+		if ( function_exists( 'is_product' ) && is_product() ) {
+			return true;
+		}
+		if ( function_exists( 'is_cart' ) && is_cart() && ( 'cart' === $fab['pages'] || 'yes' === get_option( self::OPT_CART_BUTTON, 'no' ) ) ) {
+			return true;
+		}
+		// The quote page and quick order: their own shortcodes or block in this page's
+		// content. has_shortcode() reads post_content only, so a shortcode placed in a
+		// widget, a template part or a block template is not seen here; the
+		// `tackquote_quote_controls_possible` filter below lets a site say so.
+		$post = function_exists( 'get_post' ) ? get_post() : null;
+		if ( is_object( $post ) && isset( $post->post_content ) && function_exists( 'has_shortcode' ) ) {
+			$content = (string) $post->post_content;
+			if ( has_shortcode( $content, 'tackquote_quote_page' ) || has_shortcode( $content, Tack_Quick_Order::SHORTCODE ) || false !== strpos( $content, 'wp:' . Tack_Quick_Order::BLOCK ) ) {
+				return true;
+			}
+		}
+		/**
+		 * Filters whether a quote control can open the quote modal on this page, which
+		 * decides whether the seller-designed quote form is read and printed here.
+		 *
+		 * @since 1.12.0
+		 *
+		 * @param bool $possible False: nothing on this page opens the modal.
+		 */
+		return (bool) apply_filters( 'tackquote_quote_controls_possible', false );
+	}
+
+	/**
 	 * Does the launcher belong on THIS page, per the "Show on" setting?
 	 *
 	 * @param string $pages One of all|product|cart|none.
@@ -1066,6 +1154,63 @@ class Tack_Widget {
 		if ( ! $product instanceof WC_Product ) {
 			return;
 		}
+		// The card's Product Button block already carries the control (block archive).
+		$id = (int) $product->get_id();
+		if ( ! empty( $this->block_cards[ $id ] ) && Tack_Block_Product::is_compat_hook() ) {
+			--$this->block_cards[ $id ];
+			return;
+		}
+		echo $this->card_button_html( $product ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped per attribute in card_button_html().
+	}
+
+	/**
+	 * `render_block_woocommerce/product-button`: the card control after a Product Button
+	 * block, in a grid built with blocks (1.12.0, off with the card setting).
+	 *
+	 * Not on the product page: the Add to Cart with Options block renders a Product Button
+	 * inside its own form (context `woocommerce/isDescendantOfAddToCartWithOptions`), and
+	 * the product-page buttons are rendered there already.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param string               $block_content Rendered block.
+	 * @param array                $parsed_block  Parsed block.
+	 * @param WP_Block|object|null $instance      Block instance; `postId` context names the product.
+	 * @return string
+	 */
+	public function append_card_to_product_button( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+		if ( 'yes' !== get_option( self::OPT_CARD_BUTTONS, 'no' ) ) {
+			return $block_content;
+		}
+		if ( is_object( $instance ) && isset( $instance->context ) && is_array( $instance->context )
+			&& ! empty( $instance->context['woocommerce/isDescendantOfAddToCartWithOptions'] ) ) {
+			return $block_content;
+		}
+		$product = Tack_Block_Product::from_block( $instance );
+		if ( null === $product ) {
+			return $block_content;
+		}
+		$html = $this->card_button_html( $product );
+		if ( '' === $html ) {
+			return $block_content;
+		}
+		$id                       = (int) $product->get_id();
+		$this->block_cards[ $id ] = ( isset( $this->block_cards[ $id ] ) ? $this->block_cards[ $id ] : 0 ) + 1;
+		// Beside the block, as the archive hook prints it: the card's own sibling, so
+		// tack-quotes-layout.css's `.wc-block-product > .tack-card-quote-btn` rules apply.
+		return (string) $block_content . $html;
+	}
+
+	/**
+	 * The card control for one product: an "Add to Quote" button for a simple product,
+	 * a link to choose options otherwise.
+	 *
+	 * @since 1.12.0 (was the body of render_card_button())
+	 *
+	 * @param WC_Product $product The card's product.
+	 * @return string
+	 */
+	private function card_button_html( $product ) {
 		$name = (string) $product->get_name();
 
 		/*
@@ -1076,7 +1221,7 @@ class Tack_Widget {
 		$card = ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) ? 'wp-block-button__link ' : '';
 
 		if ( $product->is_type( 'simple' ) ) {
-			printf(
+			return sprintf(
 				'<button type="button" class="%1$s" data-product-id="%2$d" data-product-name="%3$s" data-product-sku="%4$s" data-product-price="%5$s" aria-label="%6$s">%7$s</button>',
 				esc_attr( self::button_class( $card . 'tack-card-quote-btn' ) ),
 				(int) $product->get_id(),
@@ -1092,12 +1237,11 @@ class Tack_Widget {
 				),
 				esc_html( self::button_label( 'tack_quotes_button_label' ) )
 			);
-			return;
 		}
 
 		$url = get_permalink( $product->get_id() );
 		if ( ! $url ) {
-			return;
+			return '';
 		}
 		/**
 		 * Filters the card label for a product that must be configured before quoting.
@@ -1108,7 +1252,7 @@ class Tack_Widget {
 		 * @param WC_Product $product The product.
 		 */
 		$label = (string) apply_filters( 'tack_quotes_card_options_label', __( 'Choose options to quote', 'tackquote' ), $product );
-		printf(
+		return sprintf(
 			'<a href="%1$s" class="%2$s" data-product-id="%3$d" aria-label="%4$s">%5$s</a>',
 			esc_url( $url ),
 			esc_attr( self::button_class( $card . 'tack-card-quote-link' ) ),
@@ -1177,12 +1321,18 @@ class Tack_Widget {
 	/**
 	 * The same control for the Cart BLOCK, which renders no PHP hook beside its
 	 * Proceed button: a fixed control printed in the footer of the cart page when
-	 * the classic hook did not fire and the cart has lines.
+	 * the classic hook did not fire and the cart has lines. Since 1.12.0 only a
+	 * fallback: on WooCommerce with the Blocks Integration API the control sits
+	 * inside the Cart block, above Proceed to Checkout (Tack_Cart_Quote_Block).
 	 *
 	 * @since 1.10.0
 	 */
 	public function render_cart_quote_button_footer() {
 		if ( is_admin() || $this->cart_button_rendered || 'yes' !== get_option( self::OPT_CART_BUTTON, 'no' ) ) {
+			return;
+		}
+		// 1.12.0: the Cart block carries the control itself (Tack_Cart_Quote_Block).
+		if ( class_exists( 'Tack_Cart_Quote_Block', false ) && Tack_Cart_Quote_Block::active() ) {
 			return;
 		}
 		if ( ! function_exists( 'is_cart' ) || ! is_cart() ) {
@@ -1420,6 +1570,55 @@ class Tack_Widget {
 				}
 			}
 		}
+
+		/*
+		 * 1.12.0: the seller-designed form. Its answers replace the built-in fields: the
+		 * role answers (email, name, company, phone, message) also travel as the request's
+		 * own buyer fields, so TackQuote registers the buyer exactly as before, and the
+		 * complete answers travel as `answers` for TackQuote to check against the version
+		 * the shopper saw.
+		 */
+		$form_answers = null;
+		if ( isset( $_POST[ Tack_Quote_Form::VERSION_FIELD ] ) ) {
+			$collected = ( new Tack_Quote_Form() )->collect(
+				isset( $_POST[ Tack_Quote_Form::ANSWERS_FIELD ] ) && is_array( $_POST[ Tack_Quote_Form::ANSWERS_FIELD ] )
+					? map_deep( wp_unslash( (array) $_POST[ Tack_Quote_Form::ANSWERS_FIELD ] ), 'sanitize_textarea_field' )
+					: array(),
+				isset( $_POST[ Tack_Quote_Form::FILES_FIELD ] ) && is_array( $_POST[ Tack_Quote_Form::FILES_FIELD ] )
+					? map_deep( wp_unslash( (array) $_POST[ Tack_Quote_Form::FILES_FIELD ] ), 'sanitize_text_field' )
+					: array(),
+				sanitize_text_field( wp_unslash( $_POST[ Tack_Quote_Form::VERSION_FIELD ] ) ),
+				isset( $_POST['upload_ids'] ) && is_array( $_POST['upload_ids'] ) ? map_deep( wp_unslash( (array) $_POST['upload_ids'] ), 'sanitize_text_field' ) : array(),
+				isset( $_POST[ Tack_Quote_Form::LOCALE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_POST[ Tack_Quote_Form::LOCALE_FIELD ] ) ) : null
+			);
+			if ( is_wp_error( $collected ) ) {
+				$data = $collected->get_error_data();
+				wp_send_json_error(
+					array(
+						'code'    => $collected->get_error_code(),
+						'message' => $collected->get_error_message(),
+						'reload'  => is_array( $data ) && ! empty( $data['reload'] ),
+					),
+					400
+				);
+			}
+			$email      = sanitize_email( $collected['buyer']['email'] );
+			$first_name = sanitize_text_field( $collected['buyer']['firstName'] );
+			$last_name  = sanitize_text_field( $collected['buyer']['lastName'] );
+			$phone      = sanitize_text_field( $collected['buyer']['phone'] );
+
+			// The company name: the form's buyer_company answer when it has one, else the
+			// registration policy's own company-name field shown beneath the form (Fable R1).
+			// `company[...]` (the policy's required company details) is kept as posted.
+			$role_company = sanitize_text_field( $collected['buyer']['company'] );
+			$company_name = '' !== $role_company ? $role_company : $company_name;
+			$note         = sanitize_textarea_field( $collected['buyer']['message'] );
+			$form_answers = array(
+				'answers'       => (object) $collected['answers'],
+				'formVersionId' => $collected['formVersionId'],
+			);
+		}
+
 		// The quote list, as JSON. sanitize_textarea_field() is safe to apply to it — the
 		// payload is a flat array of integers keyed by product_id/variation_id/quantity, so
 		// there is nothing in a well-formed body for it to strip — and a body that it does
@@ -1491,6 +1690,9 @@ class Tack_Widget {
 		if ( ! empty( $company ) ) {
 			$payload['company'] = $company;
 		}
+		if ( null !== $form_answers ) {
+			$payload = array_merge( $payload, $form_answers );
+		}
 
 		/*
 		 * The prices in $line_items are in the store's currency, so the quote has to say
@@ -1551,6 +1753,24 @@ class Tack_Widget {
 		$result = $client->create_quote_request( $payload );
 
 		if ( is_wp_error( $result ) ) {
+			if ( null !== $form_answers && Tack_Quote_Form::refused_as_changed( $result ) ) {
+				// The seller changed the form after this page was built: read it again.
+				Tack_Quote_Form::forget();
+				wp_send_json_error(
+					array(
+						'code'    => 'tack_form_changed',
+						'message' => __( 'This form has just been updated. Please check your answers and send it again.', 'tackquote' ),
+						'reload'  => true,
+					),
+					409
+				);
+			}
+			if ( null !== $form_answers && self::refused_form_fields( $result ) ) {
+				// The capability cache said `quote-form`, the server refused the fields: it is
+				// an older server now (Fable P7). Next page: the built-in form.
+				$client->forget_capabilities();
+				Tack_Quote_Form::forget();
+			}
 			if ( self::refused_attachment_fields( $result ) || self::refused_target_price( $result ) ) {
 				// The cache said "attachments" but the server refused the fields: it is
 				// an older server now. Ask it again next time instead of failing every request.
@@ -1619,6 +1839,24 @@ class Tack_Widget {
 		}
 		$message = (string) $error->get_error_message();
 		return false !== strpos( $message, 'uploadIds' ) || false !== strpos( $message, 'uploadToken' );
+	}
+
+	/**
+	 * Did TackQuote refuse the request BECAUSE of the form fields (a 400 naming
+	 * `answers` or `formVersionId`, an older server's `forbidNonWhitelisted`)?
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WP_Error $error From Tack_Api_Client.
+	 * @return bool
+	 */
+	public static function refused_form_fields( $error ) {
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || ! isset( $data['status'] ) || 400 !== (int) $data['status'] ) {
+			return false;
+		}
+		$message = (string) $error->get_error_message();
+		return false !== strpos( $message, 'answers' ) || false !== strpos( $message, 'formVersionId' );
 	}
 
 	/**
