@@ -82,6 +82,8 @@ function wp_get_current_user() {
 	// E2E D6: the profile names the quote modal falls back to.
 	$u->first_name = isset( $GLOBALS['TACK_USER_FIRST_NAME'] ) ? (string) $GLOBALS['TACK_USER_FIRST_NAME'] : '';
 	$u->last_name  = isset( $GLOBALS['TACK_USER_LAST_NAME'] ) ? (string) $GLOBALS['TACK_USER_LAST_NAME'] : '';
+	// 1.12.0 embedded dashboard: the login the link-code claim sends.
+	$u->user_login = isset( $GLOBALS['TACK_USER_LOGIN'] ) ? (string) $GLOBALS['TACK_USER_LOGIN'] : '';
 	return $u;
 }
 function checked( $a, $b = true, $echo = true ) { return (string) $a === (string) $b ? "checked='checked'" : ''; }

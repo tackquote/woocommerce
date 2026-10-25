@@ -38,6 +38,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-standing.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-rest-keys.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-lifecycle.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-update-notice.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php';
 
 /**
  * Main plugin class (singleton).
@@ -76,6 +77,11 @@ final class Tack_Quotes {
 	public function init() {
 		$this->settings = new Tack_Settings();
 		$this->settings->init();
+
+		// 1.12.0: WooCommerce → TackQuote, the TackQuote dashboard inside WooCommerce admin.
+		if ( is_admin() ) {
+			( new Tack_Embed_Admin() )->init();
+		}
 
 		// 1.12.0: catalogue and order sync through WooCommerce's own key approval, the
 		// disconnect stand-down, and (in the GitHub release zip only) WordPress updates

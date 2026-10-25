@@ -196,5 +196,9 @@ require __DIR__ . '/storefront-1120-test.php';
 echo "\n-- catalogue and order sync, stand-down, lifecycle, updates --\n";
 require __DIR__ . '/rest-keys-test.php';
 
+// 1.12.0 WooCommerce → TackQuote: the dashboard inside WooCommerce admin.
+echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
+require __DIR__ . '/embed-admin-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
