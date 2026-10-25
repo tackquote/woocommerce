@@ -147,12 +147,15 @@ bash bin/ship-audit.sh dist/tackquote.zip   # the audit on its own
 The plugin is held to the [WordPress Coding Standards](https://github.com/WordPress/WordPress-Coding-Standards) (`WordPress-Extra` + `WordPress-Docs`), the [WooCommerce sniffs](https://github.com/woocommerce/woocommerce-sniffs) (`WooCommerce-Core`) and `PHPCompatibilityWP` for PHP 7.4+, as configured in [`phpcs.xml.dist`](phpcs.xml.dist). The bar is **zero errors and zero warnings**; CI (`.github/workflows/ci.yml`, job `phpcs`) fails on either.
 
 ```bash
-composer install      # installs the pinned sniff versions from composer.lock (dev only)
+composer install      # installs the pinned sniff and PHPStan versions from composer.lock (dev only)
 composer lint         # phpcs against phpcs.xml.dist
 composer lint:fix     # phpcbf for the auto-fixable part, then run `composer lint` again
+composer phpstan      # PHPStan level 5 with WordPress + WooCommerce stubs (phpstan.neon.dist)
 ```
 
-`composer.json`, `composer.lock`, `phpcs.xml.dist` and `vendor/` are development tooling only: the plugin has no Composer runtime dependency, and `bin/build.sh` both excludes them from `tackquote.zip` and fails the build if any of them is found inside it.
+PHPStan (`.github/workflows/ci.yml`, job `phpstan`) runs at level 5 with no baseline; the few `ignoreErrors` entries in `phpstan.neon.dist` are narrow and each says why. The storefront scripts and styles follow the WordPress JavaScript and CSS standards (`@wordpress/eslint-plugin` `recommended` with WordPress's Prettier, and `@wordpress/stylelint-config`); there is still no build step and no Node dependency in this repository. Two stylelint rules are deliberately not applied: `selector-class-pattern`, because the admin screens use BEM class names (`tack-card__head`, `tack-pill--ok`) and the quick-order rows carry the server's status codes (`tack-quick-order-not_found`), all of which themes may already target; and `no-descending-specificity`, because reordering rules changes the cascade.
+
+`composer.json`, `composer.lock`, `phpcs.xml.dist`, `phpstan.neon.dist` and `vendor/` are development tooling only: the plugin has no Composer runtime dependency, and `bin/build.sh` both excludes them from `tackquote.zip` and fails the build if any of them is found inside it.
 
 Releases are built and attached by the GitHub Actions workflow `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow calls `scripts/package.sh`, which delegates to `bin/build.sh`, so the two cannot drift. `bin/build.sh` leaves the repository scaffolding (`scripts/`, `.github/`, `LICENSE`, the Composer files and `phpcs.xml.dist`) out of the zip.
 

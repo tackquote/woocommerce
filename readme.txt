@@ -13,41 +13,35 @@ Request a quote from WooCommerce for B2B wholesale quoting, and sync orders to y
 
 == Description ==
 
-**TackQuote for WooCommerce** lets B2B and wholesale shoppers ask for a price instead of checking out, and can sync orders one way to your TackQuote account.
+**TackQuote for WooCommerce** lets B2B and wholesale shoppers ask for a price instead of checking out, and connects your store to your TackQuote account.
 
-It is for stores that sell to trade customers (wholesalers, distributors, manufacturers) and quote prices per account, per quantity or per order. Setup is one button: press **Connect with TackQuote**, sign in or create a TackQuote account, and approve. Pasting a TackQuote API key still works too.
+It is for stores that sell to trade customers and quote per account, per quantity or per order. Setup is one button: press **Connect with TackQuote**, sign in or create an account, and approve. Pasting an API key still works.
 
 [Learn more about the WooCommerce integration](https://tackquote.com/integrations/woocommerce) &middot; [Create a free TackQuote account](https://app.tackquote.com/register)
 
 = Features =
 
-* **Add to Quote** and **Request a Quote** buttons on product pages, in your theme's button style.
-* A floating **quote list** with **Checkout as Quote**: several products in one request, separate from the cart.
-* **Quote-only mode** for the whole store, signed-out visitors, chosen roles, or all but approved wholesale accounts.
-* **Quote only per product**, with variations following their product and still selectable for a quote.
-* Optional quote buttons on **product cards** (shop pages and block product grids) and the **cart page** (classic cart and Cart block), and a **quote page** with target prices.
-* **Your own quote request form**, designed in TackQuote, in the quote modal.
+* **Add to Quote** and **Request a Quote** buttons on product pages, product cards and the cart, in your theme's button style.
+* A floating **quote list** with **Checkout as Quote**, a **quote page** with target prices, and **your own quote request form** designed in TackQuote.
 * **Quick order**: SKUs and quantities, or a pasted list, to the cart or the quote list.
-* A configurable **floating launcher**: side, offsets, label, icon, count, size, pages, mobile.
-* **B2B pricing** from TackQuote: account prices and volume tables, net of tax on any tax setting.
-* **Order limits**, a **buyer-group badge** and **tax-exempt buyers**.
+* **Quote-only mode** for the whole store, signed-out visitors, chosen roles or all but approved wholesale accounts, or per product.
+* **B2B pricing** from TackQuote (account prices and volume tables), **order limits**, a **buyer-group badge** and **tax-exempt buyers**.
 * Per buyer group: hidden **product categories**, free or discounted **shipping**, an optional **WordPress role**.
 * **Wholesale** and **net-terms application forms**, and a **Net terms** payment method with an optional PO number.
-* **Accepted quote checkout**: the buyer pays an accepted quote at your normal checkout, at the quoted prices.
-* Optional one-way **order sync** to TackQuote, off by default and queued so it never runs inside checkout.
-* **Connect with TackQuote**: connect the store by signing in and approving, with no key to copy, or paste an API key as before.
-* Works with **HPOS**, the Cart and Checkout blocks, and block and classic themes.
-* Storefront text in English and seven more languages.
+* **Accepted quote checkout** at the quoted prices.
+* Optional one-way **order sync**, off by default and queued so it never runs inside checkout; with one more approval, TackQuote's **catalogue and order sync** through a WooCommerce REST API key.
+* **TackQuote inside WooCommerce admin**, each person signed in as themselves.
+* Works with **HPOS**, the Cart and Checkout blocks, and block and classic themes. Storefront text in English and seven more languages.
 
-The FAQ below explains each feature, and lists exactly what the plugin sends and stores.
+The FAQ below explains each feature and lists exactly what the plugin sends and stores.
 
 = What it does not do =
 
 * It does not replace WooCommerce checkout or act as a full CPQ workspace.
-* Order sync is **outbound only** — it does not import quotes as orders, sync your catalogue, or touch inventory.
+* The plugin's own order sync is one-way, WooCommerce to TackQuote. Catalogue, stock and orders written back come only from catalogue and order sync, which needs your approval in WooCommerce.
 * Failed syncs are logged (WooCommerce → Status → Logs, source `tackquote`) and never block checkout.
 
-Source code is developed in the open at [github.com/tackquote/woocommerce](https://github.com/tackquote/woocommerce).
+Source code: [github.com/tackquote/woocommerce](https://github.com/tackquote/woocommerce).
 
 == External services ==
 
@@ -204,6 +198,13 @@ request carries (the plugin version in the User-Agent). The update itself downlo
 from the TackQuote GitHub release. GitHub privacy statement:
 https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 
+18. **TackQuote inside WooCommerce admin** (unreleased, needs a TackQuote server that offers it) —
+`POST /integrations/woocommerce/embed/open`, `POST /integrations/woocommerce/embed/claim` and
+`POST /integrations/woocommerce/embed/unlink`. Sent only when a user who can manage WooCommerce opens WooCommerce →
+TackQuote or presses its buttons. Sends that user's WordPress user ID and a random secret kept in
+their user meta; linking also sends the one-time code they typed and their WordPress login name.
+Nothing about customers or orders.
+
 This plugin sends data to no other external service.
 
 The TackQuote service is provided by TackQuote. By using this plugin you agree to their
@@ -242,23 +243,7 @@ This plugin sends data to TackQuote, a third-party service, over HTTPS. It sends
 
 = Where data is sent =
 
-To the TackQuote API base URL configured under **TackQuote → TackQuote API URL** — `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. Endpoints used:
-
-* `GET /integrations/woocommerce/ping` (and `GET /health`) — connection test and server features. Sends only the store's address.
-* `GET /integrations/woocommerce/registration-config` — fetches which fields the quote form should ask for. Sends only the store's address.
-* `POST /integrations/woocommerce/quote-requests` — a shopper's quote request.
-* `POST /integrations/woocommerce/order-sync` — order sync. **Only when the merchant has switched order sync on. It is off by default.**
-* `POST /storefront-pricing/resolve`, `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`, `GET /storefront/v1/order-limits`, `GET /storefront/v1/buyer-group` (and the older `GET /storefront-b2b/order-limits`, `GET /storefront-b2b/buyer-group`) — B2B prices, limits (also for guests, by SKU), the buyer group and its tax exemption. Only when the matching feature is switched on.
-* `GET /integrations/woocommerce/wholesale-form`, `POST /integrations/woocommerce/wholesale-form/submit` — the wholesale application form.
-* `POST /storefront/v1/credit-application` (or `POST /integrations/woocommerce/credit-application`) — a signed-in customer's net-terms application.
-* `GET /storefront/v1/net-terms` — a signed-in customer's net terms, at checkout and on the "Net terms" My Account tab (both off by default).
-* `GET /integrations/woocommerce/quote-checkout/<token>` — opens an accepted quote's checkout link. Sends only the token.
-* `POST /storefront/v1/quote-upload`, `POST /storefront/v1/wholesale-upload`, `POST /storefront/v1/wholesale-signup/<slug>` — files a shopper attaches to a quote request (only when "Allow attachments on quote requests" is on; off by default) or to a wholesale application (signed-in customers only), and an application that carries files. Sends the file's bytes and name, and the signed-in customer's account email address and WordPress user ID; a guest's quote files carry only a single-use upload token. Unattached files are deleted by TackQuote after 24 hours (quote) or 7 days (application).
-* `POST /woocommerce-connect/requests`, `POST /woocommerce-connect/exchange` — **Connect with TackQuote**, only when an administrator presses the button. Sends the store's and admin addresses, the return address on your site, the site name, plugin, WordPress and WooCommerce versions, the site language, a signed random value, a code challenge, and then the one-time code and its secret. No customer data.
-* `POST /integrations/woocommerce/plugin-key/revoke` — when an administrator removes a saved key that Connect with TackQuote created. Sends only that key.
-* `GET /storefront/v1/price-access` — whether a signed-in customer's wholesale application is approved. **Only when the merchant chose the "approved wholesale accounts" quote-only scope, or when a signed-in customer opens the Wholesale account tab or the wholesale application shortcode (1.11.0). Both are off by default.** The answer is shared by both for up to five minutes. Sends the customer's account email address and WordPress user ID.
-
-Every request carries `X-TackQuote-Plugin-Version` (the plugin's version) and `X-TackQuote-Site-Url` (your store's address, `home_url()`).
+To the TackQuote API base URL set under **TackQuote → TackQuote API URL**: `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. **External services** above lists every endpoint the plugin calls, when it calls it and exactly what it sends, and the headers every request carries. The B2B features call TackQuote only when you switch them on, and order sync is off by default.
 
 = The full lists =
 
@@ -277,11 +262,7 @@ TackQuote a processor acting on your instructions. That is why it ships switched
 enable it, satisfy yourself that you have a lawful basis and, where required, a data
 processing agreement in place with TackQuote. Your own privacy policy should name
 TackQuote as a recipient; the plugin adds suggested wording to
-**Settings → Privacy** for you to review and adapt.
-
-= Suggested privacy policy text =
-
-The plugin adds suggested wording to **Settings → Privacy → Policy guide** in WordPress, listing the same fields. Edit it to match how your store actually uses the plugin.
+**Settings → Privacy → Policy guide**, listing the same fields, for you to review and adapt.
 
 == Frequently Asked Questions ==
 
@@ -461,6 +442,7 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 = Unreleased =
 
+* **Coding standards.** The plugin now passes the WordPress and WooCommerce coding standards throughout (PHPCS with WordPress-Extra, WordPress-Docs and WooCommerce-Core, PHPStan level 5, and WordPress's JavaScript and CSS standards). Markup is escaped where it is printed, the "Link my TackQuote account" button checks its own permission and nonce, and the storefront scripts use WordPress's own formatting. Nothing changes in what shoppers or administrators see. The readme now lists the WooCommerce → TackQuote calls under External services, and its description reflects catalogue and order sync.
 * **Your own quote request form.** When you design the "Request a quote" form in TackQuote (Settings, Quote request form) and your TackQuote server supports it, the quote modal shows that form: your fields, your order and labels in the shopper's language, fields shown only when an earlier answer matches, file fields (when attachments are on) and "No dates in the past" dates on your calendar. The answers travel with the quote request and TackQuote checks them against the form version the shopper saw; if you change the form while a page is open, the shopper is asked to reload. Without a designed form, on an older TackQuote server, or when a required file field cannot be answered because attachments are off, the quote modal is the one it always was.
 * **Quick order.** New shortcode `[tackquote_quick_order]` and block "TackQuote quick order": a buyer types SKUs and quantities (or pastes a list, one per line), checks them against your catalogue, then adds them to the cart or to the quote list. Variable products ask for options on their own page; products this visitor cannot see are "Not found". Adding to the cart goes through WooCommerce's own add-to-cart rules, so quote-only products, stock, B2B prices and order limits apply exactly as on the product page. New template `tackquote/quick-order.php`.
 * **"Add to Quote" on product grids built with blocks.** With "Product cards" on, the Product Collection block on your home page, a landing page, related products or any other grid now gets the quote button after each card's own button, not only the shop and category pages. A card never gets two.
