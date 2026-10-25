@@ -132,6 +132,9 @@ $tack_quotes_user_meta = array(
 	'_tack_mirrored_roles',
 	'_tack_role_mirror_checked',
 	'_tack_wholesale_applied',
+	// 1.12.0: the per-user secret of the embedded TackQuote dashboard (Tack_Embed_Admin).
+	// Deleting it makes every WordPress user link their TackQuote login again after a reinstall.
+	'_tackquote_embed_secret',
 );
 
 /**

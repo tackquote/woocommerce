@@ -416,6 +416,10 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 == Changelog ==
 
+= Unreleased (1.12.0) =
+
+* **TackQuote inside WooCommerce admin.** A new WooCommerce → TackQuote page (for users who can manage WooCommerce) shows your TackQuote workspace right in WordPress. Each WordPress user links their own TackQuote login once: "Link my TackQuote account" opens TackQuote in a new tab, where they sign in as usual (two-step sign-in included) and confirm. After that the page signs them in as themselves, with their own TackQuote role; nobody is ever signed in as someone else, and a WordPress user who has not linked gets no session at all. The page asks TackQuote server to server with the store's API key and a random per-user secret kept in that user's meta (neither reaches the browser); the one-time sign-in code works once, for two minutes, and travels in the frame address's fragment. "Open in a new tab" is always there for browsers that block sign-in inside a page, and "Unlink my login" removes the link. Shown only when your TackQuote server offers it; uninstall removes the per-user secrets.
+
 = 1.11.1 =
 Released 2026-10-18.
 

@@ -32,6 +32,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-attachments.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php';
 
 /**
  * Main plugin class (singleton).
@@ -70,6 +71,11 @@ final class Tack_Quotes {
 	public function init() {
 		$this->settings = new Tack_Settings();
 		$this->settings->init();
+
+		// 1.12.0: WooCommerce → TackQuote, the TackQuote dashboard inside WooCommerce admin.
+		if ( is_admin() ) {
+			( new Tack_Embed_Admin() )->init();
+		}
 
 		// Quote-only (B2B catalog) mode. Registered unconditionally; the class
 		// re-checks whether it applies per request, because the current user is

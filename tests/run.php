@@ -187,5 +187,9 @@ require __DIR__ . '/e2e-fixes-test.php';
 echo "\n-- My Account tabs: net terms standing, wholesale prefill --\n";
 require __DIR__ . '/account-tabs-test.php';
 
+// 1.12.0 WooCommerce → TackQuote: the dashboard inside WooCommerce admin.
+echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
+require __DIR__ . '/embed-admin-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
