@@ -40,6 +40,7 @@
 /* ── Floating launcher + drawer ────────────────────────────────────────────── */
 .tack-quote-list-widget {
   position: fixed;
+
   /* The merchant's offsets (settings) arrive as --tack-fab-x/-y on the element. */
   inset-inline-end: var(--tackquote-launcher-offset-x, var(--tack-fab-x, 20px));
   inset-block-end: var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px));
@@ -135,6 +136,7 @@
 }
 
 @media (max-width: 768px) {
+
   .tack-quote-list-widget.tack-fab-hide-mobile {
     display: none;
   }
@@ -143,6 +145,7 @@
 /* Narrow phones: always compact, at least 48px tall, lifted above the home
  * indicator; the label stays for assistive technology (aria-label carries it too). */
 @media (max-width: 480px) {
+
   .tack-quote-list-widget {
     inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + env(safe-area-inset-bottom, 0px));
   }
@@ -213,12 +216,14 @@ body.tack-quote-modal-open {
 
 .tack-quote-field-half {
   flex: 1 1 0;
+
   /* Without min-width:0 a long placeholder makes a flex item refuse to shrink and
      the row overflows the modal on narrow screens. */
   min-width: 0;
 }
 
 @media (max-width: 480px) {
+
   .tack-quote-field-row {
     flex-direction: column;
     gap: 0;
@@ -305,6 +310,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
 .wc-block-product > .tack-card-quote-link {
   display: block;
   width: fit-content;
+
   /* core/button's .wp-block-button__link is height:100% of its wrapper; here the
    * "wrapper" is the whole card. */
   height: auto;

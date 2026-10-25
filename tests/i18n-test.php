@@ -208,8 +208,9 @@ check( 'no i18n array is localised any more (one source: wp.i18n)', false === st
 // Every TackQuotes.i18n.<key> the script reads is defined in its wp.i18n block, so
 // moving the strings out of PHP left no label undefined.
 $tack_js = (string) file_get_contents( TACK_QUOTES_DIR . 'assets/js/tack-quotes.js' );
-preg_match( '/TackQuotes\.i18n = \{(.*?)\n  \};/s', $tack_js, $tack_block );
-preg_match_all( '/^\s{4}(\w+):/m', $tack_block[1] ?? '', $tack_defined );
+// The script is tab-indented (WordPress Prettier style): the map's keys sit two tabs in.
+preg_match( '/TackQuotes\.i18n = \{(.*?)\n\t\};/s', $tack_js, $tack_block );
+preg_match_all( '/^\t\t(\w+):/m', $tack_block[1] ?? '', $tack_defined );
 preg_match_all( '/\bi18n\.(\w+)/', $tack_js, $tack_used );
 $tack_undefined = array_diff( array_unique( $tack_used[1] ), $tack_defined[1] );
 check( 'every TackQuotes.i18n key the script reads is defined through wp.i18n', count( $tack_defined[1] ) > 30 && array() === array_values( $tack_undefined ), 'undefined: ' . implode( ', ', $tack_undefined ) );

@@ -220,6 +220,7 @@
 }
 
 /* ── Quote page ────────────────────────────────────────────────────────────── */
+
 /* The table's fields sit outside a WooCommerce form row, so they are sized here
  * in the theme's own type rather than the browser's small default. */
 .tack-quote-page-table input {
@@ -273,7 +274,7 @@
   margin-block: 0.625rem;
   padding: 0.5rem 0.75rem;
   border-inline-start: 3px solid var(--tackquote-accent, currentColor);
-  background: color-mix(in srgb, currentColor 6%, transparent);
+  background: color-mix(in srgb, currentcolor 6%, transparent);
   font-size: 0.95em;
 }
 
@@ -313,12 +314,14 @@ del + ins {
 
 /* ── Motion ────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: no-preference) {
+
   .tack-quote-list-drawer:not([hidden]),
   .tack-quote-modal-overlay:not([hidden]) .tack-quote-modal {
     animation: tackquote-rise 160ms ease-out;
   }
 
   @keyframes tackquote-rise {
+
     from {
       opacity: 0;
       transform: translateY(6px);
