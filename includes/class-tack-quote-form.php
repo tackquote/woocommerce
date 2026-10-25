@@ -65,7 +65,7 @@ class Tack_Quote_Form {
 	/** The POST array of each file field's upload ids. */
 	const FILES_FIELD = 'tq_files';
 
-	/** The POST key carrying the locale the form was shown in (Fable P6). */
+	/** The POST key carrying the locale the form was shown in. */
 	const LOCALE_FIELD = 'tq_locale';
 
 	/** The POST key carrying the version the shopper saw. */
@@ -151,7 +151,7 @@ class Tack_Quote_Form {
 
 	/**
 	 * A BCP 47 tag as TackQuote accepts it (`en`, `pt-BR`), else `en`. Applied to the
-	 * locale the browser posts back too (1.12.0, Fable P6), so it can only name a
+	 * locale the browser posts back too (1.12.0), so it can only name a
 	 * cache entry, never anything else.
 	 *
 	 * @param mixed $tag Candidate tag.
@@ -217,7 +217,7 @@ class Tack_Quote_Form {
 		}
 		// Every required file field needs at least one file, and one request carries at
 		// most Tack_Attachments::MAX_FILES: more required file fields than that can never
-		// be sent (Fable P1).
+		// be sent.
 		if ( $required_files > ( class_exists( 'Tack_Attachments' ) ? Tack_Attachments::MAX_FILES : 3 ) ) {
 			self::log_once( 'The seller\'s quote request form requires more files than one quote request can carry: the built-in form is shown instead.' );
 			return false;
@@ -250,7 +250,7 @@ class Tack_Quote_Form {
 		}
 
 		/*
-		 * Soft TTL (Fable P5): past `until`, a definition still within STALE_TTL is served
+		 * Soft TTL: past `until`, a definition still within STALE_TTL is served
 		 * while ONE request refreshes it, the one that takes the short refresh lock;
 		 * every other request in that moment keeps the stale copy instead of also
 		 * calling TackQuote.
@@ -319,7 +319,7 @@ class Tack_Quote_Form {
 		}
 		return array(
 			'versionId'  => (string) $form['versionId'],
-			// Posted back with the answers (Fable P6): the answers are collected against
+			// Posted back with the answers: the answers are collected against
 			// the form in the language the shopper saw, whatever the AJAX request's own.
 			'locale'     => self::locale_tag(),
 			'templateId' => self::TEMPLATE_ID,

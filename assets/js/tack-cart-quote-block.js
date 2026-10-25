@@ -73,8 +73,8 @@
 		return;
 	}
 
-	// No slot: the fixed control (1.10.0), once, and only while the cart has lines
-	// (Fable P2): read from WooCommerce's own Store API, the shopper's session.
+	// No slot: the fixed control (1.10.0), once, and only while the cart has lines, as
+	// read from WooCommerce's own Store API with the shopper's session.
 	function addFixed() {
 		if ( document.querySelector( '.tack-quote-cart-btn' ) ) {
 			return;

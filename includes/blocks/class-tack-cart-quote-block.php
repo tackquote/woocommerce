@@ -54,7 +54,7 @@ final class Tack_Cart_Quote_Block implements IntegrationInterface {
 	 * when it registers the block types (AbstractBlock::initialize(), on every
 	 * request), which says nothing about whether this page has a Cart block. The
 	 * `render_block_woocommerce/cart` filter runs only when one is rendered, and the
-	 * footer is printed after the content (Fable P2).
+	 * footer is printed after the content.
 	 *
 	 * @var bool
 	 */

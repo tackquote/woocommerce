@@ -11,8 +11,8 @@
  * The store's own catalogue is the authority for what its cart can take, so a
  * SKU is resolved HERE with `wc_get_product_id_by_sku()`. TackQuote's shared
  * `GET /storefront/v1/quick-order` answers `501 Not Implemented` for an API-key
- * caller (the API-key identity resolver has no catalogue binding from a SKU to a
- * WooCommerce cart item; tack `storefront-v1.controller.ts` `quickOrder`), and its
+ * caller (TackQuote has no mapping from a SKU to a WooCommerce cart item for a
+ * request authenticated with a store's API key), and its
  * catalogue rows exist only for stores that synced through the WooCommerce REST
  * API, so it could not resolve a SKU for a plugin-only store or a guest at all.
  *
@@ -332,7 +332,7 @@ class Tack_Quick_Order {
 	 *
 	 * The quote buttons' rule (Tack_Widget::is_quotable(): published, not
 	 * password-protected, not hidden from the buyer's group), AND WooCommerce's own
-	 * catalogue visibility (Fable P4): a product set to "Hidden" in Catalog
+	 * catalogue visibility: a product set to "Hidden" in Catalog
 	 * visibility, or one WooCommerce hides out of stock, is not offered here, through
 	 * `WC_Product::is_visible()` (the parent's, for a variation).
 	 *
@@ -375,7 +375,7 @@ class Tack_Quick_Order {
 	 */
 	public function handle_add() {
 		$this->verify_nonce();
-		// Each add runs WooCommerce's cart code per line: limited like the lookup (Fable P10).
+		// Each add runs WooCommerce's cart code per line: limited like the lookup.
 		if ( Tack_Rate_Limit::exceeded( 'tack_qa_', 'quick-order-add', self::RATE_LIMIT_MAX ) ) {
 			wp_send_json_error(
 				array(
