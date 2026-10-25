@@ -368,7 +368,7 @@ final class Tack_Quotes {
 	 * One cart line as the quote list keys it.
 	 *
 	 * @param array $cart_item WooCommerce cart item.
-	 * @return array{productId:int,variationId:int,name:string,sku:string,price:float}|array
+	 * @return array{productId:int,variationId:int,name:string,sku:string,price:float,attributes:object}|array
 	 */
 	public static function cart_item_data( $cart_item = array() ) {
 		$product = is_array( $cart_item ) && isset( $cart_item['data'] ) && is_object( $cart_item['data'] ) ? $cart_item['data'] : null;
@@ -382,6 +382,8 @@ final class Tack_Quotes {
 			'name'        => $variation_id > 0 ? Tack_Block_Product::cart_line_name( $cart_item, $product ) : ( method_exists( $product, 'get_name' ) ? (string) $product->get_name() : '' ),
 			'sku'         => method_exists( $product, 'get_sku' ) ? (string) $product->get_sku() : '',
 			'price'       => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $product ) : 0.0,
+			// The line's "Any …" attribute values (1.12.0), so the quote line keeps them.
+			'attributes'  => (object) Tack_Widget::cart_any_attributes( $cart_item, $product ),
 		);
 	}
 
@@ -405,6 +407,7 @@ final class Tack_Quotes {
 			'name'        => $field( 'string', 'The line name as a quote line names it.' ),
 			'sku'         => $field( 'string', 'SKU.' ),
 			'price'       => $field( 'number', 'Unit price excluding tax.' ),
+			'attributes'  => $field( 'object', 'Chosen values of the variation\'s "Any" attributes, keyed attribute_*.' ),
 		);
 	}
 

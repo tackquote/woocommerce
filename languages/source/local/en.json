@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} was removed from your cart because it is not available to your account.",
   "woo.widget.checkout_as_quote": "Checkout as Quote",
   "woo.widget.choose_options": "Please choose the product options before requesting a quote.",
+  "woo.widget.choose_quantities": "Please choose the quantity of each product you want quoted.",
+  "woo.widget.quote_one": "Quote one {product}",
   "woo.widget.email_required": "A valid email address is required.",
   "woo.widget.no_products": "No products to quote.",
   "woo.widget.rate_limited": "Too many quote requests from this connection. Please wait a few minutes and try again.",

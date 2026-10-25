@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} se ha quitado de su carrito porque no está disponible para su cuenta.",
   "woo.widget.checkout_as_quote": "Finalizar como presupuesto",
   "woo.widget.choose_options": "Elija las opciones del producto antes de solicitar un presupuesto.",
+  "woo.widget.choose_quantities": "Elija la cantidad de cada producto que quiere presupuestar.",
+  "woo.widget.quote_one": "Presupuestar una unidad de {product}",
   "woo.widget.email_required": "Se requiere un correo electrónico válido.",
   "woo.widget.no_products": "No hay productos para presupuestar.",
   "woo.widget.rate_limited": "Demasiadas solicitudes de presupuesto desde esta conexión. Espere unos minutos e inténtelo de nuevo.",

@@ -53,7 +53,7 @@ $qa_line   = Tack_Quotes::cart_item_data(
 );
 check( 'D1: a simple cart item answers its own id and 0', 303 === $qa_line['productId'] && 0 === $qa_line['variationId'] && 'Bolt' === $qa_line['name'] );
 check( 'D1: a cart item with no product answers nothing', array() === Tack_Quotes::cart_item_data( array( 'product_id' => 0 ) ) );
-check( 'D1: the schema names every field', array( 'productId', 'variationId', 'name', 'sku', 'price' ) === array_keys( Tack_Quotes::cart_item_schema() ) );
+check( 'D1: the schema names every field', array( 'productId', 'variationId', 'name', 'sku', 'price', 'attributes' ) === array_keys( Tack_Quotes::cart_item_schema() ) );
 $qa_q_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quotes.php' );
 check( 'D1: registered on the Store API cart-item endpoint under the tackquote namespace', false !== strpos( $qa_q_src, "CartItemSchema::IDENTIFIER\n\t\t\t\t\t: 'cart-item'," ) && false !== strpos( $qa_q_src, "'data_callback'   => array( __CLASS__, 'cart_item_data' )," ) );
 

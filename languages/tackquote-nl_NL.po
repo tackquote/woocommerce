@@ -549,6 +549,11 @@ msgstr "Kies een van de aangeboden betalingstermijnen."
 msgid "Please choose the product options before requesting a quote."
 msgstr "Kies de productopties voordat u een offerte aanvraagt."
 
+#. catalogue: woo.widget.choose_quantities
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Please choose the quantity of each product you want quoted."
+msgstr "Kies het aantal van elk product waarvoor u een offerte wilt."
+
 #. catalogue: woo.modal.company_required
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Please complete the required company details."
@@ -617,6 +622,12 @@ msgstr "Offerte %1$s is geprijsd in %2$s, maar deze winkel verkoopt in %3$s, dus
 #. catalogue: tackquote.widget.drawer_title
 msgid "Quote list"
 msgstr "Offertelijst"
+
+#. catalogue: woo.widget.quote_one
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Quote one %s"
+msgstr "Offerte voor één %s"
 
 #. catalogue: woo.forms.reference_n
 #. plugin catalogue (languages/source/local), pending native review

@@ -89,7 +89,7 @@ $e2e_out = tack_parity_capture(
 );
 check( 'D4: no map when "Add to Quote" is off (only that button reads it)', false === strpos( $e2e_out, 'data-tack-variation-lines' ), $e2e_out );
 $GLOBALS['TACK_OPTIONS']['tack_quotes_show_add_to_quote'] = 'yes';
-check( 'D4: the click handler builds the row through TackWithOptions.listRow with the map', false !== strpos( $e2e_flat, "api.parseStates(\$btn.closest('.tack-quote-buttons').attr('data-tack-variation-lines'))" ) && false !== strpos( $e2e_flat, 'constrow=api.listRow(' ) );
+check( 'D4: the click handler builds the row through TackWithOptions.listRow with the map', false !== strpos( $e2e_flat, "const\$buttons=\$btn.closest('.tack-quote-buttons');" ) && false !== strpos( $e2e_flat, "api.parseStates(\$buttons.attr('data-tack-variation-lines'))" ) && false !== strpos( $e2e_flat, 'constrow=api.listRow(' ) );
 
 // ── D5: target prices as lineItems[].targetPrice, gated on the server ───────
 

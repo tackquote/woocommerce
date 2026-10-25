@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} はお客様のアカウントではご購入いただけないため、お買い物カゴから削除されました。",
   "woo.widget.checkout_as_quote": "見積りとして購入手続き",
   "woo.widget.choose_options": "見積りを依頼する前に、商品のオプションを選択してください。",
+  "woo.widget.choose_quantities": "見積りを希望する各商品の数量を選択してください。",
+  "woo.widget.quote_one": "{product} を1点見積り依頼",
   "woo.widget.email_required": "有効なメールアドレスが必要です。",
   "woo.widget.no_products": "見積りの対象となる商品がありません。",
   "woo.widget.rate_limited": "この接続からの見積り依頼が多すぎます。数分待ってからもう一度お試しください。",

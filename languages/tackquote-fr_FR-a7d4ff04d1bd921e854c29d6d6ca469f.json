@@ -102,6 +102,9 @@
             "Phone": [
                 "Téléphone"
             ],
+            "Please choose the quantity of each product you want quoted.": [
+                "Veuillez choisir la quantité de chaque produit pour lequel vous voulez un devis."
+            ],
             "Please complete the required company details.": [
                 "Veuillez compléter les informations obligatoires sur l’entreprise."
             ],

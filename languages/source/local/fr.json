@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} a été retiré de votre panier, car il n’est pas disponible pour votre compte.",
   "woo.widget.checkout_as_quote": "Valider en tant que devis",
   "woo.widget.choose_options": "Veuillez choisir les options du produit avant de demander un devis.",
+  "woo.widget.choose_quantities": "Veuillez choisir la quantité de chaque produit pour lequel vous voulez un devis.",
+  "woo.widget.quote_one": "Demander un devis pour un exemplaire de {product}",
   "woo.widget.email_required": "Une adresse e-mail valide est obligatoire.",
   "woo.widget.no_products": "Aucun produit à chiffrer.",
   "woo.widget.rate_limited": "Trop de demandes de devis depuis cette connexion. Veuillez patienter quelques minutes, puis réessayer.",

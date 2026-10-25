@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} wurde aus Ihrem Warenkorb entfernt, weil der Artikel für Ihr Konto nicht verfügbar ist.",
   "woo.widget.checkout_as_quote": "Als Angebot anfragen",
   "woo.widget.choose_options": "Bitte wählen Sie die Produktoptionen, bevor Sie ein Angebot anfragen.",
+  "woo.widget.choose_quantities": "Bitte wählen Sie die Menge für jedes Produkt, für das Sie ein Angebot möchten.",
+  "woo.widget.quote_one": "Ein Stück {product} anfragen",
   "woo.widget.email_required": "Eine gültige E-Mail-Adresse ist erforderlich.",
   "woo.widget.no_products": "Keine Produkte für ein Angebot.",
   "woo.widget.rate_limited": "Zu viele Angebotsanfragen über diese Verbindung. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",

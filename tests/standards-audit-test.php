@@ -69,6 +69,10 @@ class Tack_Test_W7_Product {
 	public function get_post_password() {
 		return $this->password;
 	}
+	/** @param string $type Type. @return bool Never grouped (resolve_purchasable() asks, 1.12.0). */
+	public function is_type( $type ) {
+		return false;
+	}
 }
 
 // ── H-1: email change through any path ──────────────────────────────────────

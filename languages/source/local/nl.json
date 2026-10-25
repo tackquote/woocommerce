@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} is uit uw winkelwagen verwijderd omdat het niet beschikbaar is voor uw account.",
   "woo.widget.checkout_as_quote": "Afrekenen als offerte",
   "woo.widget.choose_options": "Kies de productopties voordat u een offerte aanvraagt.",
+  "woo.widget.choose_quantities": "Kies het aantal van elk product waarvoor u een offerte wilt.",
+  "woo.widget.quote_one": "Offerte voor één {product}",
   "woo.widget.email_required": "Een geldig e-mailadres is verplicht.",
   "woo.widget.no_products": "Geen producten om een offerte voor te maken.",
   "woo.widget.rate_limited": "Te veel offerteaanvragen vanaf deze verbinding. Wacht een paar minuten en probeer het opnieuw.",

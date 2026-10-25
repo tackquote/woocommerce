@@ -85,6 +85,13 @@ class Tack_Catalog_Mode {
 	const SCOPE_UNAPPROVED = 'unapproved';
 
 	/**
+	 * The Add to Cart with Options block's grouped item selector (WooCommerce 11.2.1).
+	 *
+	 * @since 1.12.0
+	 */
+	const GROUPED_ITEM_SELECTOR = 'woocommerce/add-to-cart-with-options-grouped-product-item-selector';
+
+	/**
 	 * Product meta holding the per-product switch. `'yes'` when on; absent otherwise.
 	 *
 	 * @since 1.10.0
@@ -177,6 +184,16 @@ class Tack_Catalog_Mode {
 		// Block themes, Add to Cart with Options block: it shows no variation selector on quote.
 		add_filter( 'render_block_' . Tack_Block_Product::WITH_OPTIONS, array( $this, 'append_quote_only_variation_form' ), 4, 3 );
 		add_action( 'woocommerce_after_single_variation', array( $this, 'restore_variation_cart_controls' ) );
+
+		/*
+		 * Grouped products on quote (1.12.0): WooCommerce gives a child it will not sell a
+		 * "Read more" link instead of a quantity, so a quote-only child gets a quote
+		 * quantity there (classic template and the Add to Cart with Options block), and
+		 * in store-wide mode the grouped form comes back like the variation form does.
+		 */
+		add_action( 'woocommerce_single_product_summary', array( $this, 'render_quote_only_grouped_form' ), 29 );
+		add_filter( 'woocommerce_grouped_product_list_column_quantity', array( $this, 'grouped_child_quote_quantity' ), 10, 2 );
+		add_filter( 'render_block_' . self::GROUPED_ITEM_SELECTOR, array( $this, 'grouped_item_selector_quote_quantity' ), 10, 3 );
 
 		// Optional "price on request", and the per-product "available on quote" label.
 		add_filter( 'woocommerce_get_price_html', array( $this, 'filter_price_html' ), 99, 2 );
@@ -520,6 +537,107 @@ class Tack_Catalog_Mode {
 		if ( function_exists( 'woocommerce_variable_add_to_cart' ) ) {
 			woocommerce_variable_add_to_cart();
 		}
+	}
+
+	/**
+	 * Classic themes, store-wide quote-only: render the grouped product's form where
+	 * the withdrawn `woocommerce_template_single_add_to_cart` would have, so its
+	 * children (each with the quote quantity from `grouped_child_quote_quantity()`)
+	 * can be quoted. Same rules as `render_quote_only_variation_form()`.
+	 *
+	 * @since 1.12.0
+	 */
+	public function render_quote_only_grouped_form() {
+		global $product;
+		if ( ! $product instanceof WC_Product || ! $product->is_type( 'grouped' ) ) {
+			return;
+		}
+		if ( class_exists( 'Tack_Block_Product' ) && Tack_Block_Product::is_compat_hook() ) {
+			return;
+		}
+		if ( ! $this->is_active() ) {
+			return;
+		}
+		// WooCommerce's own renderer (pluggable), the callback for this type.
+		if ( function_exists( 'woocommerce_grouped_add_to_cart' ) ) {
+			woocommerce_grouped_add_to_cart();
+		}
+	}
+
+	/**
+	 * `woocommerce_grouped_product_list_column_quantity`: the quantity cell of one child
+	 * in WooCommerce's grouped form (`single-product/add-to-cart/grouped.php`, 11.2.1).
+	 *
+	 * WooCommerce prints `woocommerce_template_loop_add_to_cart()` ("Read more") there
+	 * for a child that is not purchasable, which is every child on quote, so the shopper
+	 * could not say how many to quote. For such a child (only when this plugin is why it
+	 * cannot be bought, and only one that can be a quote line on its own) the cell holds
+	 * a quote quantity instead: `tack_quantity[<child id>]`, a name WooCommerce's grouped
+	 * cart handler does not read, so a purchasable sibling's Add to cart is unaffected.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param string           $value The cell's markup.
+	 * @param WC_Product|mixed $child The child product.
+	 * @return string
+	 */
+	public function grouped_child_quote_quantity( $value, $child = null ) {
+		if ( ! $this->quotes_instead_of_cart( $child ) || ! Tack_Block_Product::groupable( $child ) ) {
+			return $value;
+		}
+		return self::child_quote_quantity_markup( $child );
+	}
+
+	/**
+	 * `render_block_woocommerce/add-to-cart-with-options-grouped-product-item-selector`:
+	 * the same for the Add to Cart with Options block's grouped item selector, which
+	 * renders the loop button for a child that is not purchasable
+	 * (`GroupedProductItemSelector::render()`, 11.2.1). Its `postId` context is the child.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param string               $block_content Rendered block.
+	 * @param array                $parsed_block  Parsed block (unused).
+	 * @param WP_Block|object|null $instance      Block instance.
+	 * @return string
+	 */
+	public function grouped_item_selector_quote_quantity( $block_content, $parsed_block = array(), $instance = null ) {
+		$child = Tack_Block_Product::from_block( $instance );
+		if ( null === $child || ! $this->quotes_instead_of_cart( $child ) || ! Tack_Block_Product::groupable( $child ) ) {
+			return $block_content;
+		}
+		return '<div class="wp-block-add-to-cart-with-options-grouped-product-item-selector wc-block-add-to-cart-with-options-grouped-product-item-selector">' . self::child_quote_quantity_markup( $child ) . '</div>';
+	}
+
+	/**
+	 * A quote quantity for one child of a grouped product: WooCommerce's own quantity
+	 * input (empty, placeholder 0, as the grouped form prints it) named
+	 * `tack_quantity[<child id>]`, or a checkbox for a child sold individually.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product $child The child product.
+	 * @return string
+	 */
+	private static function child_quote_quantity_markup( $child ) {
+		$id   = (int) $child->get_id();
+		$name = 'tack_quantity[' . $id . ']';
+		if ( $child->is_sold_individually() || ! function_exists( 'woocommerce_quantity_input' ) ) {
+			return '<input type="checkbox" name="' . esc_attr( $name ) . '" value="1" class="wc-grouped-product-add-to-cart-checkbox" id="' . esc_attr( 'tack-quantity-' . $id ) . '" aria-label="' . esc_attr(
+				sprintf(
+					/* translators: %s: product name. */
+					__( 'Quote one %s', 'tackquote' ),
+					$child->get_name()
+				)
+			) . '" />';
+		}
+		$args                = Tack_Block_Product::quote_quantity_args( $child );
+		$args['input_name']  = $name;
+		$args['input_id']    = 'tack-quantity-' . $id;
+		$args['min_value']   = 0;
+		$args['input_value'] = '';
+		$args['placeholder'] = '0';
+		return (string) woocommerce_quantity_input( $args, $child, false );
 	}
 
 	/**

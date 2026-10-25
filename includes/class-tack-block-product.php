@@ -228,12 +228,19 @@ class Tack_Block_Product {
 				? null
 				: (float) wc_get_price_excluding_tax( $variation );
 
-			$lines[ (string) (int) $child_id ] = array(
+			$line = array(
 				's' => (string) $variation->get_sku(),
 				'p' => $price,
 				// The variation's label, worded as WooCommerce words it (1.12.0).
 				'l' => self::variation_label( $variation ),
 			);
+			// The variation's "Any …" attributes (1.12.0): the shopper's own choice for each
+			// is kept on the quote line, which the variation itself does not store.
+			$any = self::any_attribute_keys( $variation );
+			if ( ! empty( $any ) ) {
+				$line['a'] = $any;
+			}
+			$lines[ (string) (int) $child_id ] = $line;
 		}
 		return $lines;
 	}
@@ -327,6 +334,10 @@ class Tack_Block_Product {
 	 * @return bool
 	 */
 	public static function with_options_omits_quantity( $product ) {
+		// An external product's block renders a link to the other store, never a quantity.
+		if ( $product->is_type( 'external' ) ) {
+			return true;
+		}
 		if ( $product->is_type( 'simple' ) ) {
 			return ! $product->is_in_stock() || ! $product->is_purchasable();
 		}
@@ -357,5 +368,263 @@ class Tack_Block_Product {
 		}
 		$product = wc_get_product( $id );
 		return $product instanceof WC_Product ? $product : null;
+	}
+
+	/**
+	 * Does the classic add-to-cart form (WooCommerce's `single-product/add-to-cart/*.php`
+	 * templates, which the Add to Cart Form block renders too) give this product no
+	 * quantity input? Then the quote buttons print their own (1.12.0).
+	 *
+	 * `simple.php` returns nothing for a product that is not purchasable (quote only, or
+	 * no price) and prints no form for one out of stock; `external.php` is a link to the
+	 * other store with no quantity. Without an input the quote line was always quantity 1.
+	 * A variable product's quote-only form prints its own
+	 * (`Tack_Catalog_Mode::render_variation_quote_controls()`), and a grouped product's
+	 * quantities are per child, so neither is this case.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product $product The product.
+	 * @return bool
+	 */
+	public static function form_omits_quantity( $product ) {
+		if ( ! $product instanceof WC_Product ) {
+			return false;
+		}
+		if ( $product->is_type( 'external' ) ) {
+			return true;
+		}
+		if ( $product->is_type( 'simple' ) ) {
+			return ! $product->is_purchasable() || ! $product->is_in_stock();
+		}
+		return false;
+	}
+
+	/**
+	 * The arguments for the quantity input the quote buttons print themselves.
+	 *
+	 * WooCommerce's own minimum (`woocommerce_quantity_input_args` and quantity rules
+	 * apply through `get_min_purchase_quantity()`), and no maximum: WooCommerce's maximum
+	 * is what it would sell now (the stock, without backorders, and 0 when out of stock),
+	 * and a quote may ask for more. A product sold individually stays at one.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product $product The product.
+	 * @return array
+	 */
+	public static function quote_quantity_args( $product ) {
+		$min = max( 1, (int) $product->get_min_purchase_quantity() );
+		return array(
+			// Not `quantity`, which WooCommerce's cart handler reads from any form posted.
+			'input_name'  => 'tack_quantity',
+			'min_value'   => $min,
+			'max_value'   => $product->is_sold_individually() ? 1 : -1,
+			'input_value' => $min,
+		);
+	}
+
+	/**
+	 * A grouped product's children that can be quoted from the grouped page, in the
+	 * group's order: `{ "<child id>": { "n": name, "s": sku, "p": unit price excl. tax } }`.
+	 *
+	 * WooCommerce's grouped form (`single-product/add-to-cart/grouped.php`, and the Add
+	 * to Cart with Options block's grouped item selector, 11.2.1) gives each child its own
+	 * `quantity[<child id>]` input and adds one cart line per child with a quantity above
+	 * zero (`WC_Form_Handler::add_to_cart_handler_grouped()`); the grouped product itself is
+	 * never a line. A child with options (a variable product) gets a "Select options" link
+	 * there instead, so it is left out here too, and so is one the visitor may not quote
+	 * (`Tack_Widget::is_quotable()`). The price is the child's own, so a sale price or a
+	 * buyer's wholesale price (both reach `get_price()`) is what is shown; the server
+	 * re-derives every value from the child id.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|mixed $product The grouped product.
+	 * @return array<int, array{n:string, s:string, p:float|null, m?:int}> Keyed by child id.
+	 */
+	public static function grouped_children( $product ) {
+		$children = array();
+		if ( ! $product instanceof WC_Product || ! $product->is_type( 'grouped' ) || ! function_exists( 'wc_get_product' ) ) {
+			return $children;
+		}
+		foreach ( (array) $product->get_children() as $child_id ) {
+			$child = wc_get_product( $child_id );
+			if ( ! self::groupable( $child ) ) {
+				continue;
+			}
+			$price = '' === (string) $child->get_price() || ! function_exists( 'wc_get_price_excluding_tax' )
+				? null
+				: (float) wc_get_price_excluding_tax( $child );
+
+			$entry = array(
+				'n' => (string) $child->get_name(),
+				's' => (string) $child->get_sku(),
+				'p' => $price,
+			);
+			// Sold individually: at most one (`m`), as the quote line has it.
+			if ( $child->is_sold_individually() ) {
+				$entry['m'] = 1;
+			}
+			$children[ (string) (int) $child->get_id() ] = $entry;
+		}
+		return $children;
+	}
+
+	/**
+	 * May this child of a grouped product be quoted as its own line? Not a grouped or a
+	 * variable product, nor one with options, and quotable by the visitor.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|mixed $child The child product.
+	 * @return bool
+	 */
+	public static function groupable( $child ) {
+		if ( ! $child instanceof WC_Product ) {
+			return false;
+		}
+		if ( $child->is_type( 'grouped' ) || $child->is_type( 'variable' ) || $child->is_type( 'variation' ) ) {
+			return false;
+		}
+		if ( $child->has_options() ) {
+			return false;
+		}
+		return class_exists( 'Tack_Widget' ) && Tack_Widget::is_quotable( $child );
+	}
+
+	/**
+	 * The keys (`attribute_pa_color`) of a variation's "Any …" attributes: the ones the
+	 * variation stores as '' (`WC_Product_Variation::get_variation_attributes()`), which
+	 * the shopper chooses on the page and the cart line then carries.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object $variation The variation.
+	 * @return string[]
+	 */
+	public static function any_attribute_keys( $variation ) {
+		if ( ! is_object( $variation ) || ! method_exists( $variation, 'get_variation_attributes' ) ) {
+			return array();
+		}
+		$keys = array();
+		foreach ( (array) $variation->get_variation_attributes() as $key => $value ) {
+			if ( '' === (string) $value ) {
+				$keys[] = (string) $key;
+			}
+		}
+		return $keys;
+	}
+
+	/**
+	 * The shopper's values for a variation's "Any …" attributes, validated the way
+	 * `WC_Cart::add_to_cart()` validates them (WooCommerce 11.2.1): only an attribute the
+	 * variation leaves open, and only a value the parent offers for it (a taxonomy
+	 * attribute's term slug, a custom attribute's option as typed). Anything else is
+	 * dropped, so a posted value can never rename a line to an option that does not exist.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object      $variation      The variation.
+	 * @param WC_Product|object|null $parent_product Its parent.
+	 * @param mixed                  $posted         Posted `attribute_* => value` pairs.
+	 * @return array<string, string> In the parent's attribute order.
+	 */
+	public static function chosen_any_attributes( $variation, $parent_product, $posted ) {
+		$chosen = array();
+		if ( ! is_array( $posted ) || empty( $posted ) || ! is_object( $parent_product ) || ! method_exists( $parent_product, 'get_attributes' ) ) {
+			return $chosen;
+		}
+		$open = self::any_attribute_keys( $variation );
+		if ( empty( $open ) ) {
+			return $chosen;
+		}
+		foreach ( (array) $parent_product->get_attributes() as $attribute ) {
+			if ( ! is_object( $attribute ) || ! method_exists( $attribute, 'get_variation' ) || ! $attribute->get_variation() ) {
+				continue;
+			}
+			$key = 'attribute_' . sanitize_title( (string) $attribute->get_name() );
+			if ( ! in_array( $key, $open, true ) || ! isset( $posted[ $key ] ) || ! is_scalar( $posted[ $key ] ) ) {
+				continue;
+			}
+			$value   = $attribute->is_taxonomy()
+				? sanitize_title( (string) $posted[ $key ] )
+				: html_entity_decode( sanitize_text_field( (string) $posted[ $key ] ), ENT_QUOTES, 'UTF-8' );
+			$offered = method_exists( $attribute, 'get_slugs' ) ? array_map( 'strval', (array) $attribute->get_slugs() ) : array();
+			if ( '' !== $value && in_array( $value, $offered, true ) ) {
+				$chosen[ $key ] = $value;
+			}
+		}
+		return $chosen;
+	}
+
+	/**
+	 * The name of a quote line: "Parent - Large, Blue" for a variation, through the one
+	 * formatter every quote line uses (`variation_label()`, `cart_line_name()`), with the
+	 * shopper's "Any …" choices filled in; the product's own name for anything else.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|object      $product        The product quoted (a variation, or not).
+	 * @param WC_Product|object|null $parent_product A variation's parent.
+	 * @param array                  $chosen         `chosen_any_attributes()`.
+	 * @return string
+	 */
+	public static function quote_line_name( $product, $parent_product = null, array $chosen = array() ) {
+		if ( ! is_object( $parent_product ) ) {
+			return is_object( $product ) && method_exists( $product, 'get_name' ) ? (string) $product->get_name() : '';
+		}
+		if ( ! empty( $chosen ) && method_exists( $product, 'get_variation_attributes' ) ) {
+			$values = array();
+			foreach ( (array) $product->get_variation_attributes() as $key => $value ) {
+				$value = '' === (string) $value && isset( $chosen[ $key ] ) ? $chosen[ $key ] : (string) $value;
+				if ( '' !== $value ) {
+					$values[ $key ] = $value;
+				}
+			}
+			return self::cart_line_name( array( 'variation' => $values ), $product );
+		}
+		return self::line_name( $parent_product, $product );
+	}
+
+	/**
+	 * For each attribute a variation can leave open ("Any …"), the parent's values and
+	 * how WooCommerce names them: `{ "attribute_pa_color": { "blue": "Blue" } }`, in the
+	 * parent's attribute order. Printed beside the quote buttons only when one of the
+	 * variations has such an attribute, so the quote list can name the shopper's choice
+	 * the way the quote line will ("Hoodie - Blue, Large"); the block's selector posts
+	 * only the slug.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|mixed $product The variable product.
+	 * @return array<string, object> Each value an object of value => name (an object, so
+	 *                               numeric options still encode as a JSON object).
+	 */
+	public static function attribute_terms( $product ) {
+		$terms = array();
+		if ( ! $product instanceof WC_Product || ! $product->is_type( 'variable' ) ) {
+			return $terms;
+		}
+		foreach ( (array) $product->get_attributes() as $attribute ) {
+			if ( ! is_object( $attribute ) || ! method_exists( $attribute, 'get_variation' ) || ! $attribute->get_variation() ) {
+				continue;
+			}
+			$key   = 'attribute_' . sanitize_title( (string) $attribute->get_name() );
+			$names = array();
+			if ( $attribute->is_taxonomy() ) {
+				foreach ( (array) $attribute->get_terms() as $term ) {
+					if ( is_object( $term ) && isset( $term->slug, $term->name ) ) {
+						$names[ (string) $term->slug ] = html_entity_decode( (string) $term->name, ENT_QUOTES, 'UTF-8' );
+					}
+				}
+			} else {
+				foreach ( (array) $attribute->get_options() as $option ) {
+					$names[ (string) $option ] = (string) $option;
+				}
+			}
+			$terms[ $key ] = (object) $names;
+		}
+		return $terms;
 	}
 }

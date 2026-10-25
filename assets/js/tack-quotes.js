@@ -82,6 +82,11 @@
 		remove: __( 'Remove', 'tackquote' ),
 		cartEmpty: __( 'Your cart is empty.', 'tackquote' ),
 		quantity: __( 'Quantity', 'tackquote' ),
+		// A grouped product with no child given a quantity (1.12.0).
+		chooseQuantities: __(
+			'Please choose the quantity of each product you want quoted.',
+			'tackquote'
+		),
 		targetPrice: __( 'Target price', 'tackquote' ),
 		targetPricePlaceholder: __( 'Optional', 'tackquote' ),
 		yourPrice: __( 'Your price', 'tackquote' ),
@@ -153,20 +158,28 @@
 		const list = getList();
 		let existing = null;
 		for ( let i = 0; i < list.length; i++ ) {
-			// Match on product AND variation. Keying on productId alone merged two different
-			// variations of one parent into a single line — adding Medium then Large produced one
-			// row of quantity 2, and the server then quoted whichever variation was stored on it.
-			if (
-				list[ i ].productId === item.productId &&
-				( list[ i ].variationId || 0 ) === ( item.variationId || 0 )
-			) {
+			// Match on product AND variation (and, 1.12.0, the variation's "Any …" choices).
+			// Keying on productId alone merged two different variations of one parent into a
+			// single line — adding Medium then Large produced one row of quantity 2, and the
+			// server then quoted whichever variation was stored on it.
+			if ( sameRow( list[ i ], item ) ) {
 				existing = list[ i ];
 				break;
 			}
 		}
 		if ( existing ) {
-			existing.quantity += item.quantity;
+			// A product sold individually stays at one (`max`), as its quote line does.
+			existing.quantity = window.TackWithOptions.capQuantity(
+				existing.quantity + item.quantity,
+				existing.max || item.max
+			);
 		} else {
+			if ( item.max ) {
+				item.quantity = window.TackWithOptions.capQuantity(
+					item.quantity,
+					item.max
+				);
+			}
 			list.push( item );
 		}
 		saveList( list );
@@ -174,12 +187,9 @@
 
 	// Variation-aware for the same reason addToList's match is: two rows can share a
 	// productId and differ only by variation.
-	function removeFromList( productId, variationId ) {
+	function removeFromList( line ) {
 		const list = getList().filter( function ( row ) {
-			return ! (
-				row.productId === productId &&
-				( row.variationId || 0 ) === ( variationId || 0 )
-			);
+			return ! sameRow( row, line );
 		} );
 		saveList( list );
 	}
@@ -190,20 +200,28 @@
 
 	// ─── 1.10.0: quantities, target prices, re-pricing, where "open the quote" goes ───
 
-	function sameRow( row, productId, variationId ) {
+	// The same quote line: product, variation and "Any …" choices (TackWithOptions.sameLine).
+	function sameRow( row, line ) {
+		return window.TackWithOptions.sameLine( row, line );
+	}
+
+	// The same product and variation, whatever the choices: what a re-price answers for
+	// (the price does not depend on an "Any …" choice).
+	function sameIds( row, productId, variationId ) {
 		return (
-			row.productId === productId &&
-			( row.variationId || 0 ) === ( variationId || 0 )
+			Number( row.productId ) === Number( productId ) &&
+			( Number( row.variationId ) || 0 ) ===
+				( Number( variationId ) || 0 )
 		);
 	}
 
-	function setQuantity( productId, variationId, quantity ) {
+	function setQuantity( line, quantity ) {
 		const list = getList();
 		for ( let i = 0; i < list.length; i++ ) {
-			if ( sameRow( list[ i ], productId, variationId ) ) {
-				list[ i ].quantity = Math.max(
-					1,
-					Math.floor( Number( quantity ) || 1 )
+			if ( sameRow( list[ i ], line ) ) {
+				list[ i ].quantity = window.TackWithOptions.capQuantity(
+					quantity,
+					list[ i ].max
 				);
 				// A price resolved for the OLD quantity is not this line's price any more.
 				delete list[ i ].yourPrice;
@@ -216,13 +234,13 @@
 
 	// Optional, numeric, >= 0. Stored on the row; the server writes it into the request
 	// note (the plugin's request contract has no per-line field for it yet).
-	function setTargetPrice( productId, variationId, value ) {
+	function setTargetPrice( line, value ) {
 		const list = getList();
 		const n = String(
 			value === null || value === undefined ? '' : value
 		).trim();
 		for ( let i = 0; i < list.length; i++ ) {
-			if ( sameRow( list[ i ], productId, variationId ) ) {
+			if ( sameRow( list[ i ], line ) ) {
 				if ( n === '' || ! /^\d+(\.\d+)?$/.test( n ) ) {
 					delete list[ i ].targetPrice;
 				} else {
@@ -345,7 +363,7 @@
 			items.forEach( function ( it ) {
 				for ( let i = 0; i < fresh.length; i++ ) {
 					if (
-						sameRow( fresh[ i ], it.product_id, it.variation_id ) &&
+						sameIds( fresh[ i ], it.product_id, it.variation_id ) &&
 						fresh[ i ].quantity === it.quantity &&
 						it.unitPrice !== null &&
 						it.unitPrice !== undefined
@@ -386,9 +404,10 @@
 				'<input type="number" min="1" step="1" class="input-text qty tack-quote-list-item-qty-input" />'
 			)
 				.attr( 'aria-label', TackQuotes.i18n.quantity )
+				.attr( 'max', row.max || null )
 				.val( row.quantity );
 			$input.on( 'change', function () {
-				setQuantity( row.productId, row.variationId, $input.val() );
+				setQuantity( row, $input.val() );
 			} );
 			$qty.append( $input );
 			$li.append( $qty );
@@ -405,7 +424,7 @@
 					'">&times;</button>'
 			);
 			$remove.on( 'click', function () {
-				removeFromList( row.productId, row.variationId );
+				removeFromList( row );
 			} );
 			$li.append( $remove );
 			$items.append( $li );
@@ -486,9 +505,10 @@
 				'<input type="number" min="1" step="1" class="input-text qty tack-quote-page-qty" />'
 			)
 				.attr( 'aria-label', TackQuotes.i18n.quantity )
+				.attr( 'max', row.max || null )
 				.val( row.quantity );
 			$qty.on( 'change', function () {
-				setQuantity( row.productId, row.variationId, $qty.val() );
+				setQuantity( row, $qty.val() );
 			} );
 			$tr.append( cell( 'tack-quote-page-col-qty' ).append( $qty ) );
 
@@ -516,11 +536,7 @@
 							: row.targetPrice
 					);
 				$target.on( 'change', function () {
-					setTargetPrice(
-						row.productId,
-						row.variationId,
-						$target.val()
-					);
+					setTargetPrice( row, $target.val() );
 				} );
 				$tr.append(
 					cell( 'tack-quote-page-col-target' ).append( $target )
@@ -531,7 +547,7 @@
 				'<button type="button" class="tack-quote-page-remove">&times;</button>'
 			).attr( 'aria-label', TackQuotes.i18n.remove );
 			$remove.on( 'click', function () {
-				removeFromList( row.productId, row.variationId );
+				removeFromList( row );
 			} );
 			$tr.append(
 				cell( 'tack-quote-page-col-remove' ).append( $remove )
@@ -1163,6 +1179,13 @@
 						variation_id: row.variationId || 0,
 						quantity: row.quantity,
 					};
+					// The variation's "Any …" choices (1.12.0); the server keeps only the
+					// ones the variation leaves open and its parent offers.
+					if (
+						window.TackWithOptions.attributesKey( row.attributes )
+					) {
+						line.attributes = row.attributes;
+					}
 					if (
 						typeof row.targetPrice === 'number' &&
 						isFinite( row.targetPrice ) &&
@@ -1196,6 +1219,10 @@
 				  0;
 		if ( variationId ) {
 			out.variation_id = variationId;
+			const attributes = context.attributes || scopeAttributes( $scope );
+			if ( window.TackWithOptions.attributesKey( attributes ) ) {
+				out.attributes = JSON.stringify( attributes );
+			}
 		}
 		return out;
 	}
@@ -1247,7 +1274,9 @@
 					if ( res && res.success ) {
 						$form.hide();
 						showSubmitted( $success, res.data );
-						if ( context.items ) {
+						// Only a request FOR the quote list empties it; a grouped product's
+						// "Request a Quote" also sends rows, and leaves the list alone.
+						if ( context.fromList ) {
 							clearList();
 						}
 						$success.trigger( 'focus' );
@@ -1917,15 +1946,173 @@
 			.addClass( 'disabled' );
 	} );
 
+	// ─── 1.12.0: what a product-page button quotes, for every product type ─────
+
+	// The quantity input the button's quantity comes from: WooCommerce's own in the
+	// button's form, else the one the plugin prints beside the buttons where WooCommerce
+	// shows none (a quote-only, unpriced, out-of-stock or external product).
+	function quantityInputFor( $btn, $form ) {
+		const $own = $form.find( 'input.qty' ).first();
+		return $own.length
+			? $own
+			: $btn.closest( '.tack-quote-buttons' ).find( 'input.qty' ).first();
+	}
+
+	// WooCommerce's quantity inputs carry the product's own minimum and step (and quantity
+	// rules plugins add theirs there). Its Add to cart is a form submit, so the browser
+	// holds it on such a value; a quote button is not, so it asks the same way. The
+	// MAXIMUM is not held: it is what WooCommerce would sell now (the stock, without
+	// backorders), and a quote may ask for more, as one for an out-of-stock product does.
+	// The server quotes a product sold individually as one.
+	function quantityValid( $inputs ) {
+		let valid = true;
+		$inputs.each( function () {
+			const v = this.validity;
+			if (
+				valid &&
+				v &&
+				( v.badInput || v.rangeUnderflow || v.stepMismatch )
+			) {
+				if ( typeof this.reportValidity === 'function' ) {
+					this.reportValidity();
+				}
+				valid = false;
+			}
+		} );
+		return valid;
+	}
+
+	// The shopper's attribute choices in the form: the classic variation form's selects, or
+	// the hidden `attribute_*` inputs the Add to Cart with Options block keeps beside its
+	// selector (`VariationSelectorAttribute::render()`, 11.2.1).
+	function scopeAttributes( $scope ) {
+		const out = {};
+		$scope
+			.find( 'select[name^="attribute_"], input[name^="attribute_"]' )
+			.each( function () {
+				const value = String( $( this ).val() || '' );
+				if ( value !== '' ) {
+					out[ String( this.name ) ] = value;
+				}
+			} );
+		return out;
+	}
+
+	// A grouped product's form: the one around the button, else (the buttons rendered after
+	// it: a quote-only group, or the Add to Cart with Options block) the grouped form of
+	// the same product, found by WooCommerce's hidden `add-to-cart` input.
+	function groupFormFor( $btn, $form ) {
+		if ( $form.length ) {
+			return $form;
+		}
+		const id = String( $btn.attr( 'data-product-id' ) || '' );
+		return $( 'form' )
+			.filter( function () {
+				return (
+					$( this )
+						.find( 'input[name="add-to-cart"]' )
+						.filter( function () {
+							return String( this.value ) === id;
+						} ).length > 0
+				);
+			} )
+			.first();
+	}
+
+	// `[ [ childId, quantity ], … ]` from a grouped form: WooCommerce's `quantity[<id>]`
+	// inputs (a checkbox for a child sold individually), and the plugin's
+	// `tack_quantity[<id>]` for a child on quote.
+	function groupQuantities( $form ) {
+		const out = [];
+		$form
+			.find( 'input[name^="quantity["], input[name^="tack_quantity["]' )
+			.each( function () {
+				const m = /^(?:tack_)?quantity\[(\d+)\]$/.exec(
+					String( this.name )
+				);
+				if ( ! m ) {
+					return;
+				}
+				let quantity = Number( $( this ).val() ) || 0;
+				if ( this.type === 'checkbox' ) {
+					quantity = this.checked ? 1 : 0;
+				}
+				out.push( [ Number( m[ 1 ] ), quantity ] );
+			} );
+		return out;
+	}
+
+	// A short message beside the buttons, read out by screen readers; cleared by the next
+	// click. WooCommerce's own wording for the same mistake on its Add to cart.
+	function buttonsNotice( $btn, text ) {
+		const $box = $btn.closest( '.tack-quote-buttons' );
+		let $notice = $box.find( '.tack-quote-buttons-notice' );
+		if ( ! text ) {
+			$notice.remove();
+			return;
+		}
+		if ( ! $notice.length ) {
+			$notice = $(
+				'<p class="tack-quote-buttons-notice" role="alert"></p>'
+			).appendTo( $box );
+		}
+		$notice.text( text );
+	}
+
+	// A grouped product's rows, or null when this button is not a grouped product's.
+	// `[]` means no child has a quantity: the shopper is told, and nothing is quoted.
+	function groupedRows( $btn ) {
+		const raw = $btn
+			.closest( '.tack-quote-buttons' )
+			.attr( 'data-tack-group' );
+		if ( raw === undefined ) {
+			return null;
+		}
+		const $form = groupFormFor( $btn, scopeFor( $btn ) );
+		const $inputs = $form.find(
+			'input[name^="quantity["], input[name^="tack_quantity["]'
+		);
+		if ( ! quantityValid( $inputs ) ) {
+			return [];
+		}
+		const api = window.TackWithOptions;
+		const rows = api.groupRows(
+			api.parseStates( raw ) || {},
+			groupQuantities( $form )
+		);
+		buttonsNotice(
+			$btn,
+			rows.length ? '' : TackQuotes.i18n.chooseQuantities
+		);
+		return rows;
+	}
+
 	// "Request a Quote" (product page) — single product, immediate.
 	$( document ).on( 'click', '.tack-quote-btn', function ( e ) {
 		e.preventDefault();
 		const $btn = $( this );
+		buttonsNotice( $btn, '' );
+
+		// A grouped product: its children with a quantity, one line each.
+		const rows = groupedRows( $btn );
+		if ( rows !== null ) {
+			if ( rows.length ) {
+				openModal( { items: rows } );
+			}
+			return;
+		}
+
 		const $box = withOptionsBox( $btn );
+		const $scope = scopeFor( $btn );
 		if ( ! $box.length ) {
+			const $qty = quantityInputFor( $btn, $scope );
+			if ( ! quantityValid( $qty ) ) {
+				return;
+			}
 			openModal( {
 				productId: $btn.data( 'product-id' ) || 0,
-				$scope: scopeFor( $btn ),
+				$scope,
+				quantity: Number( $qty.val() ) || 1,
 			} );
 			return;
 		}
@@ -1934,11 +2121,15 @@
 			syncWithOptions();
 			return;
 		}
+		if ( ! quantityValid( quantityInputFor( $btn, $scope ) ) ) {
+			return;
+		}
 		openModal( {
 			productId: $btn.data( 'product-id' ) || 0,
-			$scope: scopeFor( $btn ),
+			$scope,
 			quantity: chosen.quantity,
 			variationId: chosen.variationId,
+			attributes: scopeAttributes( $scope ),
 		} );
 	} );
 
@@ -1948,6 +2139,20 @@
 	$( document ).on( 'click', '.tack-add-to-quote-btn', function ( e ) {
 		e.preventDefault();
 		const $btn = $( this );
+		buttonsNotice( $btn, '' );
+		const api = window.TackWithOptions;
+
+		// A grouped product: one row per child with a quantity, never the group.
+		const rows = groupedRows( $btn );
+		if ( rows !== null ) {
+			if ( rows.length ) {
+				rows.forEach( addToList );
+				scheduleReprice();
+				flashAdded( $btn );
+			}
+			return;
+		}
+
 		const $box = withOptionsBox( $btn );
 		const chosen = $box.length ? withOptionsState( $box ) : null;
 		if ( chosen && ! chosen.quotable ) {
@@ -1955,7 +2160,11 @@
 			return;
 		}
 		const $form = scopeFor( $btn );
-		let quantity = Number( $form.find( 'input.qty' ).val() ) || 1;
+		const $qty = quantityInputFor( $btn, $form );
+		if ( ! quantityValid( $qty ) ) {
+			return;
+		}
+		let quantity = Number( $qty.val() ) || 1;
 
 		// On a variable product the button carries the PARENT's id/name/sku/price, so the
 		// chosen variation has to come from WooCommerce's own hidden input. The server
@@ -1965,11 +2174,14 @@
 		let variationLabel = $form
 			.find( 'select[name^="attribute_"]' )
 			.map( function () {
-				return $( this ).val();
+				return (
+					$( this ).find( 'option:selected' ).text() ||
+					$( this ).val()
+				);
 			} )
 			.get()
 			.filter( Boolean )
-			.join( ' / ' );
+			.join( ', ' );
 		if ( chosen ) {
 			// The block has no attribute selects; its variation, label and quantity come
 			// from the resolved state.
@@ -1979,8 +2191,9 @@
 		}
 
 		// A variation's own SKU and price come from the map printed beside the buttons:
-		// the button's are the parent's, i.e. the cheapest variation.
-		const api = window.TackWithOptions;
+		// the button's are the parent's, i.e. the cheapest variation. Its "Any …" choices
+		// (1.12.0) come from the form, named with the map of attribute values.
+		const $buttons = $btn.closest( '.tack-quote-buttons' );
 		const row = api.listRow(
 			{
 				productId: $btn.data( 'product-id' ),
@@ -1990,22 +2203,34 @@
 			},
 			variationId,
 			variationLabel,
-			api.parseStates(
-				$btn
-					.closest( '.tack-quote-buttons' )
-					.attr( 'data-tack-variation-lines' )
-			)
+			api.parseStates( $buttons.attr( 'data-tack-variation-lines' ) ),
+			scopeAttributes( $form ),
+			api.parseStates( $buttons.attr( 'data-tack-attribute-terms' ) )
 		);
 		row.quantity = quantity;
+		if ( Number( $btn.attr( 'data-product-max' ) ) > 0 ) {
+			row.max = Number( $btn.attr( 'data-product-max' ) );
+		}
 		addToList( row );
 		scheduleReprice();
-
-		const original = $btn.text();
-		$btn.text( TackQuotes.i18n.added );
-		window.setTimeout( function () {
-			$btn.text( original );
-		}, 1200 );
+		flashAdded( $btn );
 	} );
+
+	// "Added ✓" for a moment. The label is remembered once: a second click inside the
+	// moment used to remember "Added ✓" as the label and leave the button saying it.
+	function flashAdded( $btn ) {
+		if ( $btn.data( 'tackLabel' ) === undefined ) {
+			$btn.data( 'tackLabel', $btn.text() );
+		}
+		window.clearTimeout( $btn.data( 'tackFlash' ) );
+		$btn.text( TackQuotes.i18n.added );
+		$btn.data(
+			'tackFlash',
+			window.setTimeout( function () {
+				$btn.text( $btn.data( 'tackLabel' ) );
+			}, 1200 )
+		);
+	}
 
 	// Floating quote-list launcher: the drawer, or the merchant's quote page (1.10.0).
 	$( document ).on( 'click', '#tack-quote-list-toggle', function () {
@@ -2052,13 +2277,10 @@
 			sku: String( $btn.data( 'product-sku' ) || '' ),
 			price: Number( $btn.data( 'product-price' ) ) || 0,
 			quantity: 1,
+			max: Number( $btn.attr( 'data-product-max' ) ) || undefined,
 		} );
 		scheduleReprice();
-		const original = $btn.text();
-		$btn.text( TackQuotes.i18n.added );
-		window.setTimeout( function () {
-			$btn.text( original );
-		}, 1200 );
+		flashAdded( $btn );
 		openQuote();
 	} );
 
@@ -2089,14 +2311,20 @@
 				return;
 			}
 			lines.forEach( function ( line ) {
-				addToList( {
+				const row = {
 					productId: Number( line.product_id ) || 0,
 					variationId: Number( line.variation_id ) || 0,
 					name: String( line.name || '' ),
 					sku: String( line.sku || '' ),
 					price: Number( line.price ) || 0,
 					quantity: Math.max( 1, Number( line.quantity ) || 1 ),
-				} );
+				};
+				// The cart line's "Any …" choices (1.12.0): Blue and Red of one "Any
+				// colour" variation stay two lines.
+				if ( window.TackWithOptions.attributesKey( line.attributes ) ) {
+					row.attributes = line.attributes;
+				}
+				addToList( row );
 			} );
 			scheduleReprice();
 			openQuote();
@@ -2124,6 +2352,17 @@
 				const lines = [];
 				items.forEach( function ( it ) {
 					const id = Number( it.id ) || 0;
+					// The plugin's own data on the item names the line exactly
+					// (parent, variation, "Any …" choices): two cart lines of one
+					// variation share `id`, so matching the snapshot by id cannot.
+					if (
+						it.extensions &&
+						it.extensions.tackquote &&
+						Number( it.extensions.tackquote.productId )
+					) {
+						lines.push( window.TackWithOptions.cartLine( it ) );
+						return;
+					}
 					let match = null;
 					for ( let i = 0; i < snapshot.length; i++ ) {
 						if (
@@ -2164,6 +2403,7 @@
 		}
 		openModal( {
 			items: list,
+			fromList: true,
 			message: $( '#tack-quote-page-message' ).val() || '',
 		} );
 	} );
@@ -2179,7 +2419,7 @@
 		if ( ! list.length ) {
 			return;
 		}
-		openModal( { items: list } );
+		openModal( { items: list, fromList: true } );
 	} );
 
 	$( document ).on( 'click', '.tack-quote-modal-overlay', function ( e ) {

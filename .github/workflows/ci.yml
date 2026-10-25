@@ -51,6 +51,7 @@ jobs:
           node --check assets/js/tack-cart-quote-block.js
           node --check assets/js/tack-net-terms-block.js
           node tests/js/blocks-1120.test.js
+          node tests/js/product-types.test.js
 
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist

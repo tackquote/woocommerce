@@ -188,7 +188,7 @@ foreach ( array( 'purchasable' => true, 'quote-only' => false ) as $wo_case => $
 	);
 	check(
 		"blockified variable ($wo_case): a quantity input beside the buttons only when the block shows none",
-		( $wo_hooks ? 0 : 1 ) === substr_count( $out, 'name="quantity"' ) && ( $wo_hooks || strpos( $out, 'name="quantity"' ) > strpos( $out, 'tack-quote-buttons' ) ),
+		( $wo_hooks ? 0 : 1 ) === substr_count( $out, 'name="tack_quantity"' ) && ( $wo_hooks || strpos( $out, 'name="tack_quantity"' ) > strpos( $out, 'tack-quote-buttons' ) ),
 		$out
 	);
 }
@@ -200,10 +200,10 @@ tack_wo_fresh_widget();
 $wo_simple->purchasable = false;
 $out                    = tack_wo_render( $wo_simple, null, false );
 $wo_simple->purchasable = true;
-check( 'blockified quote-only simple: one set after the form, with its own quantity input', 1 === substr_count( $out, 'class="tack-quote-buttons"' ) && 1 === substr_count( $out, 'name="quantity"' ) && strpos( $out, 'name="quantity"' ) > strpos( $out, '</form>' ), $out );
+check( 'blockified quote-only simple: one set after the form, with its own quantity input', 1 === substr_count( $out, 'class="tack-quote-buttons"' ) && 1 === substr_count( $out, 'name="tack_quantity"' ) && strpos( $out, 'name="tack_quantity"' ) > strpos( $out, '</form>' ), $out );
 tack_wo_fresh_widget();
 $out = tack_wo_render( $wo_simple );
-check( 'blockified purchasable simple: no extra quantity input (the block has its own)', 0 === substr_count( $out, 'name="quantity"' ), $out );
+check( 'blockified purchasable simple: no extra quantity input (the block has its own)', 0 === substr_count( $out, 'name="tack_quantity"' ), $out );
 
 // ── Quote-only variable product: the block shows no selector, so the classic variation form follows it ──
 $GLOBALS['TACK_HOOKS']   = array();

@@ -806,6 +806,17 @@
       "key": "woo.widget.choose_options"
     },
     {
+      "msgid": "Please choose the quantity of each product you want quoted.",
+      "key": "woo.widget.choose_quantities"
+    },
+    {
+      "msgid": "Quote one %s",
+      "key": "woo.widget.quote_one",
+      "placeholders": {
+        "product": "%s"
+      }
+    },
+    {
       "msgid": "No products to quote.",
       "key": "woo.widget.no_products"
     },

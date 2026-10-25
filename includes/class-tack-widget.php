@@ -720,6 +720,16 @@ class Tack_Widget {
 		}
 
 		/*
+		 * An external product's form is a GET to the other store (`external.php`): every
+		 * field inside it, the quote quantity included, would ride along on the shopper's
+		 * way out. Its buttons are left to the mounts after the form (the summary
+		 * fallback, or the Add to Cart blocks' render filter), once-flag unset.
+		 */
+		if ( ! $for_product instanceof WC_Product && $product->is_type( 'external' ) && doing_action( 'woocommerce_after_add_to_cart_button' ) ) {
+			return;
+		}
+
+		/*
 		 * Rendered once per product, whichever mount point fires first. Both are
 		 * registered (see init()) because only one of them exists in any given
 		 * mode, and on a normal store both fire.
@@ -739,7 +749,24 @@ class Tack_Widget {
 		echo '<div class="tack-quote-buttons"';
 		if ( $show_add_to_quote && $product->is_type( 'variable' ) ) {
 			// The chosen variation's own SKU and price for the quote-list row.
-			echo ' data-tack-variation-lines="' . esc_attr( (string) wp_json_encode( (object) Tack_Block_Product::variation_lines( $product ) ) ) . '"';
+			$variation_lines = Tack_Block_Product::variation_lines( $product );
+			echo ' data-tack-variation-lines="' . esc_attr( (string) wp_json_encode( (object) $variation_lines ) ) . '"';
+			// How to name an "Any …" attribute's chosen value in the quote list (1.12.0).
+			foreach ( $variation_lines as $variation_line ) {
+				if ( ! empty( $variation_line['a'] ) ) {
+					echo ' data-tack-attribute-terms="' . esc_attr( (string) wp_json_encode( (object) Tack_Block_Product::attribute_terms( $product ) ) ) . '"';
+					break;
+				}
+			}
+		}
+		if ( $product->is_type( 'grouped' ) ) {
+			/*
+			 * A grouped product is quoted as its children (1.12.0): one line per child
+			 * the shopper gave a quantity, never the group itself. The quantities are
+			 * WooCommerce's own `quantity[<child id>]` inputs; this map says which
+			 * children can be quoted and what the quote list shows for each.
+			 */
+			echo ' data-tack-group="' . esc_attr( (string) wp_json_encode( (object) Tack_Block_Product::grouped_children( $product ) ) ) . '"';
 		}
 		if ( self::WITH_OPTIONS_SCOPE === $scope ) {
 			echo ' data-tack-scope="' . esc_attr( self::WITH_OPTIONS_SCOPE ) . '"';
@@ -748,30 +775,34 @@ class Tack_Widget {
 			}
 		}
 		echo '>';
-		if ( self::WITH_OPTIONS_SCOPE === $scope && function_exists( 'woocommerce_quantity_input' ) && Tack_Block_Product::with_options_omits_quantity( $product ) ) {
-			// The quantity to quote, where the block shows none (quote only); read by tack-quotes.js.
-			woocommerce_quantity_input(
-				array(
-					'min_value'   => $product->get_min_purchase_quantity(),
-					'max_value'   => $product->get_max_purchase_quantity(),
-					'input_value' => $product->get_min_purchase_quantity(),
-				),
-				$product
-			);
+
+		/*
+		 * The quantity to quote, where WooCommerce shows none (read by tack-quotes.js):
+		 * the Add to Cart with Options block for a quote-only or external product, and the
+		 * classic form (or Add to Cart Form block) for a simple product that is quote only,
+		 * unpriced or out of stock, or an external one. Not when the buttons are rendered
+		 * inside a form that already has WooCommerce's input.
+		 */
+		$own_quantity = self::WITH_OPTIONS_SCOPE === $scope
+			? Tack_Block_Product::with_options_omits_quantity( $product )
+			: Tack_Block_Product::form_omits_quantity( $product ) && ! doing_action( 'woocommerce_after_add_to_cart_button' );
+		if ( $own_quantity && function_exists( 'woocommerce_quantity_input' ) ) {
+			woocommerce_quantity_input( Tack_Block_Product::quote_quantity_args( $product ), $product );
 		}
 
 		if ( $show_add_to_quote ) {
 			$label = self::button_label( 'tack_quotes_button_label' );
-			$this->button(
-				array(
-					'product-id'    => $product->get_id(),
-					'product-name'  => $product->get_name(),
-					'product-sku'   => $product->get_sku(),
-					'product-price' => wc_get_price_excluding_tax( $product ),
-				),
-				'tack-add-to-quote-btn',
-				$label
+			$data  = array(
+				'product-id'    => $product->get_id(),
+				'product-name'  => $product->get_name(),
+				'product-sku'   => $product->get_sku(),
+				'product-price' => wc_get_price_excluding_tax( $product ),
 			);
+			// Sold individually: the quote list keeps it at one, as the quote line does.
+			if ( $product->is_sold_individually() ) {
+				$data['product-max'] = 1;
+			}
+			$this->button( $data, 'tack-add-to-quote-btn', $label );
 		}
 
 		if ( $show_request_quote ) {
@@ -1248,6 +1279,7 @@ class Tack_Widget {
 				'data-product-name'  => true,
 				'data-product-sku'   => true,
 				'data-product-price' => true,
+				'data-product-max'   => true,
 				'aria-label'         => true,
 			),
 			'a'      => array(
@@ -1280,7 +1312,7 @@ class Tack_Widget {
 
 		if ( $product->is_type( 'simple' ) ) {
 			return sprintf(
-				'<button type="button" class="%1$s" data-product-id="%2$d" data-product-name="%3$s" data-product-sku="%4$s" data-product-price="%5$s" aria-label="%6$s">%7$s</button>',
+				'<button type="button" class="%1$s" data-product-id="%2$d" data-product-name="%3$s" data-product-sku="%4$s" data-product-price="%5$s"%8$s aria-label="%6$s">%7$s</button>',
 				esc_attr( self::button_class( $card . 'tack-card-quote-btn' ) ),
 				(int) $product->get_id(),
 				esc_attr( $name ),
@@ -1293,7 +1325,9 @@ class Tack_Widget {
 						$name
 					)
 				),
-				esc_html( self::button_label( 'tack_quotes_button_label' ) )
+				esc_html( self::button_label( 'tack_quotes_button_label' ) ),
+				// Sold individually: the quote list keeps it at one (1.12.0).
+				$product->is_sold_individually() ? ' data-product-max="1"' : ''
 			);
 		}
 
@@ -1334,7 +1368,7 @@ class Tack_Widget {
 	 *
 	 * @since 1.10.0
 	 *
-	 * @return array<int, array{product_id:int,variation_id:int,quantity:int,sku:string,name:string,price:float}>
+	 * @return array<int, array{product_id:int,variation_id:int,quantity:int,sku:string,name:string,price:float,attributes?:array<string,string>}>
 	 */
 	public function cart_lines() {
 		if ( ! function_exists( 'WC' ) || ! is_object( WC()->cart ) || ! method_exists( WC()->cart, 'get_cart' ) ) {
@@ -1356,8 +1390,37 @@ class Tack_Widget {
 					: ( method_exists( $data, 'get_name' ) ? (string) $data->get_name() : '' ),
 				'price'        => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $data ) : 0.0,
 			);
+			// The cart line's values for its variation's "Any …" attributes (1.12.0).
+			$any = self::cart_any_attributes( $item, $data );
+			if ( ! empty( $any ) ) {
+				$lines[ count( $lines ) - 1 ]['attributes'] = $any;
+			}
 		}
 		return $lines;
+	}
+
+	/**
+	 * A cart line's values for its variation's "Any …" attributes, as the quote list
+	 * carries them (`attribute_pa_color => blue`): the cart line stores what the shopper
+	 * chose (`$cart_item['variation']`), the variation stores ''.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param array             $cart_item WooCommerce cart item.
+	 * @param WC_Product|object $variation The line's product.
+	 * @return array<string, string>
+	 */
+	public static function cart_any_attributes( array $cart_item, $variation ) {
+		$out = array();
+		if ( empty( $cart_item['variation_id'] ) || ! isset( $cart_item['variation'] ) || ! is_array( $cart_item['variation'] ) ) {
+			return $out;
+		}
+		foreach ( Tack_Block_Product::any_attribute_keys( $variation ) as $key ) {
+			if ( isset( $cart_item['variation'][ $key ] ) && '' !== (string) $cart_item['variation'][ $key ] ) {
+				$out[ $key ] = (string) $cart_item['variation'][ $key ];
+			}
+		}
+		return $out;
 	}
 
 	/**
@@ -1686,6 +1749,9 @@ class Tack_Widget {
 		// SKU and the parent's (cheapest) price. Validated against the parent below, so it
 		// cannot be used to quote some unrelated product.
 		$variation_id = isset( $_POST['variation_id'] ) ? absint( wp_unslash( $_POST['variation_id'] ) ) : 0;
+		// The shopper's values for the variation's "Any …" attributes (1.12.0), a JSON
+		// object; validated against the variation and its parent in line_item().
+		$attributes = isset( $_POST['attributes'] ) ? self::posted_attributes( json_decode( sanitize_textarea_field( wp_unslash( $_POST['attributes'] ) ), true ) ) : array();
 
 		// Free text from an unauthenticated endpoint needs a ceiling, or a single request can
 		// post megabytes that we then forward to TackQuote and it stores. `mb_substr()` is
@@ -1700,7 +1766,7 @@ class Tack_Widget {
 		if ( $items_json ) {
 			$line_items = $this->quote_list_line_items( $items_json );
 		} else {
-			$line_items = $this->product_line_items( $product_id, $quantity, $variation_id );
+			$line_items = $this->product_line_items( $product_id, $quantity, $variation_id, $attributes );
 		}
 
 		if ( empty( $line_items ) ) {
@@ -1710,12 +1776,20 @@ class Tack_Widget {
 			$parent          = $product_id ? wc_get_product( $product_id ) : null;
 			$needs_variation = ! $items_json
 				&& $parent instanceof WC_Product_Variable;
+			$needs_children  = ! $items_json
+				&& $parent instanceof WC_Product
+				&& $parent->is_type( 'grouped' );
 
+			if ( $needs_children ) {
+				$message = __( 'Please choose the quantity of each product you want quoted.', 'tackquote' );
+			} elseif ( $needs_variation ) {
+				$message = __( 'Please choose the product options before requesting a quote.', 'tackquote' );
+			} else {
+				$message = __( 'No products to quote.', 'tackquote' );
+			}
 			wp_send_json_error(
 				array(
-					'message' => $needs_variation
-						? __( 'Please choose the product options before requesting a quote.', 'tackquote' )
-						: __( 'No products to quote.', 'tackquote' ),
+					'message' => $message,
 				),
 				400
 			);
@@ -2132,6 +2206,20 @@ class Tack_Widget {
 	 * @return WC_Product|null
 	 */
 	private function resolve_purchasable( $product, $variation_id ) {
+		/*
+		 * A grouped product is never a quote line (1.12.0): it is quoted as its children,
+		 * one line each, as WooCommerce adds them to the cart. Before, "Request a Quote"
+		 * on a grouped page quoted the group itself at its cheapest child's price.
+		 */
+		if ( $product->is_type( 'grouped' ) ) {
+			return null;
+		}
+		// A variation posted as the product (a cart line read by an older page): checked
+		// against its own parent, like any other variation.
+		if ( ! $variation_id && $product instanceof WC_Product_Variation ) {
+			$parent = wc_get_product( $product->get_parent_id() );
+			return $parent instanceof WC_Product && self::is_quotable( $product, $parent ) ? $product : null;
+		}
 		if ( $variation_id ) {
 			$variation = wc_get_product( $variation_id );
 			if ( $variation instanceof WC_Product_Variation
@@ -2219,12 +2307,13 @@ class Tack_Widget {
 	 * really a variation OF THIS PRODUCT. Otherwise anyone could post any product's id as
 	 * a "variation" and have its price quoted under another product's page.
 	 *
-	 * @param int $product_id   Product ID (the parent, for a variable product).
-	 * @param int $quantity     Quantity.
-	 * @param int $variation_id Selected variation ID, or 0.
+	 * @param int   $product_id   Product ID (the parent, for a variable product).
+	 * @param int   $quantity     Quantity.
+	 * @param int   $variation_id Selected variation ID, or 0.
+	 * @param array $attributes   The shopper's values for the variation's "Any …" attributes.
 	 * @return array
 	 */
-	private function product_line_items( $product_id, $quantity, $variation_id = 0 ) {
+	private function product_line_items( $product_id, $quantity, $variation_id = 0, $attributes = array() ) {
 		$product = $product_id ? wc_get_product( $product_id ) : null;
 		if ( ! $product instanceof WC_Product ) {
 			return array();
@@ -2235,14 +2324,47 @@ class Tack_Widget {
 			return array();
 		}
 
+		return array( self::line_item( $product, $quantity, $attributes ) );
+	}
+
+	/**
+	 * One quote line for a resolved product (1.12.0: shared by "Request a Quote" and the
+	 * quote list, which each built their own).
+	 *
+	 * - The name is the one formatter's (`Tack_Block_Product::quote_line_name()`): a
+	 *   variation reads "Parent - Large, Blue" with the shopper's "Any …" choices kept,
+	 *   where `get_name()` drops the attributes of a variation with three or more and
+	 *   never knew an "Any" choice.
+	 * - The unit price excludes tax and is the product's own `get_price()`, so a sale
+	 *   price, or a signed-in buyer's wholesale price, is the one quoted.
+	 * - A product sold individually is one per order in WooCommerce
+	 *   (`WC_Cart::add_to_cart()`), so it is quoted as one.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product $product    The product quoted (a variation, simple, external …).
+	 * @param int        $quantity   Quantity asked for (at least 1).
+	 * @param mixed      $attributes Posted `attribute_* => value` pairs for "Any …" attributes.
+	 * @return array{sku:string,name:string,quantity:int,unitPrice:float,externalProductId:string}
+	 */
+	public static function line_item( $product, $quantity, $attributes = array() ) {
+		$parent = null;
+		$chosen = array();
+		if ( $product instanceof WC_Product_Variation ) {
+			$parent = wc_get_product( $product->get_parent_id() );
+			$parent = $parent instanceof WC_Product ? $parent : null;
+			$chosen = Tack_Block_Product::chosen_any_attributes( $product, $parent, $attributes );
+		}
+		$quantity = max( 1, (int) $quantity );
+		if ( method_exists( $product, 'is_sold_individually' ) && $product->is_sold_individually() ) {
+			$quantity = 1;
+		}
 		return array(
-			array(
-				'sku'               => $product->get_sku(),
-				'name'              => $product->get_name(),
-				'quantity'          => $quantity,
-				'unitPrice'         => (float) wc_get_price_excluding_tax( $product ),
-				'externalProductId' => (string) $product->get_id(),
-			),
+			'sku'               => (string) $product->get_sku(),
+			'name'              => Tack_Block_Product::quote_line_name( $product, $parent, $chosen ),
+			'quantity'          => $quantity,
+			'unitPrice'         => (float) wc_get_price_excluding_tax( $product ),
+			'externalProductId' => (string) $product->get_id(),
 		);
 	}
 
@@ -2303,19 +2425,14 @@ class Tack_Widget {
 			if ( ! $product ) {
 				continue;
 			}
-			$items[] = array(
-				'sku'               => $product->get_sku(),
-				'name'              => $product->get_name(),
-				'quantity'          => $row['quantity'],
-				'unitPrice'         => (float) wc_get_price_excluding_tax( $product ),
-				'externalProductId' => (string) $product->get_id(),
-			);
+			$line    = self::line_item( $product, $row['quantity'], $row['attributes'] );
+			$items[] = $line;
 			if ( null !== $row['target_price'] ) {
 				$this->target_prices[] = array(
 					'index'    => count( $items ) - 1,
-					'name'     => (string) $product->get_name(),
-					'sku'      => (string) $product->get_sku(),
-					'quantity' => (int) $row['quantity'],
+					'name'     => $line['name'],
+					'sku'      => $line['sku'],
+					'quantity' => $line['quantity'],
 					'target'   => (float) $row['target_price'],
 				);
 			}
@@ -2334,7 +2451,7 @@ class Tack_Widget {
 	 * @since 1.10.0
 	 *
 	 * @param string $items_json Raw JSON.
-	 * @return array<int, array{product_id:int,quantity:int,variation_id:int,target_price:float|null}>
+	 * @return array<int, array{product_id:int,quantity:int,variation_id:int,target_price:float|null,attributes:array<string,string>}>
 	 */
 	private function decode_rows( $items_json ) {
 		if ( strlen( (string) $items_json ) > self::ITEMS_MAX_BYTES ) {
@@ -2364,9 +2481,38 @@ class Tack_Widget {
 				'quantity'     => isset( $row['quantity'] ) ? max( 1, absint( $row['quantity'] ) ) : 1,
 				'variation_id' => isset( $row['variation_id'] ) ? absint( $row['variation_id'] ) : 0,
 				'target_price' => $target,
+				'attributes'   => self::posted_attributes( $row['attributes'] ?? array() ),
 			);
 		}
 		return $rows;
+	}
+
+	/**
+	 * The `attribute_* => value` pairs a quote row or request carries for a variation's
+	 * "Any …" attributes (1.12.0), bounded and reduced to strings. Which of them count is
+	 * decided against the variation and its parent (`chosen_any_attributes()`).
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param mixed $raw Decoded JSON object.
+	 * @return array<string, string>
+	 */
+	public static function posted_attributes( $raw ) {
+		$out = array();
+		if ( ! is_array( $raw ) ) {
+			return $out;
+		}
+		foreach ( $raw as $key => $value ) {
+			if ( count( $out ) >= 20 ) {
+				break;
+			}
+			$key = sanitize_title( (string) $key );
+			if ( 0 !== strpos( $key, 'attribute_' ) || ! is_scalar( $value ) ) {
+				continue;
+			}
+			$out[ $key ] = mb_substr( sanitize_text_field( (string) $value ), 0, 200 );
+		}
+		return $out;
 	}
 
 	/**

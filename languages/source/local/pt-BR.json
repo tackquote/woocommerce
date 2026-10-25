@@ -156,6 +156,8 @@
   "woo.visibility.removed": "{product} foi removido do seu carrinho porque não está disponível para a sua conta.",
   "woo.widget.checkout_as_quote": "Finalizar como orçamento",
   "woo.widget.choose_options": "Escolha as opções do produto antes de solicitar um orçamento.",
+  "woo.widget.choose_quantities": "Escolha a quantidade de cada produto que deseja orçar.",
+  "woo.widget.quote_one": "Orçar uma unidade de {product}",
   "woo.widget.email_required": "É necessário um endereço de e-mail válido.",
   "woo.widget.no_products": "Nenhum produto para orçar.",
   "woo.widget.rate_limited": "Muitas solicitações de orçamento a partir desta conexão. Aguarde alguns minutos e tente novamente.",
