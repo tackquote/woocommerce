@@ -187,8 +187,8 @@ class Tack_1120_Client extends Tack_Api_Client {
 	public $form;
 	/** @var string[] */
 	public $asked = array();
-	/** @param bool $refresh Ignored. @return string[] */
-	public function server_capabilities( $refresh = false ) {
+	/** @param bool $refresh Ignored. @param bool $observe Ignored. @param int|null $timeout Ignored. @return string[] */
+	public function server_capabilities( $refresh = false, $observe = false, $timeout = null ) {
 		return $this->caps;
 	}
 	/** @param string $locale Locale. @return mixed */

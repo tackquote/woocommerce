@@ -221,8 +221,8 @@ final class Tack_Quotes {
 	}
 
 	/**
-	 * While stood down (Tack_Standing): the shortcodes render nothing (the quote page's is
-	 * registered empty, because the widget that owns it is not loaded, and WordPress would
+	 * While stood down (Tack_Standing): the shortcodes render nothing (the quote page's and
+	 * quick order's are registered empty, because the widget that owns them is not loaded, and WordPress would
 	 * otherwise print the bare shortcode), and the Wholesale account and Net terms tabs
 	 * leave the My Account menu.
 	 *
@@ -230,6 +230,9 @@ final class Tack_Quotes {
 	 */
 	public static function hide_storefront() {
 		add_shortcode( 'tackquote_quote_page', '__return_empty_string' );
+		// Quick order boots inside the widget too (1.12.0), so its shortcode is registered
+		// empty the same way. Its block renders nothing unregistered: it saves no markup.
+		add_shortcode( Tack_Quick_Order::SHORTCODE, '__return_empty_string' );
 		add_filter(
 			'pre_do_shortcode_tag',
 			function ( $output, $tag ) {

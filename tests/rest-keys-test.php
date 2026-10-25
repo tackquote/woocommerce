@@ -309,6 +309,7 @@ $GLOBALS['TACK_SHORTCODES'] = array();
 $GLOBALS['TACK_FILTERS']    = array();
 Tack_Quotes::hide_storefront();
 check( 'stood down: the quote page shortcode renders nothing', isset( $GLOBALS['TACK_SHORTCODES']['tackquote_quote_page'] ) && '' === call_user_func( $GLOBALS['TACK_SHORTCODES']['tackquote_quote_page'] ) );
+check( 'stood down: the quick order shortcode renders nothing', isset( $GLOBALS['TACK_SHORTCODES'][ Tack_Quick_Order::SHORTCODE ] ) && '' === call_user_func( $GLOBALS['TACK_SHORTCODES'][ Tack_Quick_Order::SHORTCODE ] ) );
 $pre = $GLOBALS['TACK_FILTERS']['pre_do_shortcode_tag'][0] ?? null;
 check( 'stood down: the application form shortcodes render nothing', is_callable( $pre ) && '' === $pre( false, 'tackquote_wholesale_application' ) && '' === $pre( false, 'tackquote_net_terms_application' ) && false === $pre( false, 'gallery' ) );
 $menu = $GLOBALS['TACK_FILTERS']['woocommerce_account_menu_items'][0] ?? null;
