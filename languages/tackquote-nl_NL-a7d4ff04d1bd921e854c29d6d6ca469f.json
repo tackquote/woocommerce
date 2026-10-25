@@ -9,6 +9,9 @@
                 "lang": "nl_NL",
                 "plural-forms": "nplurals=2; plural=n != 1;"
             },
+            "%1$s: attach at most %2$d files.": [
+                "%1$s: voeg maximaal %2$d bestanden toe."
+            ],
             "%1$s: files can be at most %2$d MB.": [
                 "%1$s: bestanden mogen maximaal %2$d MB zijn."
             ],

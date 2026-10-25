@@ -306,6 +306,19 @@ class Tack_Embed_Admin {
 			echo '</div>';
 			return;
 		}
+		// Stood down (Tack_Standing, 1.12.0): TackQuote already said this store's key is
+		// revoked or the store is disconnected. Say so and link to reconnect; nothing is
+		// asked of TackQuote and no code is minted.
+		if ( class_exists( 'Tack_Standing' ) && Tack_Standing::is_stood_down() ) {
+			self::notice(
+				'error',
+				__( 'TackQuote no longer accepts this store’s connection (the store was disconnected or its API key was revoked). Reconnect it, then reopen this page.', 'tackquote' ),
+				$settings_url,
+				__( 'Reconnect to TackQuote', 'tackquote' )
+			);
+			echo '</div>';
+			return;
+		}
 		if ( ! in_array( self::SERVER_CAPABILITY, $this->client()->server_capabilities(), true ) ) {
 			self::notice(
 				'warning',

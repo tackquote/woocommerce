@@ -318,3 +318,57 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
 .wc-block-product:has(.wp-block-woocommerce-product-button.align-right) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
   margin-inline-start: auto;
 }
+
+/* ── 1.12.0: Cart block control (ExperimentalOrderMeta slot, above Proceed) ── */
+.tack-quote-cart-block {
+  margin-block: var(--wp--preset--spacing--20, 0.75em) 0;
+}
+
+.tack-quote-cart-block .tack-quote-cart-btn {
+  display: block;
+  width: 100%;
+}
+
+/* ── 1.12.0: quick order ─────────────────────────────────────────────────────── */
+.tack-quick-order [hidden],
+.tack-quick-order-results[hidden],
+.tack-quick-order-message[hidden] {
+  display: none !important;
+}
+
+.tack-quick-order-entry input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tack-quick-order-tools,
+.tack-quick-order-actions,
+.tack-quick-order-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wp--preset--spacing--20, 0.5em);
+}
+
+.tack-quick-order-tools .button,
+.tack-quick-order-actions .button,
+.tack-quick-order-result-actions .button {
+  margin: 0;
+}
+
+.tack-quick-order-note {
+  font-size: var(--wp--preset--font-size--small, 0.875em);
+  opacity: 0.8;
+}
+
+.tack-quick-order-not_found td,
+.tack-quick-order-needs_options td {
+  opacity: 0.85;
+}
+
+.tack-quick-order-message {
+  margin-block: var(--wp--preset--spacing--20, 0.75em);
+}
+
+.tack-quick-order-error {
+  font-weight: 600;
+}

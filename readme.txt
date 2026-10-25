@@ -25,7 +25,9 @@ It is for stores that sell to trade customers (wholesalers, distributors, manufa
 * A floating **quote list** with **Checkout as Quote**: several products in one request, separate from the cart.
 * **Quote-only mode** for the whole store, signed-out visitors, chosen roles, or all but approved wholesale accounts.
 * **Quote only per product**, with variations following their product and still selectable for a quote.
-* Optional quote buttons on **product cards** and the **cart page**, and a **quote page** with target prices.
+* Optional quote buttons on **product cards** (shop pages and block product grids) and the **cart page** (classic cart and Cart block), and a **quote page** with target prices.
+* **Your own quote request form**, designed in TackQuote, in the quote modal.
+* **Quick order**: SKUs and quantities, or a pasted list, to the cart or the quote list.
 * A configurable **floating launcher**: side, offsets, label, icon, count, size, pages, mobile.
 * **B2B pricing** from TackQuote: account prices and volume tables, net of tax on any tax setting.
 * **Order limits**, a **buyer-group badge** and **tax-exempt buyers**.
@@ -79,7 +81,10 @@ number if given, company name and any company details the seller's registration 
 requires (legal name, tax/VAT ID, registration number, website, address, city, state, postal
 code, country, company phone, industry, employee count), the free-text note if written, and
 for each requested product its name, SKU, quantity, unit price excluding tax, WooCommerce
-product ID and any target price, together with the store's currency code.
+product ID and any target price, together with the store's currency code. Since 1.12.0, when
+the quote modal shows the form you designed in TackQuote, it sends that form's answers instead
+(what the shopper typed into each of your fields, and the upload ids of any files) together with
+the form version shown, and the same products.
 
 4. **Order sync** — `POST /integrations/woocommerce/order-sync`. **Off by default.**
 Sent when an order is created and each time its status changes, but only if the merchant has
@@ -168,6 +173,36 @@ answers once with an API key, which is stored exactly like a pasted one.
 Sent only when an administrator presses "Remove saved API key" and the saved key came from
 Connect with TackQuote. Sends that key (to say which key to revoke) and nothing else. A key you
 pasted is never revoked: it is only deleted from your site.
+
+14. **Your quote request form** (since 1.12.0) — `GET /storefront/v1/quote-form?locale=`.
+Sent on storefront page views while quote buttons are on and TackQuote's connection test
+lists `quote-form`, at most every five minutes per language. Sends your API key and the
+visitor's language only: no customer data.
+
+Quick order (since 1.12.0) sends nothing to TackQuote: SKUs are matched in your own catalogue.
+
+15. **Catalogue and order sync** (unreleased, needs a TackQuote server that offers it) —
+`POST /integrations/woocommerce/rest-keys/authorize` and `GET /integrations/woocommerce/rest-keys/status`.
+Sent when an administrator presses "Allow catalogue and order sync", or right after Connect with
+TackQuote. The first call sends your site's `wp-admin/admin-post.php` address; TackQuote answers
+with WooCommerce's own approval address on your site, and your browser goes there. If you
+approve, **WooCommerce itself** creates a Read/Write REST API key and sends it to TackQuote
+directly (WooCommerce's "Application Authentication Endpoint"); this plugin never sees it. The
+status call sends nothing but the headers above. TackQuote then uses that key to read your
+products, stock and categories, register store webhooks and write orders back; you can revoke it
+under WooCommerce → Settings → Advanced → REST API at any time, and deleting this plugin deletes it.
+
+16. **Plugin deactivated or deleted** (unreleased) — `POST /integrations/woocommerce/plugin-lifecycle`.
+Sent once when the plugin is deactivated or deleted (not when WordPress updates it), so TackQuote
+pauses a connection that runs through the plugin only. Sends `deactivated` or `uninstalled` and the
+headers above.
+
+17. **Update check of the zip from the TackQuote website** (unreleased; not in the WordPress.org
+build) — `GET https://api.github.com/repos/tackquote/woocommerce/releases/latest`, at most every
+twelve hours, by WordPress's own update check. Sends no data about your store beyond what any web
+request carries (the plugin version in the User-Agent). The update itself downloads `tackquote.zip`
+from the TackQuote GitHub release. GitHub privacy statement:
+https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 
 This plugin sends data to no other external service.
 
@@ -288,7 +323,15 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 
 = Can shoppers start a quote from the shop page or the cart? =
 
-Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart; on the Cart block it appears as a fixed button at the bottom of the cart page. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists and (since 1.12.0) in product grids built with blocks, such as a Product Collection on your home page or related products; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart, and (since 1.12.0) inside the Cart block, below the totals and above Proceed to checkout. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+
+= Is there a quick order form? =
+
+Yes, since 1.12.0. Put the shortcode `[tackquote_quick_order]` or the "TackQuote quick order" block on a page. Buyers type SKUs and quantities, or paste a list with one SKU and quantity per line, press "Check items", and then choose "Add to cart" or your "Add to Quote" label. SKUs are matched in your own catalogue; a variable product's own SKU asks the buyer to choose options on its page, and a variation's SKU is added as that variation. "Add to cart" uses WooCommerce's own add-to-cart rules, so quote-only products are offered for the quote list only.
+
+= Can I use the quote request form I designed in TackQuote? =
+
+Yes, since 1.12.0, when your TackQuote server supports it: the quote modal then shows the form you designed in TackQuote (fields, conditional fields, files, dates on your calendar) instead of the built-in one. Nothing to switch on. If you never designed one, the built-in form stays. A form with a required file field needs **Allow attachments on quote requests** on; otherwise the built-in form is shown and the reason is written to the WooCommerce log.
 
 = How do I make a single product quote-only? =
 
@@ -416,8 +459,18 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 
 == Changelog ==
 
-= Unreleased (1.12.0) =
+= Unreleased =
 
+* **Your own quote request form.** When you design the "Request a quote" form in TackQuote (Settings, Quote request form) and your TackQuote server supports it, the quote modal shows that form: your fields, your order and labels in the shopper's language, fields shown only when an earlier answer matches, file fields (when attachments are on) and "No dates in the past" dates on your calendar. The answers travel with the quote request and TackQuote checks them against the form version the shopper saw; if you change the form while a page is open, the shopper is asked to reload. Without a designed form, on an older TackQuote server, or when a required file field cannot be answered because attachments are off, the quote modal is the one it always was.
+* **Quick order.** New shortcode `[tackquote_quick_order]` and block "TackQuote quick order": a buyer types SKUs and quantities (or pastes a list, one per line), checks them against your catalogue, then adds them to the cart or to the quote list. Variable products ask for options on their own page; products this visitor cannot see are "Not found". Adding to the cart goes through WooCommerce's own add-to-cart rules, so quote-only products, stock, B2B prices and order limits apply exactly as on the product page. New template `tackquote/quick-order.php`.
+* **"Add to Quote" on product grids built with blocks.** With "Product cards" on, the Product Collection block on your home page, a landing page, related products or any other grid now gets the quote button after each card's own button, not only the shop and category pages. A card never gets two.
+* **"Request a quote for your cart" inside the Cart block**, below the totals and above Proceed to checkout, instead of a fixed button at the bottom of the page. On a WooCommerce without that slot the fixed button is still used.
+* **Net terms at a block checkout follow the cart.** The Checkout block now asks again whether net terms can be offered whenever the cart changes (a coupon, a quantity), from the store itself, so the method appears or disappears with the total. Fixed: the method showed an empty label in the Checkout block when its settings held only "Enable"; it now reads "Pay on net terms" (translated) until you set your own title.
+* New storefront text translated in the seven bundled languages (machine-assisted, pending native review).
+* **Catalogue and order sync with one approval.** Stores connected through the plugin (Connect with TackQuote or a pasted key) can now let TackQuote sync the catalogue, stock and categories, receive WooCommerce webhooks for Flows and write orders back, with nothing to copy. Press **Allow catalogue and order sync** on the Connection tab (or approve it right after Connect with TackQuote): WooCommerce's own approval screen opens, and when you approve, WooCommerce creates a Read/Write REST API key and sends it to TackQuote directly. TackQuote checks the key with a live read before using it. Declining changes nothing: quotes, prices, forms and orders keep working through the plugin. Needs https and a TackQuote server that offers it.
+* **Disconnect stand-down.** When TackQuote revokes this store's key (for example when the store is disconnected in TackQuote), the storefront quote buttons, quote list, quote page, application forms and account tabs are hidden, and every admin screen says so, until a working key is saved. Only TackQuote's explicit refusal of the key, answered to the plugin's own connection check and confirmed by a second check, does this; a timeout, an outage, a proxy error or a shopper's sign-in prompt never hides anything. Store policies you set (quote-only mode, prices, restrictions) are left as they are.
+* **Deactivating or deleting the plugin tells TackQuote.** A connection that runs through the plugin only is paused, and activating the plugin again resumes the same connection, so customer links are kept; a connection with catalogue and order sync keeps syncing. Deleting the plugin also deletes the WooCommerce REST API key it approved for TackQuote, but only after TackQuote confirms it no longer uses that key; otherwise the key stays under WooCommerce → Settings → Advanced → REST API for you to revoke.
+* **Update available.** The settings page says when a newer version exists and links to Dashboard → Updates. The zip from the TackQuote website now receives WordPress updates from the TackQuote GitHub release (its header carries `Update URI`); the WordPress.org build keeps updating from WordPress.org.
 * **TackQuote inside WooCommerce admin.** A new WooCommerce → TackQuote page (for users who can manage WooCommerce) shows your TackQuote workspace right in WordPress. Each person links their own WordPress login once: in TackQuote, Connections → WooCommerce → "Link a WordPress login" shows a one-time code (10 minutes, works once), which they enter on this page while signed in to WordPress as themselves. TackQuote emails the account about every new link. After that the page signs them in as themselves, with their own TackQuote role (two-step sign-in still applies); nobody is ever signed in as someone else, and a WordPress user who has not linked gets no session at all. The page asks TackQuote server to server with the store's API key and a random per-user secret kept in that user's meta (neither reaches the browser); the one-time sign-in code works once, for two minutes, and travels in the frame address's fragment. "Open in a new tab" is always there for browsers that block sign-in inside a page, and "Unlink my login" removes the link (the secret is kept if TackQuote could not confirm the removal). Use one TackQuote API key per WordPress site. Shown only when your TackQuote server offers it; uninstall removes the per-user secrets.
 
 = 1.11.1 =

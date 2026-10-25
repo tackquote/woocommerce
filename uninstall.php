@@ -115,6 +115,11 @@ $tack_quotes_options = array(
 	'tack_quotes_connect_secret',
 	'tack_quotes_connected_via',
 	'tack_quotes_connected_at',
+
+	// 1.12.0: the disconnect stand-down state (Tack_Standing::OPTION) and WooCommerce's
+	// id of the REST key TackQuote holds (Tack_Rest_Keys::OPTION_WC_KEY_ID).
+	'tack_quotes_standing',
+	'tack_quotes_wc_rest_key_id',
 );
 
 /**
@@ -176,7 +181,84 @@ $tack_quotes_transients = array(
 	'tack_quotes_server_capabilities',
 	// Wholesale form slugs already logged today as matching no form (Tack_Storefront_Forms::MISSING_FORM_LOGGED) — 1.10.0.
 	'tack_quotes_wholesale_form_missing',
+	// The seller-designed quote form, every locale in one transient (Tack_Quote_Form::CACHE_TRANSIENT) — 1.12.0.
+	'tack_quotes_quote_form_cache',
+	// "Required file field, files off" already logged today (Tack_Quote_Form::FILE_FALLBACK_LOGGED) — 1.12.0.
+	'tack_quotes_quote_form_file_fallback',
+	// What TackQuote said about catalogue and order sync (Tack_Rest_Keys::STATUS_TRANSIENT) — 1.12.0.
+	'tack_quotes_rest_keys_status',
 );
+
+/**
+ * Tell TackQuote the plugin was deleted (1.12.0), so it stands this store's connection
+ * down and revokes a key that Connect with TackQuote issued.
+ *
+ * The same request Tack_Lifecycle sends on deactivation, written out here because
+ * uninstall.php runs without the plugin's own classes. Best effort and short (3 s).
+ * Skipped when the server's last cached capability list exists and lacks `lifecycle`
+ * (an older server has no such route); with no cached list it is sent anyway, because a
+ * server without the route only answers 404.
+ *
+ * @return bool Whether TackQuote answered 2xx and released the REST keys it held.
+ */
+function tack_quotes_notify_uninstalled() {
+	$key = (string) get_option( 'tack_quotes_api_key', '' );
+	$api = rtrim( (string) get_option( 'tack_quotes_api_url', 'https://api.tackquote.com/v1' ), '/' );
+	if ( '' === $key || 0 !== strpos( $api, 'https://' ) ) {
+		return false;
+	}
+	$caps = get_transient( 'tack_quotes_server_capabilities' );
+	if ( is_array( $caps ) && isset( $caps['caps'] ) && is_array( $caps['caps'] ) && ! in_array( 'lifecycle', $caps['caps'], true ) ) {
+		return false;
+	}
+	$response = wp_remote_request(
+		$api . '/integrations/woocommerce/plugin-lifecycle',
+		array(
+			'method'      => 'POST',
+			'timeout'     => 3,
+			'redirection' => 0,
+			'headers'     => array(
+				'X-Api-Key'            => $key,
+				'Content-Type'         => 'application/json',
+				'Accept'               => 'application/json',
+				'X-TackQuote-Site-Url' => home_url(),
+			),
+			'body'        => wp_json_encode( array( 'event' => 'uninstalled' ) ),
+		)
+	);
+	if ( is_wp_error( $response ) ) {
+		return false;
+	}
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+	return $code >= 200 && $code < 300 && is_array( $body ) && true === ( $body['restKeysReleased'] ?? false );
+}
+
+/**
+ * Delete the WooCommerce REST API key this store approved for TackQuote (1.12.0), so no
+ * key outlives the plugin. Only the one key WooCommerce reported to TackQuote
+ * (`tack_quotes_wc_rest_key_id`), and only while its description still starts with the
+ * name WooCommerce gave it (`TackQuote - API (<date>)`, WC_Auth::create_keys()): a key
+ * the merchant made or renamed is never touched. WooCommerce has no API for deleting
+ * a key, so this is the same statement its own REST API key screen runs.
+ *
+ * @return void
+ */
+function tack_quotes_delete_wc_rest_key() {
+	global $wpdb;
+	$id = (int) get_option( 'tack_quotes_wc_rest_key_id', 0 );
+	if ( $id <= 0 ) {
+		return;
+	}
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- WooCommerce stores REST keys in its own table and offers no deletion API; one row, by id.
+	$wpdb->query(
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->prefix}woocommerce_api_keys WHERE key_id = %d AND description LIKE %s",
+			$id,
+			$wpdb->esc_like( 'TackQuote - API' ) . '%'
+		)
+	);
+}
 
 /**
  * Delete this plugin's stored values on the current site.
@@ -188,6 +270,18 @@ $tack_quotes_transients = array(
  * @return void
  */
 function tack_quotes_delete_site_data( $options, $transients, $post_meta = array(), $hooks = array() ) {
+	// 1.12.0, BEFORE the options that hold the key and the key id are deleted.
+	// The WooCommerce key is deleted ONLY when TackQuote answered 2xx AND said it let go of
+	// the REST keys (`restKeysReleased`). Otherwise TackQuote may still be using that key
+	// (a pasted TackQuote key, a key it kept, or no answer at all), and deleting it would
+	// silently break its sync: the key then stays listed under WooCommerce > Settings >
+	// Advanced > REST API for the merchant to revoke.
+	if ( tack_quotes_notify_uninstalled() ) {
+		tack_quotes_delete_wc_rest_key();
+	}
+	delete_site_transient( 'tack_quotes_github_release' );
+	wp_unschedule_hook( 'tackquote_refresh_standing' );
+
 	// Roles the 1.10.0 role mirror created (Tack_Role_Mirror::OPTION_CREATED_ROLES),
 	// removed before the option that lists them. Only names with our prefix.
 	foreach ( (array) get_option( 'tack_quotes_mirror_roles_created', array() ) as $role ) {

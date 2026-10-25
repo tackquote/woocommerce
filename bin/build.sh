@@ -71,6 +71,43 @@ rsync -a --delete \
 	--exclude '*.md' \
 	"$SRC/" "$STAGE/"
 
+# ── Build target: the GitHub release zip or the WordPress.org build ──────────
+#
+# TACKQUOTE_BUILD_TARGET=github (default; scripts/package.sh in release.yml, the zip
+# the website's Download button serves) or wporg (bin/wporg-sync.sh, SVN trunk).
+#
+#   github  adds `Update URI: https://github.com/tackquote/woocommerce` to the plugin
+#           header and keeps includes/class-tack-release-updates.php, so a store that
+#           installed the zip gets WordPress updates from the GitHub release.
+#   wporg   removes that file and adds no header. WordPress.org updates its own
+#           installs, and a directory-hosted plugin may carry neither an updater nor an
+#           Update URI pointing elsewhere (Plugin Check: plugin_updater_detected).
+#
+# Asserted below, so a target that silently did nothing fails the build.
+TARGET="${TACKQUOTE_BUILD_TARGET:-github}"
+UPDATER="$STAGE/includes/class-tack-release-updates.php"
+case "$TARGET" in
+	github)
+		perl -0pi -e 's/^( \* Requires Plugins:[^\n]*\n)/$1 * Update URI:        https:\/\/github.com\/tackquote\/woocommerce\n/m' "$STAGE/$PLUGIN_SLUG.php"
+		if [ "$(grep -c '^ \* Update URI:        https://github.com/tackquote/woocommerce$' "$STAGE/$PLUGIN_SLUG.php")" != "1" ] || [ ! -f "$UPDATER" ]; then
+			echo "BUILD FAILED: the github build needs exactly one Update URI header and $UPDATER." >&2
+			exit 1
+		fi
+		;;
+	wporg)
+		rm -f "$UPDATER"
+		if grep -qi '^ \* Update URI:' "$STAGE/$PLUGIN_SLUG.php" || [ -e "$UPDATER" ]; then
+			echo "BUILD FAILED: the wporg build must carry no Update URI and no updater." >&2
+			exit 1
+		fi
+		;;
+	*)
+		echo "BUILD FAILED: TACKQUOTE_BUILD_TARGET must be github or wporg (got: $TARGET)." >&2
+		exit 1
+		;;
+esac
+echo "build target: $TARGET" >&2
+
 cd "$DIST"
 zip -r -q "$PLUGIN_SLUG.zip" "$PLUGIN_SLUG"
 rm -rf "$STAGE"

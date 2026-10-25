@@ -107,6 +107,14 @@ class Tack_Connect {
 	private $client;
 
 	/**
+	 * Where the browser goes after a successful Connect, when it is not the Connection
+	 * tab: WooCommerce's authorize address for catalogue and order sync (1.12.0).
+	 *
+	 * @var string
+	 */
+	public $continue_to = '';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param Tack_Api_Client|null $client Optional HTTP client.
@@ -460,7 +468,9 @@ class Tack_Connect {
 			}
 		}
 		$this->finish( $query );
-		$this->redirect( Tack_Settings::tab_url( 'connection' ), '' );
+		// 1.12.0: a fresh Connect continues straight to WooCommerce's own approval screen
+		// for catalogue and order sync (Tack_Rest_Keys), when the server offers it.
+		$this->redirect( '' !== $this->continue_to ? $this->continue_to : Tack_Settings::tab_url( 'connection' ), '' );
 	}
 
 	/**
@@ -542,6 +552,9 @@ class Tack_Connect {
 		$workspace = isset( $answer['tenantName'] ) && is_string( $answer['tenantName'] ) ? self::clip( wp_strip_all_tags( $answer['tenantName'] ), 120 ) : '';
 		$test      = Tack_Settings::record_connection_test();
 		if ( ! empty( $test['ok'] ) ) {
+			if ( class_exists( 'Tack_Rest_Keys', false ) ) {
+				$this->continue_to = ( new Tack_Rest_Keys( $this->client() ) )->url_after_connect();
+			}
 			$message = '' !== $workspace
 				/* translators: %s: TackQuote workspace name. */
 				? sprintf( __( 'Connected to TackQuote (workspace: %s). The connection test passed.', 'tackquote' ), $workspace )

@@ -32,6 +32,12 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-attachments.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-form.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-quick-order.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-standing.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-rest-keys.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-lifecycle.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-update-notice.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php';
 
 /**
@@ -75,6 +81,27 @@ final class Tack_Quotes {
 		// 1.12.0: WooCommerce → TackQuote, the TackQuote dashboard inside WooCommerce admin.
 		if ( is_admin() ) {
 			( new Tack_Embed_Admin() )->init();
+		}
+
+		// 1.12.0: catalogue and order sync through WooCommerce's own key approval, the
+		// disconnect stand-down, and (in the GitHub release zip only) WordPress updates
+		// from the GitHub release. The updater file is absent from the WordPress.org build.
+		( new Tack_Rest_Keys() )->init();
+		Tack_Standing::init();
+		$updater = TACK_QUOTES_DIR . 'includes/class-tack-release-updates.php';
+		if ( is_readable( $updater ) ) {
+			require_once $updater;
+			Tack_Release_Updates::init();
+		}
+
+		// Stood down: TackQuote answered that this store's key is revoked or the store is
+		// disconnected (Tack_Standing; never on a network error). The storefront buttons,
+		// quote list, quote page, application forms and accepted-quote checkout links are
+		// hidden until a working key is saved. Store policies the merchant set (quote-only
+		// mode, prices, restrictions) are left exactly as they are.
+		$stood_down = Tack_Standing::is_stood_down();
+		if ( $stood_down ) {
+			self::hide_storefront();
 		}
 
 		// Quote-only (B2B catalog) mode. Registered unconditionally; the class
@@ -142,16 +169,26 @@ final class Tack_Quotes {
 		// disabled and is offered only to buyers TackQuote confirms (fail closed).
 		add_filter( 'woocommerce_payment_gateways', array( __CLASS__, 'register_gateway' ) );
 		add_action( 'woocommerce_blocks_payment_method_type_registration', array( __CLASS__, 'register_block_payment_method' ) );
+		// 1.12.0: the Checkout block re-checks net terms whenever the cart changes. The
+		// Store API cart carries this store's own yes/no (never the credit line), and the
+		// payment method's canMakePayment() reads it (assets/js/tack-net-terms-block.js).
+		if ( did_action( 'woocommerce_blocks_loaded' ) ) {
+			self::register_net_terms_store_api();
+		} else {
+			add_action( 'woocommerce_blocks_loaded', array( __CLASS__, 'register_net_terms_store_api' ) );
+		}
+		// 1.12.0: "Request a quote for your cart" inside the Cart block (Blocks Integration API).
+		add_action( 'woocommerce_blocks_cart_block_registration', array( __CLASS__, 'register_cart_block_integration' ) );
 		( new Tack_Po_Number() )->init();
 
 		// Accepted quote -> store checkout (`?tackquote_checkout=<token>`). Only for a
 		// connected store: without an API key no such link can exist.
-		if ( Tack_Quote_Checkout::is_enabled() ) {
+		if ( ! $stood_down && Tack_Quote_Checkout::is_enabled() ) {
 			( new Tack_Quote_Checkout() )->init();
 		}
 
 		// Frontend "Request a Quote" widget/button.
-		if ( 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
+		if ( ! $stood_down && 'yes' === get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
 			( new Tack_Widget() )->init();
 		}
 
@@ -187,6 +224,39 @@ final class Tack_Quotes {
 		// The textdomain is registered on `init` by tack_quotes_load_textdomain() in
 		// tackquote.php, not here: this runs on plugins_loaded, which WordPress 6.7+
 		// reports as too early for translation loading.
+	}
+
+	/**
+	 * While stood down (Tack_Standing): the shortcodes render nothing (the quote page's and
+	 * quick order's are registered empty, because the widget that owns them is not loaded, and WordPress would
+	 * otherwise print the bare shortcode), and the Wholesale account and Net terms tabs
+	 * leave the My Account menu.
+	 *
+	 * @since 1.12.0
+	 */
+	public static function hide_storefront() {
+		add_shortcode( 'tackquote_quote_page', '__return_empty_string' );
+		// Quick order boots inside the widget too (1.12.0), so its shortcode is registered
+		// empty the same way. Its block renders nothing unregistered: it saves no markup.
+		add_shortcode( Tack_Quick_Order::SHORTCODE, '__return_empty_string' );
+		add_filter(
+			'pre_do_shortcode_tag',
+			function ( $output, $tag ) {
+				return in_array( $tag, array( 'tackquote_wholesale_application', 'tackquote_net_terms_application' ), true ) ? '' : $output;
+			},
+			10,
+			2
+		);
+		add_filter(
+			'woocommerce_account_menu_items',
+			function ( $items ) {
+				if ( is_array( $items ) ) {
+					unset( $items[ Tack_Storefront_Forms::ENDPOINT_WHOLESALE ], $items[ Tack_Storefront_Forms::ENDPOINT_NET_TERMS ] );
+				}
+				return $items;
+			},
+			99
+		);
 	}
 
 	/**
@@ -233,6 +303,97 @@ final class Tack_Quotes {
 		}
 		require_once TACK_QUOTES_DIR . 'includes/blocks/class-tack-net-terms-block.php';
 		$registry->register( new Tack_Net_Terms_Block() );
+	}
+
+	/** Store API namespace of the plugin's cart data (`extensions.tackquote`). */
+	const STORE_API_NAMESPACE = 'tackquote';
+
+	/**
+	 * Add `extensions.tackquote.netTermsAvailable` to the Store API cart
+	 * (`woocommerce_store_api_register_endpoint_data`, ExtendSchema; WooCommerce
+	 * 11.2.1 src/StoreApi/functions.php). The Cart and Checkout blocks re-read the
+	 * cart after every change, and WooCommerce re-runs each payment method's
+	 * canMakePayment() with that cart (`extensions` included) when the cart store
+	 * changes (wc-blocks-data, 11.2.1).
+	 */
+	public static function register_net_terms_store_api() {
+		if ( ! function_exists( 'woocommerce_store_api_register_endpoint_data' ) ) {
+			return;
+		}
+		woocommerce_store_api_register_endpoint_data(
+			array(
+				'endpoint'        => class_exists( 'Automattic\\WooCommerce\\StoreApi\\Schemas\\V1\\CartSchema' )
+					? \Automattic\WooCommerce\StoreApi\Schemas\V1\CartSchema::IDENTIFIER
+					: 'cart',
+				'namespace'       => self::STORE_API_NAMESPACE,
+				'data_callback'   => array( __CLASS__, 'net_terms_cart_data' ),
+				'schema_callback' => array( __CLASS__, 'net_terms_cart_schema' ),
+				'schema_type'     => ARRAY_A,
+			)
+		);
+	}
+
+	/**
+	 * The cart's net-terms answer: whether the gateway would be offered for THIS cart,
+	 * the same fail-closed decision as the classic checkout (is_available()). Nothing
+	 * else about the buyer's credit line. Empty when the gateway is off, so a store that
+	 * never enabled it pays no standing read.
+	 *
+	 * @return array
+	 */
+	public static function net_terms_cart_data() {
+		if ( ! self::load_gateway() ) {
+			return array();
+		}
+		$settings = get_option( 'woocommerce_' . Tack_Gateway_Net_Terms::ID . '_settings', array() );
+		if ( ! is_array( $settings ) || ! isset( $settings['enabled'] ) || 'yes' !== $settings['enabled'] ) {
+			return array();
+		}
+		$gateway  = null;
+		$registry = function_exists( 'WC' ) && is_object( WC() ) && method_exists( WC(), 'payment_gateways' ) ? WC()->payment_gateways() : null;
+		if ( is_object( $registry ) && method_exists( $registry, 'payment_gateways' ) ) {
+			$all     = (array) $registry->payment_gateways();
+			$gateway = isset( $all[ Tack_Gateway_Net_Terms::ID ] ) ? $all[ Tack_Gateway_Net_Terms::ID ] : null;
+		}
+		$available = false;
+		if ( $gateway instanceof Tack_Gateway_Net_Terms ) {
+			try {
+				$available = true === $gateway->is_available();
+			} catch ( Exception $e ) {
+				$available = false; // Fail closed.
+			}
+		}
+		return array( 'netTermsAvailable' => $available );
+	}
+
+	/**
+	 * Schema of net_terms_cart_data().
+	 *
+	 * @return array
+	 */
+	public static function net_terms_cart_schema() {
+		return array(
+			'netTermsAvailable' => array(
+				'description' => 'Whether TackQuote net terms would be offered for this cart.',
+				'type'        => 'boolean',
+				'context'     => array( 'view', 'edit' ),
+				'readonly'    => true,
+			),
+		);
+	}
+
+	/**
+	 * Register the Cart block integration (`woocommerce_blocks_cart_block_registration`),
+	 * only when WooCommerce's IntegrationInterface exists.
+	 *
+	 * @param object $registry Automattic\WooCommerce\Blocks\Integrations\IntegrationRegistry.
+	 */
+	public static function register_cart_block_integration( $registry ) {
+		if ( ! interface_exists( 'Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface' ) || 'yes' !== get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
+			return;
+		}
+		require_once TACK_QUOTES_DIR . 'includes/blocks/class-tack-cart-quote-block.php';
+		Tack_Cart_Quote_Block::register( $registry );
 	}
 
 	/**
@@ -554,6 +715,10 @@ final class Tack_Quotes {
 	 * Deactivation: clear scheduled events and the account endpoints' rewrite rules.
 	 */
 	public static function deactivate() {
+		// 1.12.0: tell TackQuote (best effort, short) so it pauses this store's connection;
+		// the next request after reactivation resumes the same connection.
+		Tack_Lifecycle::notify_deactivated();
+		wp_unschedule_hook( Tack_Standing::REFRESH_HOOK );
 		// The order-sync jobs, in Action Scheduler (group `tackquote`) and the WP-Cron
 		// fallback. This used to clear `tack_quotes_retry_sync`, a hook nothing schedules,
 		// and left the real jobs queued.

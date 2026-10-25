@@ -59,7 +59,7 @@ class Tack_Test_Embed_Client extends Tack_Api_Client {
 		return new WP_Error( 'tack_http_404', 'no route', array( 'status' => 404 ) );
 	}
 	/** @inheritDoc */
-	public function server_capabilities( $refresh = false ) {
+	public function server_capabilities( $refresh = false, $observe = false, $timeout = null ) {
 		return $this->caps;
 	}
 	/** @inheritDoc */
@@ -190,6 +190,21 @@ $client       = new Tack_Test_Embed_Client();
 $client->caps = array( 'attachments' );
 $out          = tack_embed_render( new Tack_Test_Embed_Admin( $client ) );
 check( 'an older server: no open call, a plain notice', 0 === count( $client->calls ) && false === strpos( $out, '<iframe' ) );
+
+// Stood down (Tack_Standing): reconnect copy, nothing asked of TackQuote.
+if ( class_exists( 'Tack_Standing' ) ) {
+	tack_test_set_option(
+		Tack_Standing::OPTION,
+		array(
+			'state' => Tack_Standing::STATE_STOOD_DOWN,
+			'key'   => Tack_Standing::fingerprint( 'tq_test_key_1234567890' ),
+		)
+	);
+	$client = new Tack_Test_Embed_Client();
+	$out    = tack_embed_render( new Tack_Test_Embed_Admin( $client ) );
+	check( 'stood down: the page renders reconnect copy, no API call, no frame', false !== strpos( $out, 'Reconnect to TackQuote' ) && 0 === count( $client->calls ) && false === strpos( $out, '<iframe' ) );
+	tack_test_set_option( Tack_Standing::OPTION, array() );
+}
 
 // Capability on the page itself.
 $GLOBALS['TACK_CAPS'] = array();
