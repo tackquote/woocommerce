@@ -196,19 +196,19 @@ $tack_quotes_transients = array(
  * (an older server has no such route); with no cached list it is sent anyway, because a
  * server without the route only answers 404.
  *
- * @return void
+ * @return bool Whether TackQuote answered 2xx and released the REST keys it held.
  */
 function tack_quotes_notify_uninstalled() {
 	$key = (string) get_option( 'tack_quotes_api_key', '' );
 	$api = rtrim( (string) get_option( 'tack_quotes_api_url', 'https://api.tackquote.com/v1' ), '/' );
 	if ( '' === $key || 0 !== strpos( $api, 'https://' ) ) {
-		return;
+		return false;
 	}
 	$caps = get_transient( 'tack_quotes_server_capabilities' );
 	if ( is_array( $caps ) && isset( $caps['caps'] ) && is_array( $caps['caps'] ) && ! in_array( 'lifecycle', $caps['caps'], true ) ) {
-		return;
+		return false;
 	}
-	wp_remote_request(
+	$response = wp_remote_request(
 		$api . '/integrations/woocommerce/plugin-lifecycle',
 		array(
 			'method'      => 'POST',
@@ -223,6 +223,12 @@ function tack_quotes_notify_uninstalled() {
 			'body'        => wp_json_encode( array( 'event' => 'uninstalled' ) ),
 		)
 	);
+	if ( is_wp_error( $response ) ) {
+		return false;
+	}
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+	return $code >= 200 && $code < 300 && is_array( $body ) && true === ( $body['restKeysReleased'] ?? false );
 }
 
 /**
@@ -262,8 +268,14 @@ function tack_quotes_delete_wc_rest_key() {
  */
 function tack_quotes_delete_site_data( $options, $transients, $post_meta = array(), $hooks = array() ) {
 	// 1.12.0, BEFORE the options that hold the key and the key id are deleted.
-	tack_quotes_notify_uninstalled();
-	tack_quotes_delete_wc_rest_key();
+	// The WooCommerce key is deleted ONLY when TackQuote answered 2xx AND said it let go of
+	// the REST keys (`restKeysReleased`). Otherwise TackQuote may still be using that key
+	// (a pasted TackQuote key, a key it kept, or no answer at all), and deleting it would
+	// silently break its sync: the key then stays listed under WooCommerce > Settings >
+	// Advanced > REST API for the merchant to revoke.
+	if ( tack_quotes_notify_uninstalled() ) {
+		tack_quotes_delete_wc_rest_key();
+	}
 	delete_site_transient( 'tack_quotes_github_release' );
 	wp_unschedule_hook( 'tackquote_refresh_standing' );
 

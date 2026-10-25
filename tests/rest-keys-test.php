@@ -189,56 +189,119 @@ tack_cx_routes( array( '/rest-keys/status' => 'TRANSPORT' ) );
 $st = ( new Tack_Test_Rest_Keys() )->status( true );
 check( 'status: TackQuote unreachable reads as unknown, never as connected', 'unknown' === $st['status'] );
 
-// ── 4. Stand-down: only on TackQuote's own explicit answer ───────────────────────
+// ── 4. Stand-down: only TackQuote's key refusal (api_key_invalid), from the plugin's own
+//    ping (admin test / background refresh), confirmed by a second ping ─────────────────
+$rk_refused  = array( 401, array( 'statusCode' => 401, 'code' => 'api_key_invalid', 'message' => 'Invalid API key' ) );
+$rk_signin   = array( 401, array( 'statusCode' => 401, 'code' => 'UNAUTHORIZED', 'message' => 'Sign in to your account to attach files' ) );
+/**
+ * Answer the ping with each listed answer in turn (the last one repeats).
+ *
+ * @param array $answers [status, body] pairs.
+ * @param array $others  Other routes: fragment => [status, body].
+ */
+function tack_rk_ping_sequence( array $answers, array $others = array() ) {
+	$GLOBALS['TACK_HTTP_REQUESTS'] = array();
+	$GLOBALS['TACK_RK_PINGS']      = 0;
+	$GLOBALS['TACK_HTTP_RESPONDER'] = function ( $url ) use ( $answers, $others ) {
+		if ( false !== strpos( $url, '/ping' ) ) {
+			$n      = $GLOBALS['TACK_RK_PINGS']++;
+			$answer = $answers[ min( $n, count( $answers ) - 1 ) ];
+		} else {
+			$answer = array( 404, array( 'statusCode' => 404 ) );
+			foreach ( $others as $fragment => $a ) {
+				if ( false !== strpos( $url, $fragment ) ) {
+					$answer = $a;
+				}
+			}
+		}
+		return array(
+			'response' => array( 'code' => $answer[0] ),
+			'body'     => is_string( $answer[1] ) ? $answer[1] : wp_json_encode( $answer[1] ),
+			'headers'  => array(),
+		);
+	};
+}
+
 tack_test_set_option( Tack_Standing::OPTION, array() );
 tack_test_reset_transients();
-tack_cx_routes( array( '/ping' => $rk_ping_new ) );
+tack_rk_ping_sequence( array( $rk_ping_new ) );
 ( new Tack_Api_Client() )->server_capabilities( true );
 check( 'a passing ping on a standing server: active', ! Tack_Standing::is_stood_down() );
 $rec = get_option( Tack_Standing::OPTION );
 check( 'the standing server is remembered for this key', ! empty( $rec['supported'] ) );
 
-tack_cx_routes( array( '/ping' => 'TRANSPORT' ) );
+// A shopper's page view (no observe) never stands down, even on the key refusal.
+tack_rk_ping_sequence( array( $rk_refused ) );
 ( new Tack_Api_Client() )->server_capabilities( true );
-check( 'a network error never hides the storefront', ! Tack_Standing::is_stood_down() );
+check( 'a page-view ping refused with api_key_invalid does NOT stand down', ! Tack_Standing::is_stood_down() );
 
-tack_cx_routes( array( '/ping' => array( 503, array( 'statusCode' => 503, 'message' => 'down' ) ) ) );
-( new Tack_Api_Client() )->server_capabilities( true );
-check( 'a 503 never hides the storefront', ! Tack_Standing::is_stood_down() );
+// A storefront 401 ("sign in to attach files") never stands down, whatever route it came from.
+tack_rk_ping_sequence( array( $rk_ping_new ), array( '/storefront/v1/' => $rk_signin ) );
+( new Tack_Api_Client() )->request( 'POST', '/storefront/v1/wholesale-upload?form=x', 'bytes' );
+Tack_Standing::refresh();
+check( 'a storefront 401 (guest wholesale upload) does NOT stand down', ! Tack_Standing::is_stood_down() );
 
-tack_cx_routes( array( '/ping' => array( 401, '<html>proxy says no</html>' ) ) );
-( new Tack_Api_Client() )->server_capabilities( true );
-check( 'a 401 that is not TackQuote\'s JSON (a proxy) never hides the storefront', ! Tack_Standing::is_stood_down() );
+foreach (
+	array(
+		'a network error'                       => 'TRANSPORT',
+		'a 503'                                 => array( 503, array( 'statusCode' => 503, 'message' => 'down' ) ),
+		'a proxy\'s 401 (not JSON)'             => array( 401, '<html>proxy says no</html>' ),
+		'a 401 without the key-refusal code'    => $rk_signin,
+		'a 403 (a missing scope)'               => array( 403, array( 'statusCode' => 403, 'code' => 'insufficient_scope', 'message' => 'scope' ) ),
+	) as $label => $answer
+) {
+	if ( 'TRANSPORT' === $answer ) {
+		$GLOBALS['TACK_HTTP_RESPONDER'] = function () {
+			return new WP_Error( 'http_request_failed', 'cURL error 28: timed out' );
+		};
+	} else {
+		tack_rk_ping_sequence( array( $answer ) );
+	}
+	Tack_Standing::refresh();
+	check( "background refresh: $label never hides the storefront", ! Tack_Standing::is_stood_down() );
+}
 
-tack_cx_routes( array( '/ping' => array( 403, array( 'statusCode' => 403, 'code' => 'insufficient_scope', 'message' => 'scope' ) ) ) );
-( new Tack_Api_Client() )->server_capabilities( true );
-check( 'a 403 (a missing scope) never hides the storefront', ! Tack_Standing::is_stood_down() );
+// The key refusal on the background refresh, NOT confirmed by the second ping.
+tack_rk_ping_sequence( array( $rk_refused, $rk_ping_new ) );
+Tack_Standing::refresh();
+check( 'a refusal the confirming ping does not repeat: no stand-down', ! Tack_Standing::is_stood_down() );
 
-tack_cx_routes( array( '/ping' => array( 401, array( 'statusCode' => 401, 'message' => 'Invalid API key' ) ) ) );
+// Confirmed: two refusals.
+tack_test_set_option( Tack_Standing::OPTION, array() );
+tack_rk_ping_sequence( array( $rk_ping_new ) );
 ( new Tack_Api_Client() )->server_capabilities( true );
-check( 'TackQuote\'s own 401 on a standing server: stood down', Tack_Standing::is_stood_down() );
-check( 'the reason is a revoked key', Tack_Standing::REASON_REVOKED === Tack_Standing::reason() );
+tack_rk_ping_sequence( array( $rk_refused ) );
+Tack_Standing::refresh();
+check( 'background refresh: api_key_invalid, confirmed by a fresh ping: stood down', Tack_Standing::is_stood_down() );
+check( 'it took exactly two pings (the refusal and its confirmation)', 2 === $GLOBALS['TACK_RK_PINGS'] );
 
 tack_test_set_option( 'tack_quotes_api_key', $rk_key . 'NEW' );
 check( 'saving a new key ends the stand-down at once', ! Tack_Standing::is_stood_down() );
 tack_test_set_option( 'tack_quotes_api_key', $rk_key );
 
+// The administrator's own connection test is a valid observer too.
+tack_test_set_option( Tack_Standing::OPTION, array() );
+tack_rk_ping_sequence( array( $rk_ping_new ) );
+( new Tack_Api_Client() )->server_capabilities( true );
+tack_rk_ping_sequence( array( $rk_refused ) );
+( new Tack_Api_Client() )->test_connection();
+check( 'admin connection test: api_key_invalid confirmed: stood down', Tack_Standing::is_stood_down() );
+
 // An older server (no `standing` capability) never causes it.
 tack_test_set_option( Tack_Standing::OPTION, array() );
 tack_test_reset_transients();
-tack_cx_routes( array( '/ping' => $rk_ping_old ) );
+tack_rk_ping_sequence( array( $rk_ping_old ) );
 ( new Tack_Api_Client() )->server_capabilities( true );
-tack_cx_routes( array( '/ping' => array( 401, array( 'statusCode' => 401, 'message' => 'Invalid API key' ) ) ) );
-( new Tack_Api_Client() )->server_capabilities( true );
-check( 'a server without `standing`: a 401 does not stand the store down', ! Tack_Standing::is_stood_down() );
+tack_rk_ping_sequence( array( $rk_refused ) );
+Tack_Standing::refresh();
+check( 'a server without `standing`: no stand-down', ! Tack_Standing::is_stood_down() );
 
-// An explicit `standing: disconnected` answer stands down too.
-tack_test_set_option( Tack_Standing::OPTION, array() );
-$ping_disc               = $rk_ping_new;
-$ping_disc[1]['standing'] = 'disconnected';
-tack_cx_routes( array( '/ping' => $ping_disc ) );
+// Make it stood down again for the storefront checks below.
+tack_rk_ping_sequence( array( $rk_ping_new ) );
 ( new Tack_Api_Client() )->server_capabilities( true );
-check( 'ping answering standing=disconnected: stood down', Tack_Standing::is_stood_down() && Tack_Standing::REASON_DISCONNECTED === Tack_Standing::reason() );
+tack_rk_ping_sequence( array( $rk_refused ) );
+Tack_Standing::refresh();
+check( 'stood down again for the next checks', Tack_Standing::is_stood_down() );
 
 // Stood down: the storefront hooks are not attached, the shortcodes render nothing.
 $GLOBALS['TACK_HOOKS']      = array();
@@ -278,6 +341,8 @@ tack_cx_routes(
 	)
 );
 check( 'deactivation on a lifecycle server: sent', true === Tack_Lifecycle::notify_deactivated() );
+$pings = tack_cx_calls( '/ping' );
+check( 'cold capability cache: ONE ping, with the short 3 s limit', 1 === count( $pings ) && 3 === (int) ( $pings[0]['args']['timeout'] ?? 0 ) );
 $sent = tack_cx_calls( 'plugin-lifecycle' );
 check( 'the event is `deactivated`', 1 === count( $sent ) && false !== strpos( (string) $sent[0]['args']['body'], '"deactivated"' ) );
 
@@ -354,3 +419,8 @@ check( 'after Connect, a store whose keys TackQuote already holds stays on the C
 tack_test_reset_transients();
 tack_cx_routes( array( '/ping' => $rk_ping_old ) );
 check( 'after Connect, an older server: no detour', '' === ( new Tack_Test_Rest_Keys() )->url_after_connect() );
+
+// ── 9. Uninstall deletes the WooCommerce key only after TackQuote released it ───
+$tack_rk_uninstall = (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' );
+check( 'uninstall: the WooCommerce key is deleted only inside the released-branch', 1 === preg_match( '/if \( tack_quotes_notify_uninstalled\(\) \) \{\s*tack_quotes_delete_wc_rest_key\(\);/', $tack_rk_uninstall ) );
+check( 'uninstall: released means 2xx AND restKeysReleased true', false !== strpos( $tack_rk_uninstall, "true === ( \$body['restKeysReleased'] ?? false )" ) );

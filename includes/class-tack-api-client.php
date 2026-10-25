@@ -192,11 +192,6 @@ class Tack_Api_Client {
 					'retryAfterHeader'  => is_array( $retry_after ) ? (string) reset( $retry_after ) : (string) $retry_after,
 				)
 			);
-			// 1.12.0: TackQuote's own 401 on this key is how a disconnect reaches the
-			// storefront (Tack_Standing decides; a proxy's 401 or any other status is ignored).
-			if ( '' !== $key && class_exists( 'Tack_Standing', false ) ) {
-				Tack_Standing::observe_refusal( $error->get_error_data(), $key );
-			}
 			return $error;
 		}
 
@@ -241,6 +236,11 @@ class Tack_Api_Client {
 
 		if ( 401 === $status || 403 === $status ) {
 			$this->forget_capabilities();
+			// 1.12.0: an administrator's own connection test may stand the storefront down
+			// (Tack_Standing decides: only `api_key_invalid`, confirmed by a fresh ping).
+			if ( class_exists( 'Tack_Standing', false ) ) {
+				Tack_Standing::observe_ping_refusal( $result->get_error_data(), $this->api_key(), $this );
+			}
 			return self::connection_error( $result, self::STATE_REJECTED );
 		}
 
@@ -412,10 +412,13 @@ class Tack_Api_Client {
 	 *
 	 * @since 1.10.0
 	 *
-	 * @param bool $refresh Ignore the cache.
+	 * @param bool     $refresh Ignore the cache.
+	 * @param bool     $observe 1.12.0: report a refused key to Tack_Standing. Only the
+	 *                          background refresh passes true; a page view never does.
+	 * @param int|null $timeout 1.12.0: ping timeout in seconds (default INTERACTIVE_TIMEOUT).
 	 * @return string[]
 	 */
-	public function server_capabilities( $refresh = false ) {
+	public function server_capabilities( $refresh = false, $observe = false, $timeout = null ) {
 		if ( '' === $this->api_key() ) {
 			return array();
 		}
@@ -429,10 +432,14 @@ class Tack_Api_Client {
 				return array();
 			}
 		}
-		$result = $this->request( 'GET', '/integrations/woocommerce/ping', null, self::INTERACTIVE_TIMEOUT );
+		$result = $this->request( 'GET', '/integrations/woocommerce/ping', null, null === $timeout ? self::INTERACTIVE_TIMEOUT : (int) $timeout );
 		if ( is_wp_error( $result ) ) {
 			$status = self::status_of( $result );
 			$this->remember_failure( 401 === $status || 403 === $status ? self::STATE_REJECTED : self::STATE_FAILED );
+			// 1.12.0: only the background refresh observes (never a shopper's page view).
+			if ( $observe && class_exists( 'Tack_Standing', false ) ) {
+				Tack_Standing::observe_ping_refusal( $result->get_error_data(), $this->api_key(), $this );
+			}
 			return array();
 		}
 		return $this->remember_ping( $result );
@@ -481,6 +488,36 @@ class Tack_Api_Client {
 		$this->server_capabilities();
 		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
 		return is_array( $cached ) && isset( $cached['latest'] ) && is_string( $cached['latest'] ) ? $cached['latest'] : '';
+	}
+
+	/**
+	 * Does a fresh ping, right now, refuse the saved key with TackQuote's own
+	 * `api_key_invalid` code? The confirmation Tack_Standing asks for before it hides
+	 * anything. No cache is read or written.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return bool
+	 */
+	public function key_refused_now() {
+		$result = $this->request( 'GET', '/integrations/woocommerce/ping', null, self::INTERACTIVE_TIMEOUT );
+		return is_wp_error( $result ) && Tack_Standing::is_key_refusal( $result->get_error_data() );
+	}
+
+	/**
+	 * The cached capability list, or null when there is no fresh one (no ping is made).
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return string[]|null
+	 */
+	public function cached_capabilities() {
+		$cached = get_transient( self::CAPABILITIES_TRANSIENT );
+		if ( is_array( $cached ) && isset( $cached['key'], $cached['until'], $cached['caps'] ) && is_array( $cached['caps'] )
+			&& $cached['key'] === $this->key_fingerprint() && (int) $cached['until'] > time() ) {
+			return array_values( array_filter( $cached['caps'], 'is_string' ) );
+		}
+		return null;
 	}
 
 	/**

@@ -12,7 +12,9 @@
  * plugin's own files, so it carries its own copy of this request).
  *
  * Best effort and short: a deactivation must never hang on TackQuote. Sent only when the
- * server lists the `lifecycle` capability (an older server has no such route).
+ * server lists the `lifecycle` capability (an older server has no such route); with no
+ * cached capability list it pings once with the same 3-second limit, never the longer
+ * page-view timeout.
  *
  * @package TackQuotes
  * @since   1.12.0
@@ -43,7 +45,13 @@ class Tack_Lifecycle {
 			return false;
 		}
 		$client = $client ? $client : new Tack_Api_Client();
-		if ( ! $client->supports( 'lifecycle' ) ) {
+		// A cold capability cache is not worth holding the Deactivate click for the
+		// usual ping timeout: ask once, briefly, and give up on silence.
+		$caps = $client->cached_capabilities();
+		if ( null === $caps ) {
+			$caps = $client->server_capabilities( true, false, self::TIMEOUT );
+		}
+		if ( ! in_array( 'lifecycle', $caps, true ) ) {
 			return false;
 		}
 		$result = $client->request( 'POST', '/integrations/woocommerce/plugin-lifecycle', array( 'event' => 'deactivated' ), self::TIMEOUT );

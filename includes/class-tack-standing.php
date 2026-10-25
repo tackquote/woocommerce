@@ -9,15 +9,21 @@
  * answer and the plugin then hides its storefront buttons, quote list, quote page
  * and application forms (Tack_Quotes::init()), until a working key is saved.
  *
- * Fail closed to HIDDEN only on an explicit answer, never on a network problem:
+ * Fail closed to HIDDEN only on TackQuote's explicit refusal of the KEY itself, never on
+ * anything else. All of these must hold:
  *
- *   - a 401 that TackQuote itself sent (a JSON body carrying `statusCode: 401`), or
- *   - a ping answering `standing: "disconnected"`.
+ *   - the plugin's own `ping` answered HTTP 401 with `code: "api_key_invalid"` (the code
+ *     TackQuote's key check sends for an unknown, revoked or expired key). No other 401
+ *     counts: TackQuote's storefront routes also answer 401, for example "sign in to
+ *     attach files" to a guest, and that must never hide a store;
+ *   - the ping came from an administrator's connection test or the background refresh,
+ *     never from a shopper's page view or a storefront call;
+ *   - a second, fresh ping confirms it;
+ *   - the key had been answered before by a server listing the `standing` capability,
+ *     so an older TackQuote server never causes it.
  *
- * A timeout, a 5xx, a 429, a 403 (a key without a scope) or a 401 from a proxy in
- * front of the API leaves the state as it was. And the plugin stands down only for a
- * key that a server listing the `standing` capability has answered before, so an
- * older TackQuote server never causes it.
+ * A timeout, a 5xx, a 429, a 403 (a key without a scope) or a 401 from a proxy in front
+ * of the API leaves the state as it was.
  *
  * The state is kept for the key it was observed with (a short fingerprint), so saving
  * a new key, or connecting again, ends it at once. While the storefront is running the
@@ -47,8 +53,12 @@ class Tack_Standing {
 	const STATE_ACTIVE     = 'active';
 	const STATE_STOOD_DOWN = 'stood_down';
 
-	const REASON_REVOKED      = 'key_revoked';
-	const REASON_DISCONNECTED = 'disconnected';
+	const REASON_REVOKED = 'key_revoked';
+
+	/**
+	 * The machine code TackQuote's key check sends with a refused key.
+	 */
+	const KEY_REFUSED_CODE = 'api_key_invalid';
 
 	/**
 	 * WP-Cron hook that refreshes the state in the background.
@@ -116,53 +126,57 @@ class Tack_Standing {
 	}
 
 	/**
-	 * Why, for the admin notice: key_revoked | disconnected | ''.
+	 * A ping answered 2xx: active, and whether the server lists `standing`.
 	 *
-	 * @return string
-	 */
-	public static function reason() {
-		return self::is_stood_down() ? (string) ( self::record()['reason'] ?? '' ) : '';
-	}
-
-	/**
-	 * A ping answered 2xx. Active, unless it says the store is disconnected (and the
-	 * server lists `standing`).
-	 *
-	 * @param array    $answer       Decoded ping answer.
+	 * @param array    $answer       Decoded ping answer (unused beyond the capabilities).
 	 * @param string[] $capabilities The capabilities it listed.
 	 * @param string   $key          The key it was asked with.
 	 */
 	public static function observe_ping( $answer, array $capabilities, $key ) {
-		$supported = in_array( 'standing', $capabilities, true );
-		$standing  = is_array( $answer ) && isset( $answer['standing'] ) && is_string( $answer['standing'] ) ? $answer['standing'] : '';
-		$down      = $supported && self::REASON_DISCONNECTED === $standing;
+		unset( $answer );
 		self::write(
 			array(
-				'state'     => $down ? self::STATE_STOOD_DOWN : self::STATE_ACTIVE,
-				'reason'    => $down ? self::REASON_DISCONNECTED : '',
+				'state'     => self::STATE_ACTIVE,
+				'reason'    => '',
 				'key'       => self::fingerprint( $key ),
-				'supported' => $supported,
+				'supported' => in_array( 'standing', $capabilities, true ),
 				'checked'   => time(),
 			)
 		);
 	}
 
 	/**
-	 * A request was refused. Stands down only for TackQuote's OWN 401 (JSON carrying
-	 * `statusCode: 401`) on a key a `standing` server has answered before.
+	 * Is this WP_Error data TackQuote's refusal of the key itself (401 + api_key_invalid)?
 	 *
-	 * @param array  $error_data WP_Error data from Tack_Api_Client.
-	 * @param string $key        The key it was sent with.
+	 * @param mixed $error_data WP_Error data from Tack_Api_Client.
+	 * @return bool
 	 */
-	public static function observe_refusal( $error_data, $key ) {
-		$status = is_array( $error_data ) ? (int) ( $error_data['status'] ?? 0 ) : 0;
-		$own    = is_array( $error_data ) && ! empty( $error_data['json'] ) && 401 === (int) ( $error_data['statusCode'] ?? 0 );
-		if ( 401 !== $status || ! $own ) {
+	public static function is_key_refusal( $error_data ) {
+		return is_array( $error_data )
+			&& 401 === (int) ( $error_data['status'] ?? 0 )
+			&& ! empty( $error_data['json'] )
+			&& self::KEY_REFUSED_CODE === ( $error_data['code'] ?? '' );
+	}
+
+	/**
+	 * A ping (admin test or background refresh only) was refused. Stands down only on
+	 * TackQuote's key refusal, for a key a `standing` server answered before, and only
+	 * after a second, fresh ping confirms it.
+	 *
+	 * @param mixed           $error_data WP_Error data from the refused ping.
+	 * @param string          $key        The key it was sent with.
+	 * @param Tack_Api_Client $client     Client for the confirming ping.
+	 */
+	public static function observe_ping_refusal( $error_data, $key, $client ) {
+		if ( ! self::is_key_refusal( $error_data ) ) {
 			return;
 		}
 		$fingerprint = self::fingerprint( $key );
 		$record      = self::record();
 		if ( empty( $record['supported'] ) || ! hash_equals( (string) ( $record['key'] ?? '' ), $fingerprint ) ) {
+			return;
+		}
+		if ( ! is_object( $client ) || ! method_exists( $client, 'key_refused_now' ) || ! $client->key_refused_now() ) {
 			return;
 		}
 		self::write(
@@ -210,7 +224,7 @@ class Tack_Standing {
 	 * The background refresh: one ping. Tack_Api_Client reports what it saw back here.
 	 */
 	public static function refresh() {
-		( new Tack_Api_Client() )->server_capabilities( true );
+		( new Tack_Api_Client() )->server_capabilities( true, true );
 	}
 
 	/**
@@ -220,9 +234,7 @@ class Tack_Standing {
 		if ( ! current_user_can( 'manage_options' ) || ! self::is_stood_down() ) {
 			return;
 		}
-		$message = self::REASON_DISCONNECTED === self::reason()
-			? __( 'TackQuote disconnected this store, so its quote buttons, quote list and application forms are hidden from shoppers.', 'tackquote' )
-			: __( 'TackQuote no longer accepts this store\'s API key (it was revoked or the store was disconnected in TackQuote), so the quote buttons, quote list and application forms are hidden from shoppers.', 'tackquote' );
+		$message = __( 'TackQuote no longer accepts this store\'s API key (it was revoked or the store was disconnected in TackQuote), so the quote buttons, quote list and application forms are hidden from shoppers.', 'tackquote' );
 		if ( 'quote_only' === get_option( 'tack_quotes_store_mode', '' ) ) {
 			$message .= ' ' . __( 'Quote-only mode is still on, so shoppers it applies to can neither buy nor request a quote.', 'tackquote' );
 		}
