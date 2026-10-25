@@ -200,5 +200,10 @@ require __DIR__ . '/rest-keys-test.php';
 echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
 require __DIR__ . '/embed-admin-test.php';
 
+// 1.12.0 coding-standards pass: eval-free i18n scan, escaping where markup is echoed,
+// the claim handler's own capability and nonce check. Last: it reuses earlier fixtures.
+echo "\n-- coding-standards pass (escape late, nonce in scope, no eval) --\n";
+require __DIR__ . '/standards-1120-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

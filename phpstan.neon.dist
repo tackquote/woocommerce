@@ -1,0 +1,51 @@
+# PHPStan for the TackQuote WooCommerce plugin (development tooling; never shipped:
+# bin/build.sh excludes *.dist and the Composer files from tackquote.zip).
+#
+# Run: `composer phpstan`. WordPress and WooCommerce symbols come from the
+# php-stubs packages through szepeviktor/phpstan-wordpress, so nothing here needs a
+# live site. Level 5 is the level the wp-phpstan guidance starts WordPress plugins at.
+# There is no baseline: every finding is fixed, not recorded.
+includes:
+	- vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+	level: 5
+	treatPhpDocTypesAsCertain: false
+	phpVersion:
+		min: 70400
+		max: 80499
+	paths:
+		- tackquote.php
+		- uninstall.php
+		- includes
+		- templates
+	scanFiles:
+		- vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+	bootstrapFiles:
+		- tests/phpstan/bootstrap.php
+	ignoreErrors:
+		# WooCommerce declares WooCommerce::$cart, $session, $customer and $countries
+		# `= null` (includes/class-woocommerce.php) and fills them only on the requests
+		# that need them (initialize_cart(), initialize_session(), init()); WooCommerce
+		# itself guards them with is_null(). The php-stubs PHPDoc omits `null`, so every
+		# guard here would read as redundant. They are not: admin, cron, REST and WP-CLI
+		# requests reach this plugin with them null.
+		-
+			message: '#^Property WooCommerce::\$(cart|session|customer|countries) \(WC_[A-Za-z_]+\) in (isset\(\) is not nullable|empty\(\) is not falsy)\.$#'
+			path: includes/*
+		# WordPress ignores an action callback's return value. These callbacks return a
+		# value on purpose so the offline tests can assert what they did; the hook
+		# itself discards it. WC_Payment_Gateway::process_admin_options() is
+		# WooCommerce's own API and returns bool in WooCommerce core too.
+		-
+			message: '#^Action callback returns (bool|int) but should not return anything\.$#'
+			paths:
+				- includes/class-tack-catalog-visibility.php
+				- includes/class-tack-role-mirror.php
+				- includes/gateways/class-tack-gateway-net-terms.php
+		# register_block_type() documents `api_version` as a string, but WordPress core
+		# itself stores an int (WP_Block_Type::$api_version defaults to 1, and block.json
+		# `apiVersion` is a number). The plugin passes 3, as block.json would.
+		-
+			message: '#^Parameter \#2 \$args of function register_block_type expects array\{api_version\?: string#'
+			path: includes/class-tack-quick-order.php

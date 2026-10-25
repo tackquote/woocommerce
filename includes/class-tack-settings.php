@@ -810,7 +810,12 @@ class Tack_Settings {
 	 * @param string          $summary Optional summary text.
 	 */
 	private function learn_more( $more, $summary = '' ) {
-		$more = array_filter( (array) $more, 'strlen' );
+		$more = array_filter(
+			(array) $more,
+			static function ( $value ) {
+				return '' !== (string) $value;
+			}
+		);
 		if ( empty( $more ) ) {
 			return;
 		}
@@ -1639,12 +1644,15 @@ class Tack_Settings {
 		 */
 		echo '<div class="tack-table-wrap"><table class="widefat striped tack-grid">';
 		$columns = count( $extra ) + count( $known );
-		$rowspan = $columns > 0 ? ' rowspan="2"' : '';
-		echo '<thead><tr><th scope="col"' . $rowspan . ' class="tack-grid__row-head">' . esc_html( $column ) . '</th>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rowspan is one of two literals above.
+		// Two header rows (group heading, then one cell per code) only when there are codes.
+		$two_rows = $columns > 0;
+		echo $two_rows ? '<thead><tr><th scope="col" rowspan="2" class="tack-grid__row-head">' : '<thead><tr><th scope="col" class="tack-grid__row-head">';
+		echo esc_html( $column ) . '</th>';
 		if ( $columns > 0 ) {
 			printf( '<th scope="colgroup" colspan="%1$d" class="tack-grid__group">%2$s</th>', (int) $columns, esc_html( $copy['heading'] ) );
 		}
-		echo '<th scope="col"' . $rowspan . '>' . esc_html__( 'Result', 'tackquote' ) . '</th></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $rowspan is one of two literals above.
+		echo $two_rows ? '<th scope="col" rowspan="2">' : '<th scope="col">';
+		echo esc_html__( 'Result', 'tackquote' ) . '</th></tr>';
 		if ( $columns > 0 ) {
 			echo '<tr>';
 			foreach ( $extra as $code => $label ) {

@@ -185,26 +185,28 @@ class Tack_Quick_Order {
 	}
 
 	/**
-	 * Refuse a request without the storefront nonce: JSON with `reload`, like the quote modal.
+	 * The answer to a request without a valid storefront nonce: JSON with `reload`, like
+	 * the quote modal. Each handler calls check_ajax_referer() itself, first, so the check
+	 * sits in the same function as the input it guards.
 	 */
-	private function verify_nonce() {
-		if ( ! check_ajax_referer( 'tack_request_quote', 'nonce', false ) ) {
-			wp_send_json_error(
-				array(
-					'code'    => 'tack_nonce_expired',
-					'message' => __( 'This page has been open too long, or was served from a cache. Reload it and try again.', 'tackquote' ),
-					'reload'  => true,
-				),
-				403
-			);
-		}
+	private function nonce_expired() {
+		wp_send_json_error(
+			array(
+				'code'    => 'tack_nonce_expired',
+				'message' => __( 'This page has been open too long, or was served from a cache. Reload it and try again.', 'tackquote' ),
+				'reload'  => true,
+			),
+			403
+		);
 	}
 
 	/**
 	 * The wc-ajax handler that resolves the posted SKUs.
 	 */
 	public function handle_lookup() {
-		$this->verify_nonce();
+		if ( ! check_ajax_referer( 'tack_request_quote', 'nonce', false ) ) {
+			$this->nonce_expired();
+		}
 		if ( Tack_Rate_Limit::exceeded( 'tack_qo_', 'quick-order', self::RATE_LIMIT_MAX ) ) {
 			wp_send_json_error(
 				array(
@@ -215,7 +217,7 @@ class Tack_Quick_Order {
 			);
 		}
 		Tack_Rate_Limit::hit( 'tack_qo_', 'quick-order', self::RATE_LIMIT_MAX, self::RATE_LIMIT_WINDOW );
-		$raw = isset( $_POST['lines'] ) ? sanitize_textarea_field( wp_unslash( $_POST['lines'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked by verify_nonce() at the top of this handler.
+		$raw = isset( $_POST['lines'] ) ? sanitize_textarea_field( wp_unslash( $_POST['lines'] ) ) : '';
 		$out = $this->lookup( self::parse_lines( $raw ) );
 		wp_send_json_success( array( 'lines' => $out ) );
 	}
@@ -374,7 +376,9 @@ class Tack_Quick_Order {
 	 * The wc-ajax handler that adds the posted lines to the cart.
 	 */
 	public function handle_add() {
-		$this->verify_nonce();
+		if ( ! check_ajax_referer( 'tack_request_quote', 'nonce', false ) ) {
+			$this->nonce_expired();
+		}
 		// Each add runs WooCommerce's cart code per line: limited like the lookup.
 		if ( Tack_Rate_Limit::exceeded( 'tack_qa_', 'quick-order-add', self::RATE_LIMIT_MAX ) ) {
 			wp_send_json_error(
@@ -389,7 +393,7 @@ class Tack_Quick_Order {
 		if ( ! is_object( $this->cart() ) ) {
 			wp_send_json_error( array( 'message' => __( 'The cart is not available right now. Please reload the page and try again.', 'tackquote' ) ), 503 );
 		}
-		$raw  = isset( $_POST['lines'] ) ? sanitize_textarea_field( wp_unslash( $_POST['lines'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked by verify_nonce() at the top of this handler.
+		$raw  = isset( $_POST['lines'] ) ? sanitize_textarea_field( wp_unslash( $_POST['lines'] ) ) : '';
 		$rows = self::parse_add_lines( $raw );
 		if ( empty( $rows ) ) {
 			wp_send_json_error( array( 'message' => __( 'Nothing to add.', 'tackquote' ) ), 400 );

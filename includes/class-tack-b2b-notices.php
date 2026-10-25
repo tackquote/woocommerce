@@ -273,7 +273,7 @@ class Tack_B2B_Notices {
 	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
 	 * @return string
 	 */
-	public function prepend_order_limit_notice( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+	public function prepend_order_limit_notice( $block_content, $parsed_block = array(), $instance = null ) {
 		$product = Tack_Block_Product::from_block( $instance );
 		if ( null === $product ) {
 			return $block_content;

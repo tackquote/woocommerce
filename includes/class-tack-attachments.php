@@ -587,7 +587,14 @@ class Tack_Attachments {
 	public function quote_request_fields( $raw_ids, $raw_token, $typed_email ) {
 		$ids = is_array( $raw_ids ) ? $raw_ids : ( is_string( $raw_ids ) && '' !== $raw_ids ? explode( ',', $raw_ids ) : array() );
 		$ids = array_values( array_unique( array_map( 'strtolower', array_map( 'trim', array_filter( $ids, 'is_string' ) ) ) ) );
-		$ids = array_values( array_filter( $ids, 'strlen' ) );
+		$ids = array_values(
+			array_filter(
+				$ids,
+				static function ( $value ) {
+					return '' !== (string) $value;
+				}
+			)
+		);
 		if ( empty( $ids ) ) {
 			return array();
 		}

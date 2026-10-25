@@ -287,8 +287,7 @@ class Tack_Embed_Admin {
 		echo '<div class="wrap tackquote-embed">';
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'TackQuote', 'tackquote' ) . '</h1>';
 
-		// Read-only: selects one of a fixed set of messages, so no nonce applies.
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: selects one of a fixed set of messages after a redirect; there is no form to carry a nonce.
 		$flag    = isset( $_GET['tq_embed'] ) ? sanitize_key( wp_unslash( $_GET['tq_embed'] ) ) : '';
 		$results = self::results();
 		if ( isset( $results[ $flag ] ) ) {
@@ -484,13 +483,27 @@ class Tack_Embed_Admin {
 	 * @param string $action Action.
 	 */
 	private static function guard( $action ) {
+		self::require_capability();
+		$nonce = isset( $_POST['_tqnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_tqnonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, $action ) ) {
+			self::link_expired();
+		}
+	}
+
+	/**
+	 * Dies unless the current user may open TackQuote.
+	 */
+	private static function require_capability() {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to open TackQuote.', 'tackquote' ), '', array( 'response' => 403 ) );
 		}
-		$nonce = isset( $_POST['_tqnonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_tqnonce'] ) ) : '';
-		if ( ! wp_verify_nonce( $nonce, $action ) ) {
-			wp_die( esc_html__( 'This link has expired. Reload the TackQuote page and try again.', 'tackquote' ), '', array( 'response' => 403 ) );
-		}
+	}
+
+	/**
+	 * Dies with the expired-link message (a missing or stale nonce).
+	 */
+	private static function link_expired() {
+		wp_die( esc_html__( 'This link has expired. Reload the TackQuote page and try again.', 'tackquote' ), '', array( 'response' => 403 ) );
 	}
 
 	/**
@@ -512,11 +525,15 @@ class Tack_Embed_Admin {
 	 * this WordPress user's id, login and secret. Only fixed messages come back to the page.
 	 */
 	public function handle_claim() {
-		self::guard( self::CLAIM_ACTION );
+		// guard(), written out: the nonce check sits in the function that reads the form.
+		self::require_capability();
+		if ( ! isset( $_POST['_tqnonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_tqnonce'] ) ), self::CLAIM_ACTION ) ) {
+			self::link_expired();
+		}
 		$user_id = (int) get_current_user_id();
 		$user    = wp_get_current_user();
 		$login   = isset( $user->user_login ) ? (string) $user->user_login : '';
-		$code    = isset( $_POST['tq_link_code'] ) ? sanitize_text_field( wp_unslash( $_POST['tq_link_code'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in guard().
+		$code    = isset( $_POST['tq_link_code'] ) ? sanitize_text_field( wp_unslash( $_POST['tq_link_code'] ) ) : '';
 		$code    = strtoupper( preg_replace( '/[^A-Za-z0-9-]/', '', $code ) );
 		if ( $user_id <= 0 || '' === $login || strlen( $code ) < 8 || strlen( $code ) > 12 ) {
 			$this->redirect( self::page_url( 'wrong_code' ), '' );

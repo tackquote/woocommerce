@@ -490,7 +490,8 @@ $no            = $qo->add_to_cart( array( array( 'product_id' => 201, 'variation
 check( 'QO: WooCommerce\'s own refusal text is returned on the line', 'Sorry, this product cannot be purchased.' === $no['lines'][0]['message'] );
 
 $qo_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quick-order.php' );
-check( 'QO: both AJAX handlers check the storefront nonce first', 2 === substr_count( $qo_src, "\$this->verify_nonce();\n" ) );
+$qo_first = "() {\n\t\tif ( ! check_ajax_referer( 'tack_request_quote', 'nonce', false ) ) {\n\t\t\t\$this->nonce_expired();\n\t\t}\n";
+check( 'QO: both AJAX handlers check the storefront nonce first', false !== strpos( $qo_src, 'public function handle_lookup' . $qo_first ) && false !== strpos( $qo_src, 'public function handle_add' . $qo_first ) );
 check( 'QO: the lookup is rate limited', false !== strpos( $qo_src, "Tack_Rate_Limit::exceeded( 'tack_qo_', 'quick-order', self::RATE_LIMIT_MAX )" ) );
 check( 'QO: both run on wc-ajax (cart session loaded), never nopriv admin-ajax', false !== strpos( $qo_src, "add_action( 'wc_ajax_' . self::ACTION_LOOKUP" ) && false === strpos( $qo_src, 'wp_ajax_nopriv' ) );
 

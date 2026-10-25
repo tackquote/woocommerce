@@ -9,4 +9,6 @@ node_modules/
 # A local phpcs.xml overrides phpcs.xml.dist for one developer only.
 /phpcs.xml
 /.phpcs.xml
+# Likewise a local phpstan.neon overrides phpstan.neon.dist.
+/phpstan.neon
 .phpcs-cache

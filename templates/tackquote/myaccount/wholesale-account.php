@@ -25,7 +25,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-echo $notices; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html() by Tack_Storefront_Forms::notice().
+echo wp_kses( $notices, Tack_Storefront_Forms::allowed_html() );
 echo '<h2 class="tackquote-wholesale-heading">' . esc_html( $heading ) . '</h2>';
 echo '<div class="tackquote-wholesale-summary">';
 echo '<p class="tackquote-wholesale-approved">' . esc_html( $description ) . '</p>';

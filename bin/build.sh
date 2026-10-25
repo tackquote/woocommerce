@@ -54,7 +54,8 @@ rsync -a --delete \
 	`# by every user on every install and update for nothing. Leaving them in`\
 	`# took the zip from 84KB to 625KB.`\
 	--exclude '.wordpress-org' \
-	`# Coding-standards tooling: phpcs.xml.dist (covered by *.dist) and the`\
+	`# Coding-standards tooling: phpcs.xml.dist and phpstan.neon.dist (covered`\
+	`# by *.dist) and the`\
 	`# Composer manifest + lock that install it. The plugin has NO Composer`\
 	`# runtime dependency, so a shipped composer.json would only invite a`\
 	`# merchant's host to run composer install inside wp-content/plugins.`\
@@ -138,11 +139,11 @@ fi
 # (`tackquote/composer.json`, `tackquote/vendor/...`), anchored at the plugin
 # root, so a product called "vendor" or a merchant's own file is not caught.
 TOOLING=$(printf '%s\n' "$ENTRIES" | awk '{print $NF}' \
-	| grep -E "^$PLUGIN_SLUG/(vendor/|composer\.(json|lock)$|phpcs\.xml(\.dist)?$|\.phpcs\.xml(\.dist)?$)" || true)
+	| grep -E "^$PLUGIN_SLUG/(vendor/|composer\.(json|lock)$|phpcs\.xml(\.dist)?$|\.phpcs\.xml(\.dist)?$|phpstan\.neon(\.dist)?$)" || true)
 if [ -n "$TOOLING" ]; then
 	echo "BUILD FAILED: development tooling is inside the plugin zip:" >&2
 	printf '%s\n' "$TOOLING" | sed 's/^/  /' >&2
-	echo "vendor/, composer.json, composer.lock and phpcs.xml.dist must be excluded above." >&2
+	echo "vendor/, composer.json, composer.lock, phpcs.xml.dist and phpstan.neon.dist must be excluded above." >&2
 	exit 1
 fi
 

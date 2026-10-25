@@ -155,7 +155,7 @@ class Tack_Catalog_Mode {
 		add_filter( 'woocommerce_is_purchasable', array( $this, 'filter_is_purchasable' ), 99, 2 );
 
 		// The Store API's own validation hook (Cart and Checkout blocks, `wc/store/v1/cart/add-item`).
-		add_action( 'woocommerce_store_api_validate_add_to_cart', array( $this, 'refuse_store_api_add_to_cart' ), 10, 2 );
+		add_action( 'woocommerce_store_api_validate_add_to_cart', array( $this, 'refuse_store_api_add_to_cart' ) );
 
 		// Close the pre-existing-cart hole on both cart and checkout.
 		add_action( 'woocommerce_check_cart_items', array( $this, 'check_cart' ) );
@@ -349,12 +349,13 @@ class Tack_Catalog_Mode {
 	 *
 	 * @since 1.10.0
 	 *
+	 * WooCommerce also passes the add-to-cart request (id, quantity, variation) as a
+	 * second argument; the refusal does not depend on it, so the hook takes one.
+	 *
 	 * @param WC_Product $product Product being added.
-	 * @param array      $request Add-to-cart request (id, quantity, variation). Part of the
-	 *                            documented signature; unused.
 	 * @throws Exception When the product is quote-only for this visitor.
 	 */
-	public function refuse_store_api_add_to_cart( $product, $request = array() ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $request is the second argument WooCommerce passes to woocommerce_store_api_validate_add_to_cart; kept so the callback matches the documented signature.
+	public function refuse_store_api_add_to_cart( $product ) {
 		if ( $this->is_active() ) {
 			throw new Exception(
 				esc_html__( 'This store is currently quote-only. Request a quote instead and we will get back to you.', 'tackquote' )
@@ -543,7 +544,7 @@ class Tack_Catalog_Mode {
 	 * @param WP_Block|object|null $instance      Block instance; its `postId` context names the product.
 	 * @return string
 	 */
-	public function append_quote_only_variation_form( $block_content, $parsed_block = array(), $instance = null ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed -- render_block_{$name} passes ( $content, $parsed_block, $instance ); only the instance is read.
+	public function append_quote_only_variation_form( $block_content, $parsed_block = array(), $instance = null ) {
 		$block_product = Tack_Block_Product::from_block( $instance );
 		if ( null === $block_product || ! $block_product->is_type( 'variable' ) || ! function_exists( 'woocommerce_variable_add_to_cart' ) ) {
 			return $block_content;

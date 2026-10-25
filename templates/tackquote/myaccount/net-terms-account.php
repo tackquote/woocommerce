@@ -26,11 +26,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
-echo $notices; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html() by Tack_Storefront_Forms::notice().
+echo wp_kses( $notices, Tack_Storefront_Forms::allowed_html() );
 echo '<h2 class="tackquote-net-terms-heading">' . esc_html( $heading ) . '</h2>';
 echo '<p class="tackquote-form-description">' . esc_html( $description ) . '</p>';
 echo '<div class="tackquote-net-terms-summary">';
 foreach ( $lines as $tackquote_key => $tackquote_line ) {
-	echo '<p class="tackquote-net-terms-' . esc_attr( str_replace( '_', '-', $tackquote_key ) ) . '">' . $tackquote_line . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html() text and wc_price() markup built by Tack_Storefront_Forms.
+	echo '<p class="tackquote-net-terms-' . esc_attr( str_replace( '_', '-', $tackquote_key ) ) . '">' . wp_kses( $tackquote_line, Tack_Storefront_Forms::price_line_allowed_html() ) . '</p>';
 }
 echo '</div>';

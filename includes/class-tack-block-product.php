@@ -144,7 +144,7 @@ class Tack_Block_Product {
 			return false;
 		}
 		// WooCommerce renders a variation with the simple template part.
-		$type = $product->is_type( 'variation' ) ? 'simple' : ( method_exists( $product, 'get_type' ) ? (string) $product->get_type() : '' );
+		$type = $product->is_type( 'variation' ) ? 'simple' : (string) $product->get_type();
 		return ! ( function_exists( 'doing_action' ) && doing_action( 'woocommerce_' . $type . '_add_to_cart' ) );
 	}
 
@@ -168,7 +168,7 @@ class Tack_Block_Product {
 	 * @since 1.10.0
 	 *
 	 * @param WC_Product|mixed $product The variable product.
-	 * @return array<string, array{q:int, l:string}> Empty for anything else.
+	 * @return array<int, array{q:int, l:string}> Keyed by variation id (PHP stores the numeric-string keys as ints). Empty for anything else.
 	 */
 	public static function variation_states( $product ) {
 		$states = array();
@@ -176,6 +176,11 @@ class Tack_Block_Product {
 			return $states;
 		}
 		foreach ( (array) $product->get_children() as $child_id ) {
+			/**
+			 * A variable product's children are its variations.
+			 *
+			 * @var WC_Product_Variation|false|null $variation
+			 */
 			$variation = wc_get_product( $child_id );
 			if ( ! $variation instanceof WC_Product ) {
 				continue;
@@ -207,7 +212,7 @@ class Tack_Block_Product {
 	 * @since 1.10.0
 	 *
 	 * @param WC_Product|mixed $product The variable product.
-	 * @return array<string, array{s:string, p:float|null}> Empty for anything else.
+	 * @return array<int, array{s:string, p:float|null}> Keyed by variation id (PHP stores the numeric-string keys as ints). Empty for anything else.
 	 */
 	public static function variation_lines( $product ) {
 		$lines = array();
@@ -252,6 +257,11 @@ class Tack_Block_Product {
 			return ! $product->is_in_stock() || ! $product->is_purchasable();
 		}
 		if ( $product->is_type( 'variable' ) ) {
+			/**
+			 * A product of type `variable` is a WC_Product_Variable.
+			 *
+			 * @var WC_Product_Variable $product
+			 */
 			return ! $product->is_in_stock() || ! $product->has_purchasable_variations();
 		}
 		return false;

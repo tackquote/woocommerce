@@ -310,7 +310,7 @@ class Tack_Quote_Form {
 	/**
 	 * What the storefront script needs to know, or null when the built-in form is used.
 	 *
-	 * @return array{versionId:string,templateId:string,roles:array<string,string>}|null
+	 * @return array{versionId:string,locale:string,templateId:string,roles:object,maxFiles:int}|null
 	 */
 	public function script_config() {
 		$form = Tack_Widget::quote_controls_possible() ? $this->definition() : null;
@@ -359,7 +359,7 @@ class Tack_Quote_Form {
 			return;
 		}
 		echo '<template id="' . esc_attr( self::TEMPLATE_ID ) . '" data-tack-version="' . esc_attr( (string) $form['versionId'] ) . '">';
-		echo $this->fields_html( $form ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped per attribute by Tack_Storefront_Forms::render_field().
+		echo wp_kses( $this->fields_html( $form ), Tack_Storefront_Forms::allowed_html() );
 		echo '</template>';
 	}
 
