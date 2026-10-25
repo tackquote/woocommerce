@@ -1638,14 +1638,17 @@ class Tack_Storefront_Forms {
 	 * @param mixed      $value     Current value (prefill or refill).
 	 * @param string     $file_mode 1.10.0: file_mode() for this visitor (`upload`, `signin`, `unsupported`).
 	 * @param array|null $calendar  The seller's calendar (seller_calendar()), or null.
+	 * @param string     $id_prefix 1.12.0: element id prefix, so the quote form's fields (`tack_qf_`)
+	 *                              never share an id with an application form on the same page.
+	 * @param string     $file_name 1.12.0: the POST array of a file input (`tack_sf_files`).
 	 * @return string
 	 */
-	public function render_field( array $field, $name, $value, $file_mode = 'unsupported', $calendar = null ) {
+	public function render_field( array $field, $name, $value, $file_mode = 'unsupported', $calendar = null, $id_prefix = 'tack_sf_', $file_name = 'tack_sf_files' ) {
 		$key      = (string) $field['key'];
 		$type     = (string) $field['type'];
 		$label    = isset( $field['label'] ) ? (string) $field['label'] : $key;
 		$required = ! empty( $field['required'] );
-		$id       = 'tack_sf_' . sanitize_key( $key );
+		$id       = $id_prefix . sanitize_key( $key );
 		$name_of  = $name . '[' . $key . ']';
 		$help     = isset( $field['help'] ) && is_string( $field['help'] ) && '' !== $field['help'] ? $field['help'] : '';
 		$cond     = '';
@@ -1673,14 +1676,19 @@ class Tack_Storefront_Forms {
 						$tokens[] = '.' . $ext;
 					}
 					$attr = implode( ',', array_merge( $tokens, $accept ) );
-					$hint = sprintf(
+					// A quote form's file field may take more than one file (maxFiles, at most
+					// Tack_Attachments::MAX_FILES); an application's always takes one.
+					$multiple = 'tack_sf_files' !== $file_name && isset( $field['maxFiles'] ) && is_numeric( $field['maxFiles'] ) && (int) $field['maxFiles'] > 1
+						? min( Tack_Attachments::MAX_FILES, (int) $field['maxFiles'] )
+						: 0;
+					$hint     = sprintf(
 						/* translators: %d: size limit in megabytes. */
 						__( 'PDF, JPEG or PNG, up to %d MB.', 'tackquote' ),
 						$max_mb
 					);
 					return '<p class="form-row form-row-wide tackquote-field tackquote-field-file" data-tack-field="' . esc_attr( $key ) . '"' . $cond . '>'
 						. '<label for="' . esc_attr( $id ) . '">' . $label_html . '</label>'
-						. '<input type="file" name="' . esc_attr( 'tack_sf_files[' . $key . ']' ) . '" id="' . esc_attr( $id ) . '" accept="' . esc_attr( $attr ) . '"' . $req_attr . ' aria-describedby="' . esc_attr( $id . '_file' ) . '" />'
+						. '<input type="file" name="' . esc_attr( $file_name . '[' . $key . ']' ) . '" id="' . esc_attr( $id ) . '" accept="' . esc_attr( $attr ) . '"' . $req_attr . ' aria-describedby="' . esc_attr( $id . '_file' ) . '"' . ( $multiple ? ' multiple="multiple" data-tack-max-files="' . esc_attr( (string) $multiple ) . '"' : '' ) . ' />'
 						. '<span class="description" id="' . esc_attr( $id . '_file' ) . '">' . esc_html( '' !== $help ? $help . ' ' . $hint : $hint ) . '</span>'
 						. '</p>';
 				}

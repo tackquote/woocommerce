@@ -628,6 +628,28 @@ class Tack_Api_Client {
 	}
 
 	/**
+	 * The seller-designed quote request form (1.12.0).
+	 *
+	 * `GET /storefront/v1/quote-form?locale=<BCP 47>` with the key in `X-Api-Key` only
+	 * (v1 refuses a second credential), scope `storefront:read`. Answers
+	 * `{id, slug, versionId, fields, calendar?}`: `versionId` null means TackQuote's
+	 * built-in default form. Interactive timeout: it can run while a page renders;
+	 * the caller caches it (Tack_Quote_Form).
+	 *
+	 * @param string $locale BCP 47 tag, for the seller's translated labels.
+	 * @return array|WP_Error
+	 */
+	public function get_quote_form( $locale ) {
+		return $this->request(
+			'GET',
+			'/storefront/v1/quote-form?' . http_build_query( array( 'locale' => (string) $locale ), '', '&', PHP_QUERY_RFC3986 ),
+			null,
+			self::INTERACTIVE_TIMEOUT,
+			array( 'Authorization' => null )
+		);
+	}
+
+	/**
 	 * Create a quote request from cart/product line items.
 	 *
 	 * Uses the interactive timeout: this runs inside an admin-ajax request the shopper is

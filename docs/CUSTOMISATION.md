@@ -112,6 +112,7 @@ them. Each template has an `@version`; compare it after updating the plugin.
 |---|---|---|
 | `tackquote/quote-list-drawer.php` | launcher and drawer (footer) | `$classes`, `$fab`, `$opens`, `$page_url`, `$style`, `$toggle_class`, `$checkout_class`, `$checkout_label` |
 | `tackquote/quote-page.php` | `[tackquote_quote_page]` | `$target_price`, `$message`, `$message_max`, `$shop_url`, `$continue_class`, `$submit_class`, `$submit_label` |
+| `tackquote/quick-order.php` (1.12.0) | `[tackquote_quick_order]` and the "TackQuote quick order" block | `$rows`, `$max_lines`, `$button`, `$cart_button`, `$quote`, `$quote_label`, `$secondary` |
 | `tackquote/single-product/quantity-breaks.php` | volume pricing table | `$classes`, `$caption`, `$rows` (`qty`, `qty_label`, `price_html`), `$product` |
 | `tackquote/myaccount/form-wholesale-application.php` | wholesale application form | `$notices`, `$title`, `$description`, `$action_url`, `$multipart`, `$fields`, `$blocked`, `$hidden`, `$submit_label`, `$submit_class` |
 | `tackquote/myaccount/form-net-terms-application.php` | net-terms application form | `$notices`, `$description`, `$action_url`, `$fields`, `$hidden`, `$submit_label`, `$submit_class` |
@@ -131,6 +132,7 @@ by a template; restyle them with CSS.
 | `tackquote_button_classes` | `$classes`, `$extra` | replace the button classes (keep the `tack-*` classes in `$extra`) |
 | `tackquote_theme_styles_only` | `$only` | force layout-only CSS from a theme |
 | `tackquote_quote_page_args` | `$args`, `$atts` | template variables of the quote page |
+| `tackquote_quick_order_args` (1.12.0) | `$args` | template variables of the quick-order form |
 | `tackquote_quote_list_drawer_args` | `$args` | template variables of the launcher/drawer |
 | `tackquote_quantity_breaks_args` | `$args`, `$product` | template variables of the volume table |
 | `tackquote_storefront_form_args` | `$args`, `$form` (`wholesale` or `credit`) | template variables of the account forms |

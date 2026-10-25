@@ -17,7 +17,11 @@
       "includes/class-tack-group-restrictions.php",
       "includes/class-tack-tax-exempt.php",
       "includes/gateways/class-tack-gateway-net-terms.php",
-      "includes/blocks/class-tack-net-terms-block.php"
+      "includes/blocks/class-tack-net-terms-block.php",
+      "includes/class-tack-quote-form.php",
+      "includes/class-tack-quick-order.php",
+      "includes/blocks/class-tack-cart-quote-block.php",
+      "assets/js/tack-quick-order.js"
     ],
     "notStorefront": {
       "Ask for an optional PO number at checkout (any payment method) and send it to TackQuote with the order": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
@@ -938,6 +942,125 @@
     {
       "msgid": "Number of employees",
       "key": "woo.modal.employees"
+    },
+    {
+      "msgid": "This form has just been updated. Please check your answers and send it again.",
+      "key": "woo.quote_form.changed"
+    },
+    {
+      "msgid": "SKU",
+      "key": "woo.quick_order.sku"
+    },
+    {
+      "msgid": "SKU, row %d",
+      "key": "woo.quick_order.sku_row",
+      "placeholders": {
+        "row": "%d"
+      }
+    },
+    {
+      "msgid": "Quantity, row %d",
+      "key": "woo.quick_order.qty_row",
+      "placeholders": {
+        "row": "%d"
+      }
+    },
+    {
+      "msgid": "Add a row",
+      "key": "woo.quick_order.add_row"
+    },
+    {
+      "msgid": "Or paste a list",
+      "key": "woo.quick_order.paste"
+    },
+    {
+      "msgid": "Add to cart",
+      "key": "woo.quick_order.add_to_cart"
+    },
+    {
+      "msgid": "TackQuote quick order",
+      "key": "woo.quick_order.block_title"
+    },
+    {
+      "msgid": "Too many look-ups from this connection. Please wait a few minutes and try again.",
+      "key": "woo.quick_order.rate_limited"
+    },
+    {
+      "msgid": "The cart is not available right now. Please reload the page and try again.",
+      "key": "woo.quick_order.cart_unavailable"
+    },
+    {
+      "msgid": "Nothing to add.",
+      "key": "woo.quick_order.nothing"
+    },
+    {
+      "msgid": "This product could not be added to the cart.",
+      "key": "woo.quick_order.add_failed"
+    },
+    {
+      "msgid": "Enter at least one SKU.",
+      "key": "woo.quick_order.empty"
+    },
+    {
+      "msgid": "Enter at most %d products at a time.",
+      "key": "woo.quick_order.too_many",
+      "placeholders": {
+        "max": "%d"
+      }
+    },
+    {
+      "msgid": "Not found",
+      "key": "woo.quick_order.not_found"
+    },
+    {
+      "msgid": "Choose options",
+      "key": "woo.quick_order.choose_options"
+    },
+    {
+      "msgid": "Checking…",
+      "key": "woo.quick_order.checking"
+    },
+    {
+      "msgid": "Adding…",
+      "key": "woo.quick_order.adding"
+    },
+    {
+      "msgid": "Items added to your cart: %d",
+      "key": "woo.quick_order.added_cart",
+      "placeholders": {
+        "count": "%d"
+      }
+    },
+    {
+      "msgid": "View cart",
+      "key": "woo.quick_order.view_cart"
+    },
+    {
+      "msgid": "Items added to your quote list: %d",
+      "key": "woo.quick_order.added_quote",
+      "placeholders": {
+        "count": "%d"
+      }
+    },
+    {
+      "msgid": "Check items",
+      "key": "tackquote.quick_order.check"
+    },
+    {
+      "msgid": "One SKU and quantity per line, e.g. ABC-123, 10",
+      "key": "tackquote.widget.quick_order_help"
+    },
+    {
+      "msgid": "We could not check these items right now. Please try again.",
+      "key": "tackquote.widget.quick_order_failed"
+    },
+    {
+      "msgid": "Price",
+      "key": "tackquote.quote.price"
+    },
+    {
+      "msgid": "Something went wrong. Please try again.",
+      "key": "tackquote.widget.error_generic"
     }
   ]
 }

@@ -25,7 +25,9 @@ It is for stores that sell to trade customers (wholesalers, distributors, manufa
 * A floating **quote list** with **Checkout as Quote**: several products in one request, separate from the cart.
 * **Quote-only mode** for the whole store, signed-out visitors, chosen roles, or all but approved wholesale accounts.
 * **Quote only per product**, with variations following their product and still selectable for a quote.
-* Optional quote buttons on **product cards** and the **cart page**, and a **quote page** with target prices.
+* Optional quote buttons on **product cards** (shop pages and block product grids) and the **cart page** (classic cart and Cart block), and a **quote page** with target prices.
+* **Your own quote request form**, designed in TackQuote, in the quote modal.
+* **Quick order**: SKUs and quantities, or a pasted list, to the cart or the quote list.
 * A configurable **floating launcher**: side, offsets, label, icon, count, size, pages, mobile.
 * **B2B pricing** from TackQuote: account prices and volume tables, net of tax on any tax setting.
 * **Order limits**, a **buyer-group badge** and **tax-exempt buyers**.
@@ -79,7 +81,10 @@ number if given, company name and any company details the seller's registration 
 requires (legal name, tax/VAT ID, registration number, website, address, city, state, postal
 code, country, company phone, industry, employee count), the free-text note if written, and
 for each requested product its name, SKU, quantity, unit price excluding tax, WooCommerce
-product ID and any target price, together with the store's currency code.
+product ID and any target price, together with the store's currency code. Since 1.12.0, when
+the quote modal shows the form you designed in TackQuote, it sends that form's answers instead
+(what the shopper typed into each of your fields, and the upload ids of any files) together with
+the form version shown, and the same products.
 
 4. **Order sync** — `POST /integrations/woocommerce/order-sync`. **Off by default.**
 Sent when an order is created and each time its status changes, but only if the merchant has
@@ -168,6 +173,13 @@ answers once with an API key, which is stored exactly like a pasted one.
 Sent only when an administrator presses "Remove saved API key" and the saved key came from
 Connect with TackQuote. Sends that key (to say which key to revoke) and nothing else. A key you
 pasted is never revoked: it is only deleted from your site.
+
+14. **Your quote request form** (since 1.12.0) — `GET /storefront/v1/quote-form?locale=`.
+Sent on storefront page views while quote buttons are on and TackQuote's connection test
+lists `quote-form`, at most every five minutes per language. Sends your API key and the
+visitor's language only: no customer data.
+
+Quick order (since 1.12.0) sends nothing to TackQuote: SKUs are matched in your own catalogue.
 
 This plugin sends data to no other external service.
 
@@ -288,7 +300,15 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 
 = Can shoppers start a quote from the shop page or the cart? =
 
-Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart; on the Cart block it appears as a fixed button at the bottom of the cart page. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists and (since 1.12.0) in product grids built with blocks, such as a Product Collection on your home page or related products; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart, and (since 1.12.0) inside the Cart block, below the totals and above Proceed to checkout. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+
+= Is there a quick order form? =
+
+Yes, since 1.12.0. Put the shortcode `[tackquote_quick_order]` or the "TackQuote quick order" block on a page. Buyers type SKUs and quantities, or paste a list with one SKU and quantity per line, press "Check items", and then choose "Add to cart" or your "Add to Quote" label. SKUs are matched in your own catalogue; a variable product's own SKU asks the buyer to choose options on its page, and a variation's SKU is added as that variation. "Add to cart" uses WooCommerce's own add-to-cart rules, so quote-only products are offered for the quote list only.
+
+= Can I use the quote request form I designed in TackQuote? =
+
+Yes, since 1.12.0, when your TackQuote server supports it: the quote modal then shows the form you designed in TackQuote (fields, conditional fields, files, dates on your calendar) instead of the built-in one. Nothing to switch on. If you never designed one, the built-in form stays. A form with a required file field needs **Allow attachments on quote requests** on; otherwise the built-in form is shown and the reason is written to the WooCommerce log.
 
 = How do I make a single product quote-only? =
 
@@ -415,6 +435,15 @@ Deleting the plugin removes every option above, the fixed-name transients, the u
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= Unreleased =
+
+* **Your own quote request form.** When you design the "Request a quote" form in TackQuote (Settings, Quote request form) and your TackQuote server supports it, the quote modal shows that form: your fields, your order and labels in the shopper's language, fields shown only when an earlier answer matches, file fields (when attachments are on) and "No dates in the past" dates on your calendar. The answers travel with the quote request and TackQuote checks them against the form version the shopper saw; if you change the form while a page is open, the shopper is asked to reload. Without a designed form, on an older TackQuote server, or when a required file field cannot be answered because attachments are off, the quote modal is the one it always was.
+* **Quick order.** New shortcode `[tackquote_quick_order]` and block "TackQuote quick order": a buyer types SKUs and quantities (or pastes a list, one per line), checks them against your catalogue, then adds them to the cart or to the quote list. Variable products ask for options on their own page; products this visitor cannot see are "Not found". Adding to the cart goes through WooCommerce's own add-to-cart rules, so quote-only products, stock, B2B prices and order limits apply exactly as on the product page. New template `tackquote/quick-order.php`.
+* **"Add to Quote" on product grids built with blocks.** With "Product cards" on, the Product Collection block on your home page, a landing page, related products or any other grid now gets the quote button after each card's own button, not only the shop and category pages. A card never gets two.
+* **"Request a quote for your cart" inside the Cart block**, below the totals and above Proceed to checkout, instead of a fixed button at the bottom of the page. On a WooCommerce without that slot the fixed button is still used.
+* **Net terms at a block checkout follow the cart.** The Checkout block now asks again whether net terms can be offered whenever the cart changes (a coupon, a quantity), from the store itself, so the method appears or disappears with the total. Fixed: the method showed an empty label in the Checkout block when its settings held only "Enable"; it now reads "Pay on net terms" (translated) until you set your own title.
+* New storefront text translated in the seven bundled languages (machine-assisted, pending native review).
 
 = 1.11.1 =
 Released 2026-10-18.

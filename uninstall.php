@@ -173,6 +173,10 @@ $tack_quotes_transients = array(
 	'tack_quotes_server_capabilities',
 	// Wholesale form slugs already logged today as matching no form (Tack_Storefront_Forms::MISSING_FORM_LOGGED) — 1.10.0.
 	'tack_quotes_wholesale_form_missing',
+	// The seller-designed quote form, every locale in one transient (Tack_Quote_Form::CACHE_TRANSIENT) — 1.12.0.
+	'tack_quotes_quote_form_cache',
+	// "Required file field, files off" already logged today (Tack_Quote_Form::FILE_FALLBACK_LOGGED) — 1.12.0.
+	'tack_quotes_quote_form_file_fallback',
 );
 
 /**

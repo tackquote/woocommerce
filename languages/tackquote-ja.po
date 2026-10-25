@@ -107,14 +107,29 @@ msgstr "有効なメールアドレスが必要です。"
 msgid "Add %s to quote"
 msgstr "%sを見積りに追加"
 
+#. catalogue: woo.quick_order.add_row
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Add a row"
+msgstr "行を追加"
+
 #. catalogue: tackquote.quote.add_button
 msgid "Add to Quote"
 msgstr "見積りに追加"
+
+#. catalogue: woo.quick_order.add_to_cart
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Add to cart"
+msgstr "カートに追加"
 
 #. catalogue: woo.modal.added
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Added ✓"
 msgstr "追加しました ✓"
+
+#. catalogue: woo.quick_order.adding
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Adding…"
+msgstr "追加中…"
 
 #. catalogue: tackquote.widget.addr_line1
 msgid "Address"
@@ -191,6 +206,15 @@ msgstr "請求先住所：%sは必須です。"
 msgid "Cancel"
 msgstr "キャンセル"
 
+#. catalogue: tackquote.quick_order.check
+msgid "Check items"
+msgstr "商品を確認"
+
+#. catalogue: woo.quick_order.checking
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Checking…"
+msgstr "確認中…"
+
 #. catalogue: woo.widget.checkout_as_quote
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Checkout as Quote"
@@ -205,6 +229,11 @@ msgstr "国を選択"
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Choose an option"
 msgstr "選択してください"
+
+#. catalogue: woo.quick_order.choose_options
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Choose options"
+msgstr "オプションを選択"
 
 #. catalogue: tackquote.widget.choose_options_for
 #, php-format
@@ -292,6 +321,17 @@ msgstr "日付は販売者のカレンダー（%1$s）に基づきます。現�
 msgid "Email address"
 msgstr "メールアドレス"
 
+#. catalogue: woo.quick_order.empty
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Enter at least one SKU."
+msgstr "SKUを1つ以上入力してください。"
+
+#. catalogue: woo.quick_order.too_many
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Enter at most %d products at a time."
+msgstr "一度に入力できる商品は%d件までです。"
+
 #. catalogue: woo.forms.files_unsupported_email
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Files cannot be attached on this store yet. If the store needs a document from you, please email it to them."
@@ -331,6 +371,18 @@ msgstr "商品 ID が無効です。"
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Invalid product slug."
 msgstr "商品のスラッグが無効です。"
+
+#. catalogue: woo.quick_order.added_cart
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Items added to your cart: %d"
+msgstr "カートに追加した商品：%d件"
+
+#. catalogue: woo.quick_order.added_quote
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Items added to your quote list: %d"
+msgstr "見積りリストに追加した商品：%d件"
 
 #. catalogue: woo.modal.last_name
 #. plugin catalogue (languages/source/local), pending native review
@@ -410,6 +462,11 @@ msgstr "見積りの対象となる商品がありません。"
 msgid "No wholesale form slug is configured."
 msgstr "卸売フォームのスラッグが設定されていません。"
 
+#. catalogue: woo.quick_order.not_found
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Not found"
+msgstr "見つかりません"
+
 #. catalogue: tackquote.widget.notes
 msgid "Note"
 msgstr "備考"
@@ -423,10 +480,19 @@ msgstr "備考"
 msgid "Notes are too long (2,000 characters at most)."
 msgstr "備考が長すぎます（最大 2,000 文字）。"
 
+#. catalogue: woo.quick_order.nothing
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Nothing to add."
+msgstr "追加するものがありません。"
+
 #. catalogue: woo.modal.employees
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Number of employees"
 msgstr "従業員数"
+
+#. catalogue: tackquote.widget.quick_order_help
+msgid "One SKU and quantity per line, e.g. ABC-123, 10"
+msgstr "1行に1つのSKUと数量（例：ABC-123, 10）"
 
 #. catalogue: woo.modal.portal_link
 #. plugin catalogue (languages/source/local), pending native review
@@ -437,6 +503,11 @@ msgstr "購入者ポータルを開く"
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Optional"
 msgstr "任意"
+
+#. catalogue: woo.quick_order.paste
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Or paste a list"
+msgstr "またはリストを貼り付け"
 
 #. catalogue: woo.limits.between
 #. plugin catalogue (languages/source/local), pending native review
@@ -496,6 +567,10 @@ msgstr "掛け払いを申請するには、アカウントにログインして
 msgid "Postal code"
 msgstr "郵便番号"
 
+#. catalogue: tackquote.quote.price
+msgid "Price"
+msgstr "価格"
+
 #. catalogue: tackquote.widget.price_on_request
 msgid "Price on request"
 msgstr "価格はお問い合わせください"
@@ -517,6 +592,12 @@ msgstr "数量"
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Quantity set by your accepted quote"
 msgstr "承認済みの見積りで指定された数量"
+
+#. catalogue: woo.quick_order.qty_row
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Quantity, row %d"
+msgstr "数量（%d行目）"
 
 #. catalogue: woo.checkout.unavailable_products
 #. plugin catalogue (languages/source/local), pending native review
@@ -579,6 +660,17 @@ msgstr "希望する与信限度額は 0〜100,000,000 の数値で入力して�
 msgid "Requested payment terms"
 msgstr "希望する支払期日"
 
+#. catalogue: woo.quick_order.sku
+#. plugin catalogue (languages/source/local), pending native review
+msgid "SKU"
+msgstr "SKU"
+
+#. catalogue: woo.quick_order.sku_row
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "SKU, row %d"
+msgstr "SKU（%d行目）"
+
 #. catalogue: tackquote.widget.submit_request
 msgid "Send request"
 msgstr "見積り依頼を送信する"
@@ -595,6 +687,10 @@ msgstr "ログイン"
 #. catalogue: tackquote.widget.files_signin
 msgid "Sign in to your account to attach files."
 msgstr "ファイルを添付するにはアカウントにログインしてください。"
+
+#. catalogue: tackquote.widget.error_generic
+msgid "Something went wrong. Please try again."
+msgstr "問題が発生しました。もう一度お試しください。"
 
 #. catalogue: tackquote.widget.addr_region
 msgid "State / Province"
@@ -624,6 +720,11 @@ msgstr "TackQuote に接続できませんでした。数分後にもう一度�
 #. plugin catalogue (languages/source/local), pending native review
 msgid "TackQuote is busy or unavailable right now. Try again in a few minutes."
 msgstr "TackQuote は現在混み合っているか利用できません。数分後にもう一度お試しください。"
+
+#. catalogue: woo.quick_order.block_title
+#. plugin catalogue (languages/source/local), pending native review
+msgid "TackQuote quick order"
+msgstr "TackQuote クイック注文"
 
 #. catalogue: woo.page.target_price
 #. plugin catalogue (languages/source/local), pending native review
@@ -663,6 +764,11 @@ msgstr "申請フォームは現在ご利用いただけません。"
 #. plugin catalogue (languages/source/local), pending native review
 msgid "The cart is not available right now, so this quote could not be opened. Please try again from the quote."
 msgstr "現在お買い物カゴを利用できないため、この見積りを開けませんでした。見積りからもう一度お試しください。"
+
+#. catalogue: woo.quick_order.cart_unavailable
+#. plugin catalogue (languages/source/local), pending native review
+msgid "The cart is not available right now. Please reload the page and try again."
+msgstr "現在カートを利用できません。ページを再読み込みして、もう一度お試しください。"
 
 #. catalogue: woo.po.too_long
 #. plugin catalogue (languages/source/local), pending native review
@@ -704,6 +810,11 @@ msgstr "この購入手続きのリンクは無効です。見積りをもう一
 msgid "This checkout link was already used or has expired. Please open the quote again to get a new link."
 msgstr "この購入手続きのリンクは使用済みか、有効期限が切れています。見積りをもう一度開いて新しいリンクを取得してください。"
 
+#. catalogue: woo.quote_form.changed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This form has just been updated. Please check your answers and send it again."
+msgstr "このフォームは更新されました。回答を確認して、もう一度送信してください。"
+
 #. catalogue: woo.forms.form_unavailable_short
 #. plugin catalogue (languages/source/local), pending native review
 msgid "This form isn't available right now."
@@ -729,6 +840,11 @@ msgstr "このページは長時間開かれていたか、キャッシュから
 #. plugin catalogue (languages/source/local), pending native review
 msgid "This page has been open too long, or was served from a cache. Reload it and try again."
 msgstr "このページは長時間開かれていたか、キャッシュから表示されています。再読み込みしてから、もう一度お試しください。"
+
+#. catalogue: woo.quick_order.add_failed
+#. plugin catalogue (languages/source/local), pending native review
+msgid "This product could not be added to the cart."
+msgstr "この商品をカートに追加できませんでした。"
 
 #. catalogue: woo.checkout.cannot_open
 #. plugin catalogue (languages/source/local), pending native review
@@ -765,6 +881,11 @@ msgstr "この接続から開かれた購入手続きのリンクが多すぎま
 msgid "Too many files were sent in a short time. Please try again shortly."
 msgstr "短時間に送信されたファイルが多すぎます。しばらくしてからもう一度お試しください。"
 
+#. catalogue: woo.quick_order.rate_limited
+#. plugin catalogue (languages/source/local), pending native review
+msgid "Too many look-ups from this connection. Please wait a few minutes and try again."
+msgstr "この接続からの検索が多すぎます。数分待ってから、もう一度お試しください。"
+
 #. catalogue: woo.widget.rate_limited
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Too many quote requests from this connection. Please wait a few minutes and try again."
@@ -799,6 +920,11 @@ msgstr "お客様の支払い実績を証明できる仕入先（最大 %d 社�
 msgid "Uploading %s…"
 msgstr "%sをアップロード中…"
 
+#. catalogue: woo.quick_order.view_cart
+#. plugin catalogue (languages/source/local), pending native review
+msgid "View cart"
+msgstr "カートを表示"
+
 #. catalogue: tackquote.widget.volume_pricing
 msgid "Volume pricing"
 msgstr "数量別価格"
@@ -807,6 +933,10 @@ msgstr "数量別価格"
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Volume pricing for your account"
 msgstr "お客様のアカウントの数量別価格"
+
+#. catalogue: tackquote.widget.quick_order_failed
+msgid "We could not check these items right now. Please try again."
+msgstr "現在これらの商品を確認できません。もう一度お試しください。"
 
 #. catalogue: woo.modal.website
 #. plugin catalogue (languages/source/local), pending native review

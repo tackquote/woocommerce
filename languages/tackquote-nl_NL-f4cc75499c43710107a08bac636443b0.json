@@ -1,0 +1,65 @@
+{
+    "generator": "bin/build-translations.php",
+    "domain": "messages",
+    "source": "assets/js/tack-quick-order.js",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "nl_NL",
+                "plural-forms": "nplurals=2; plural=n != 1;"
+            },
+            "Adding…": [
+                "Toevoegen…"
+            ],
+            "Available on quote": [
+                "Verkrijgbaar op offerte"
+            ],
+            "Check items": [
+                "Artikelen controleren"
+            ],
+            "Checking…": [
+                "Controleren…"
+            ],
+            "Choose options": [
+                "Opties kiezen"
+            ],
+            "Enter at least one SKU.": [
+                "Voer ten minste één SKU in."
+            ],
+            "Enter at most %d products at a time.": [
+                "Voer maximaal %d producten tegelijk in."
+            ],
+            "Items added to your cart: %d": [
+                "Artikelen toegevoegd aan uw winkelwagen: %d"
+            ],
+            "Items added to your quote list: %d": [
+                "Artikelen toegevoegd aan uw offertelijst: %d"
+            ],
+            "Not found": [
+                "Niet gevonden"
+            ],
+            "Price": [
+                "Prijs"
+            ],
+            "Product": [
+                "Product"
+            ],
+            "Quantity": [
+                "Aantal"
+            ],
+            "SKU": [
+                "SKU"
+            ],
+            "Something went wrong. Please try again.": [
+                "Er ging iets mis. Probeer het opnieuw."
+            ],
+            "View cart": [
+                "Bekijk winkelwagen"
+            ],
+            "We could not check these items right now. Please try again.": [
+                "We konden deze artikelen nu niet controleren. Probeer het opnieuw."
+            ]
+        }
+    }
+}

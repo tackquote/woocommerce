@@ -669,8 +669,30 @@
     return deferred.promise();
   }
 
+  // ─── 1.12.0: the seller-designed quote request form ─────────────────────────
+  //
+  // When TackQuote serves a form the seller designed (`TackQuotes.quoteForm`, set by the
+  // PHP only when the server lists `quote-form`), its fields replace the built-in ones.
+  // Null config, or no template on the page, keeps the built-in form.
+  function sellerForm() {
+    var cfg = TackQuotes.quoteForm;
+    if (!cfg || !cfg.templateId || !cfg.versionId) {
+      return null;
+    }
+    var tpl = document.getElementById(cfg.templateId);
+    return tpl && tpl.content ? { cfg: cfg, tpl: tpl } : null;
+  }
+
+  // The answer input of a role (`buyer_email` …), or an empty set.
+  function roleInput($overlay, role) {
+    var cfg = TackQuotes.quoteForm || {};
+    var key = cfg.roles && cfg.roles[role];
+    return key ? $overlay.find('[name="tq_answers[' + key + ']"]') : $();
+  }
+
   function buildModal() {
     var i18n = TackQuotes.i18n;
+    var seller = sellerForm();
 
     var overlay = document.createElement('div');
     overlay.className = 'tack-quote-modal-overlay';
@@ -685,19 +707,7 @@
       escapeHtml(i18n.modalTitle) +
       '</h2>' +
       '<form class="tack-quote-modal-form" novalidate>' +
-      buildIdentityFields() +
-      buildCompanyFields() +
-      '<div class="form-row tack-quote-field">' +
-      '<label for="tack-quote-note">' +
-      escapeHtml(i18n.noteLabel) +
-      ' <span class="tack-quote-optional">' +
-      escapeHtml(i18n.optional) +
-      '</span></label>' +
-      '<textarea id="tack-quote-note" class="input-text" name="note" rows="3" placeholder="' +
-      escapeHtml(i18n.notePlaceholder) +
-      '"></textarea>' +
-      '</div>' +
-      buildFilesField() +
+      (seller ? '<div class="tack-quote-seller-fields"></div>' : buildBuiltInFields()) +
       '<p class="tack-quote-modal-error" hidden></p>' +
       '<div class="tack-quote-modal-actions">' +
       '<button type="button" class="' + buttonClass('tack-quote-modal-cancel') + '">' +
@@ -716,7 +726,38 @@
       '</div>';
 
     document.body.appendChild(overlay);
+    if (seller) {
+      // The seller-designed form: the fields the PHP rendered into a <template>, so they
+      // carry the same markup, escaping, conditions and calendar as the application forms.
+      var holder = overlay.querySelector('.tack-quote-seller-fields');
+      holder.appendChild(document.importNode(seller.tpl.content, true));
+      var formEl = overlay.querySelector('form');
+      formEl.setAttribute('data-tack-seller-form', seller.cfg.versionId);
+      if (window.TackQuoteForms && window.TackQuoteForms.bind) {
+        window.TackQuoteForms.bind(formEl);
+      }
+    }
     return overlay;
+  }
+
+  // The built-in form: name, email, phone, the seller's company policy, a note, files.
+  function buildBuiltInFields() {
+    var i18n = TackQuotes.i18n;
+    return (
+      buildIdentityFields() +
+      buildCompanyFields() +
+      '<div class="form-row tack-quote-field">' +
+      '<label for="tack-quote-note">' +
+      escapeHtml(i18n.noteLabel) +
+      ' <span class="tack-quote-optional">' +
+      escapeHtml(i18n.optional) +
+      '</span></label>' +
+      '<textarea id="tack-quote-note" class="input-text" name="note" rows="3" placeholder="' +
+      escapeHtml(i18n.notePlaceholder) +
+      '"></textarea>' +
+      '</div>' +
+      buildFilesField()
+    );
   }
 
   function openModal(context) {
@@ -750,10 +791,42 @@
     $submit.off('click.tackReload').prop('disabled', false).text(TackQuotes.i18n.submit);
     $form.show();
 
+    var seller = !!$form.attr('data-tack-seller-form');
+    if (seller) {
+      // Files uploaded for an earlier request were claimed by it (or will expire).
+      $form.find('input[type="file"]').each(function () {
+        this.tackUploaded = null;
+      });
+      // A signed-in customer's email and name; '' for guests. The quote page's message.
+      roleInput($overlay, 'buyer_email').val(TackQuotes.customerEmail || '');
+      roleInput($overlay, 'buyer_name').val(
+        [TackQuotes.customerFirstName || '', TackQuotes.customerLastName || ''].join(' ').trim()
+      );
+      if (context.message) {
+        roleInput($overlay, 'buyer_message').val(context.message);
+      }
+      // Conditions follow the reset values.
+      if (window.TackQuoteForms && window.TackQuoteForms.apply) {
+        window.TackQuoteForms.apply($form[0]);
+      }
+    }
+
     modal.removeAttribute('hidden');
     document.body.classList.add('tack-quote-modal-open');
     // Focus the first required field still empty, else the submit button.
-    (!$firstName.val() ? $firstName : !$email.val() ? $email : $overlay.find('.tack-quote-modal-submit')).trigger('focus');
+    var $emptyRequired = seller
+      ? $form
+          .find('input, select, textarea')
+          .filter(function () {
+            return this.required && !this.value && !$(this).closest('[hidden]').length;
+          })
+          .first()
+      : !$firstName.val()
+        ? $firstName
+        : !$email.val()
+          ? $email
+          : $();
+    ($emptyRequired.length ? $emptyRequired : $overlay.find('.tack-quote-modal-submit')).trigger('focus');
 
     // Company section follows the individual/company choice. Only present when the seller
     // allows both; a company_only policy renders it always-visible with no radio to drive it.
@@ -810,11 +883,235 @@
     }
   }
 
-  function submitRequest(context, $overlay) {
+  // What the request is for: the quote list (items) or one product (with its scope's
+  // quantity and chosen variation). Shared by the built-in and the seller-designed form.
+  function contextFields(context) {
+    var out = {};
+    if (context.items) {
+      // "Checkout as Quote" from the quote-list drawer — the server
+      // re-derives name/SKU/price from each product_id; quantity is the
+      // only other value trusted from the client.
+      out.items = JSON.stringify(
+        context.items.map(function (row) {
+          var line = {
+            product_id: row.productId,
+            variation_id: row.variationId || 0,
+            quantity: row.quantity,
+          };
+          if (typeof row.targetPrice === 'number' && isFinite(row.targetPrice) && row.targetPrice >= 0) {
+            line.target_price = row.targetPrice;
+          }
+          return line;
+        }),
+      );
+      return out;
+    }
+    // "Request a Quote" — a single product, submitted immediately.
+    var $scope = context.$scope && context.$scope.length ? context.$scope : $();
+    out.product_id = context.productId || 0;
+    // `context.quantity` / `context.variationId` are set only for the Add to Cart with
+    // Options block (resolved by tack-with-options.js); every other form is read here.
+    out.quantity = context.quantity || $scope.find('input.qty').val() || 1;
+    // On a variable product the button can only carry the PARENT id, so the shopper's
+    // chosen variation has to be read from WooCommerce's own variation form, which keeps
+    // the selected id in a hidden input[name="variation_id"] (0 when nothing is chosen
+    // yet). Without this a quote for "X-Large" was recorded against the parent — wrong
+    // SKU, and the parent's cheapest price. The server re-validates that this variation
+    // really belongs to product_id before using it.
+    var variationId =
+      context.variationId !== undefined
+        ? context.variationId
+        : Number($scope.find('input[name="variation_id"]').val()) || 0;
+    if (variationId) {
+      out.variation_id = variationId;
+    }
+    return out;
+  }
+
+  // POSTs a quote request (an object, or name/value pairs) and reports the outcome in
+  // the modal; refreshes the nonce and retries ONCE when the page's nonce went stale.
+  function makeSender(context, $overlay) {
     var $error = $overlay.find('.tack-quote-modal-error');
     var $success = $overlay.find('.tack-quote-modal-success');
     var $submit = $overlay.find('.tack-quote-modal-submit');
     var $form = $overlay.find('form');
+
+    function setNonce(body, nonce) {
+      if (Array.isArray(body)) {
+        body.forEach(function (pair) {
+          if (pair.name === 'nonce') {
+            pair.value = nonce;
+          }
+        });
+      } else {
+        body.nonce = nonce;
+      }
+    }
+
+    function showFailure(data) {
+      $error.text((data && data.message) || TackQuotes.i18n.error).show();
+      if (data && data.reload) {
+        $submit
+          .prop('disabled', false)
+          .text(TackQuotes.i18n.reload)
+          .off('click.tackReload')
+          .on('click.tackReload', function (ev) {
+            ev.preventDefault();
+            window.location.reload();
+          });
+        return;
+      }
+      $submit.prop('disabled', false).text(TackQuotes.i18n.submit);
+    }
+
+    function send(body, allowRetry) {
+      $.post(TackQuotes.ajaxUrl, Array.isArray(body) ? $.param(body) : body)
+        .done(function (res) {
+          if (res && res.success) {
+            $form.hide();
+            showSubmitted($success, res.data);
+            if (context.items) {
+              clearList();
+            }
+            $success.trigger('focus');
+          } else {
+            showFailure((res && res.data) || null);
+          }
+        })
+        .fail(function (xhr) {
+          var data = (xhr && xhr.responseJSON && xhr.responseJSON.data) || null;
+          if (allowRetry && data && 'tack_nonce_expired' === data.code && TackQuotes.nonceUrl) {
+            $.get(TackQuotes.nonceUrl)
+              .done(function (fresh) {
+                var refreshed = fresh && fresh.data && fresh.data.nonce;
+                if (!refreshed) {
+                  showFailure(data);
+                  return;
+                }
+                TackQuotes.nonce = refreshed;
+                setNonce(body, refreshed);
+                send(body, false);
+              })
+              .fail(function () {
+                showFailure(data);
+              });
+            return;
+          }
+          showFailure(data);
+        });
+    }
+
+    return { send: send, showFailure: showFailure };
+  }
+
+  // The seller-designed form: the browser checks what it can (required, types, the
+  // seller's earliest date), the files go up first, then the answers travel as
+  // tq_answers[...] with the version the shopper saw. The server checks them again.
+  function submitSellerForm(context, $overlay) {
+    var $error = $overlay.find('.tack-quote-modal-error');
+    var $submit = $overlay.find('.tack-quote-modal-submit');
+    var $form = $overlay.find('form');
+    var form = $form[0];
+    var sender = makeSender(context, $overlay);
+    $error.hide().text('');
+
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+      if (typeof form.reportValidity === 'function') {
+        form.reportValidity();
+      }
+      return;
+    }
+
+    var pairs = [
+      { name: 'action', value: 'tack_request_quote' },
+      { name: 'nonce', value: TackQuotes.nonce },
+      { name: 'tq_version', value: TackQuotes.quoteForm.versionId },
+    ];
+    $form.serializeArray().forEach(function (pair) {
+      if (pair.name.indexOf('tq_answers[') === 0) {
+        pairs.push(pair);
+      }
+    });
+    var extra = contextFields(context);
+    Object.keys(extra).forEach(function (k) {
+      pairs.push({ name: k, value: extra[k] });
+    });
+
+    // Files of every shown file field, in field order; one upload call (one guest token).
+    var cfg = filesConfig();
+    var slots = [];
+    var files = [];
+    $form.find('input[type="file"]').each(function () {
+      if ($(this).closest('[hidden]').length || !this.files || !this.files.length) {
+        return;
+      }
+      var m = String(this.name || '').match(/^tq_files\[(.+)\]$/);
+      if (!m) {
+        return;
+      }
+      var mine = Array.prototype.slice.call(this.files);
+      slots.push({ key: m[1], count: mine.length, input: this });
+      files = files.concat(mine);
+    });
+
+    $submit.prop('disabled', true).text(TackQuotes.i18n.sending);
+    if (!files.length) {
+      sender.send(pairs, true);
+      return;
+    }
+    if (!cfg) {
+      sender.showFailure({ message: TackQuotes.i18n.fileFailed });
+      return;
+    }
+    var problem = checkFiles(files, cfg);
+    if (problem) {
+      $error.text(problem).show();
+      $submit.prop('disabled', false).text(TackQuotes.i18n.submit);
+      return;
+    }
+    var withUploads = function (uploaded) {
+      $submit.text(TackQuotes.i18n.sending);
+      var ids = uploaded.uploadIds || [];
+      var at = 0;
+      slots.forEach(function (slot) {
+        for (var i = 0; i < slot.count && at < ids.length; i++, at++) {
+          pairs.push({ name: 'tq_files[' + slot.key + '][]', value: ids[at] });
+        }
+      });
+      ids.forEach(function (id) {
+        pairs.push({ name: 'upload_ids[]', value: id });
+      });
+      if (uploaded.uploadToken) {
+        pairs.push({ name: 'upload_token', value: uploaded.uploadToken });
+      }
+      sender.send(pairs, true);
+    };
+    // A retry after a failed request reuses the files already uploaded.
+    if (form.tackUploaded) {
+      withUploads(form.tackUploaded);
+      return;
+    }
+    $submit.text(sprintf(TackQuotes.i18n.uploading, files.map(function (f) { return f.name; }).join(', ')));
+    uploadFiles(files, cfg)
+      .done(function (uploaded) {
+        form.tackUploaded = uploaded;
+        $form.find('input[type="file"]').one('change', function () {
+          form.tackUploaded = null;
+        });
+        withUploads(uploaded);
+      })
+      .fail(function (data) {
+        sender.showFailure(data && data.message ? data : { message: TackQuotes.i18n.fileFailed, reload: data && data.reload });
+      });
+  }
+
+  function submitRequest(context, $overlay) {
+    if ($overlay.find('form').attr('data-tack-seller-form')) {
+      submitSellerForm(context, $overlay);
+      return;
+    }
+    var $error = $overlay.find('.tack-quote-modal-error');
+    var $submit = $overlay.find('.tack-quote-modal-submit');
     var val = function (sel) {
       return ($overlay.find(sel).val() || '').trim();
     };
@@ -880,47 +1177,11 @@
       payload.company = company;
     }
 
-    if (context.items) {
-      // "Checkout as Quote" from the quote-list drawer — the server
-      // re-derives name/SKU/price from each product_id; quantity is the
-      // only other value trusted from the client.
-      payload.items = JSON.stringify(
-        context.items.map(function (row) {
-          var out = {
-            product_id: row.productId,
-            variation_id: row.variationId || 0,
-            quantity: row.quantity,
-          };
-          if (typeof row.targetPrice === 'number' && isFinite(row.targetPrice) && row.targetPrice >= 0) {
-            out.target_price = row.targetPrice;
-          }
-          return out;
-        }),
-      );
-    } else {
-      // "Request a Quote" — a single product, submitted immediately.
-      var $scope = context.$scope && context.$scope.length ? context.$scope : $();
-      payload.product_id = context.productId || 0;
-      // `context.quantity` / `context.variationId` are set only for the Add to Cart with
-      // Options block (resolved by tack-with-options.js); every other form is read here.
-      payload.quantity = context.quantity || $scope.find('input.qty').val() || 1;
-      // On a variable product the button can only carry the PARENT id, so the shopper's
-      // chosen variation has to be read from WooCommerce's own variation form, which keeps
-      // the selected id in a hidden input[name="variation_id"] (0 when nothing is chosen
-      // yet). Without this a quote for "X-Large" was recorded against the parent — wrong
-      // SKU, and the parent's cheapest price. The server re-validates that this variation
-      // really belongs to product_id before using it.
-      var variationId =
-        context.variationId !== undefined
-          ? context.variationId
-          : Number($scope.find('input[name="variation_id"]').val()) || 0;
-      if (variationId) {
-        payload.variation_id = variationId;
-      }
-    }
+    $.extend(payload, contextFields(context));
 
     $submit.prop('disabled', true).text(TackQuotes.i18n.sending);
 
+    var sender = makeSender(context, $overlay);
     var cfg = filesConfig();
     var input = cfg ? $overlay.find('#tack-quote-files')[0] : null;
     var files = input && input.files ? Array.prototype.slice.call(input.files) : [];
@@ -962,88 +1223,15 @@
       send(payload, true);
     }
 
-    /**
-     * POST the quote request, refreshing the nonce and retrying ONCE if the nonce is
-     * rejected.
-     *
-     * The nonce is printed into the page, so on a full-page-cached store it is baked into
-     * cached HTML and stops verifying once it ages past the nonce lifetime. Previously the
-     * shopper was shown a "reload" button — honest, but it put the fix on the person least
-     * equipped to understand why a form that looks fine cannot be submitted.
-     *
-     * `allowRetry` guarantees exactly one extra attempt, so a genuinely invalid nonce can
-     * never become a loop.
-     */
+    // The nonce is printed into the page, so on a full-page-cached store it is baked
+    // into cached HTML and stops verifying once it ages past the nonce lifetime: the
+    // sender fetches a fresh one and resubmits ONCE (see makeSender()).
     function send(body, allowRetry) {
-      $.post(TackQuotes.ajaxUrl, body)
-      .done(function (res) {
-        if (res && res.success) {
-          $form.hide();
-          showSubmitted($success, res.data);
-          if (context.items) {
-            clearList();
-          }
-          // The submit button that had focus is hidden with the form; move focus to the
-          // message so keyboard and screen-reader users land on it. Escape and the close
-          // button still close the dialog.
-          $success.trigger('focus');
-        } else {
-          $error.text((res && res.data && res.data.message) || TackQuotes.i18n.error).show();
-          $submit.prop('disabled', false).text(TackQuotes.i18n.submit);
-        }
-      })
-      .fail(function (xhr) {
-        var data = (xhr && xhr.responseJSON && xhr.responseJSON.data) || null;
-
-        // Cache-stale nonce: fetch a fresh one from the no-cache endpoint and resubmit,
-        // once. The shopper never sees this happen, which is the point — the previous
-        // behaviour put the fix (reload the page) on the person least able to know why a
-        // form that looks fine will not submit.
-        if (allowRetry && data && 'tack_nonce_expired' === data.code && TackQuotes.nonceUrl) {
-          $.get(TackQuotes.nonceUrl)
-            .done(function (fresh) {
-              var refreshed = fresh && fresh.data && fresh.data.nonce;
-              if (!refreshed) {
-                showFailure(data);
-                return;
-              }
-              TackQuotes.nonce = refreshed;
-              body.nonce = refreshed;
-              send(body, false);
-            })
-            .fail(function () {
-              showFailure(data);
-            });
-          return;
-        }
-
-        showFailure(data);
-      });
+      sender.send(body, allowRetry);
     }
 
-    /**
-     * Surface a failure the retry could not resolve.
-     *
-     * The reload affordance is kept for the case where even a freshly minted nonce is
-     * rejected — that is no longer "the cache staled it" but something about the session
-     * itself, and reloading is still the only move available to the shopper.
-     */
     function showFailure(data) {
-      $error.text((data && data.message) || TackQuotes.i18n.error).show();
-
-      if (data && data.reload) {
-        $submit
-          .prop('disabled', false)
-          .text(TackQuotes.i18n.reload)
-          .off('click.tackReload')
-          .on('click.tackReload', function (ev) {
-            ev.preventDefault();
-            window.location.reload();
-          });
-        return;
-      }
-
-      $submit.prop('disabled', false).text(TackQuotes.i18n.submit);
+      sender.showFailure(data);
     }
   }
 
@@ -1480,6 +1668,16 @@
       scheduleReprice();
     }
   });
+
+  // 1.12.0: the quote list for other storefront scripts (quick order). Adding goes
+  // through the same row merge and re-pricing as every button on the page.
+  window.TackQuoteList = {
+    add: function (row) {
+      addToList(row);
+      scheduleReprice();
+    },
+    open: openQuote,
+  };
 
   // Node tests (tests/js/) load this file with a stand-in jQuery; browsers have no `module`.
   if (typeof module === 'object' && module && module.exports) {

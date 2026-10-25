@@ -32,6 +32,8 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-attachments.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-tax-exempt.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-po-number.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-form.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-quick-order.php';
 
 /**
  * Main plugin class (singleton).
@@ -136,6 +138,16 @@ final class Tack_Quotes {
 		// disabled and is offered only to buyers TackQuote confirms (fail closed).
 		add_filter( 'woocommerce_payment_gateways', array( __CLASS__, 'register_gateway' ) );
 		add_action( 'woocommerce_blocks_payment_method_type_registration', array( __CLASS__, 'register_block_payment_method' ) );
+		// 1.12.0: the Checkout block re-checks net terms whenever the cart changes. The
+		// Store API cart carries this store's own yes/no (never the credit line), and the
+		// payment method's canMakePayment() reads it (assets/js/tack-net-terms-block.js).
+		if ( did_action( 'woocommerce_blocks_loaded' ) ) {
+			self::register_net_terms_store_api();
+		} else {
+			add_action( 'woocommerce_blocks_loaded', array( __CLASS__, 'register_net_terms_store_api' ) );
+		}
+		// 1.12.0: "Request a quote for your cart" inside the Cart block (Blocks Integration API).
+		add_action( 'woocommerce_blocks_cart_block_registration', array( __CLASS__, 'register_cart_block_integration' ) );
 		( new Tack_Po_Number() )->init();
 
 		// Accepted quote -> store checkout (`?tackquote_checkout=<token>`). Only for a
@@ -227,6 +239,97 @@ final class Tack_Quotes {
 		}
 		require_once TACK_QUOTES_DIR . 'includes/blocks/class-tack-net-terms-block.php';
 		$registry->register( new Tack_Net_Terms_Block() );
+	}
+
+	/** Store API namespace of the plugin's cart data (`extensions.tackquote`). */
+	const STORE_API_NAMESPACE = 'tackquote';
+
+	/**
+	 * Add `extensions.tackquote.netTermsAvailable` to the Store API cart
+	 * (`woocommerce_store_api_register_endpoint_data`, ExtendSchema; WooCommerce
+	 * 11.2.1 src/StoreApi/functions.php). The Cart and Checkout blocks re-read the
+	 * cart after every change, and WooCommerce re-runs each payment method's
+	 * canMakePayment() with that cart (`extensions` included) when the cart store
+	 * changes (wc-blocks-data, 11.2.1).
+	 */
+	public static function register_net_terms_store_api() {
+		if ( ! function_exists( 'woocommerce_store_api_register_endpoint_data' ) ) {
+			return;
+		}
+		woocommerce_store_api_register_endpoint_data(
+			array(
+				'endpoint'        => class_exists( 'Automattic\\WooCommerce\\StoreApi\\Schemas\\V1\\CartSchema' )
+					? \Automattic\WooCommerce\StoreApi\Schemas\V1\CartSchema::IDENTIFIER
+					: 'cart',
+				'namespace'       => self::STORE_API_NAMESPACE,
+				'data_callback'   => array( __CLASS__, 'net_terms_cart_data' ),
+				'schema_callback' => array( __CLASS__, 'net_terms_cart_schema' ),
+				'schema_type'     => ARRAY_A,
+			)
+		);
+	}
+
+	/**
+	 * The cart's net-terms answer: whether the gateway would be offered for THIS cart,
+	 * the same fail-closed decision as the classic checkout (is_available()). Nothing
+	 * else about the buyer's credit line. Empty when the gateway is off, so a store that
+	 * never enabled it pays no standing read.
+	 *
+	 * @return array
+	 */
+	public static function net_terms_cart_data() {
+		if ( ! self::load_gateway() ) {
+			return array();
+		}
+		$settings = get_option( 'woocommerce_' . Tack_Gateway_Net_Terms::ID . '_settings', array() );
+		if ( ! is_array( $settings ) || ! isset( $settings['enabled'] ) || 'yes' !== $settings['enabled'] ) {
+			return array();
+		}
+		$gateway  = null;
+		$registry = function_exists( 'WC' ) && is_object( WC() ) && method_exists( WC(), 'payment_gateways' ) ? WC()->payment_gateways() : null;
+		if ( is_object( $registry ) && method_exists( $registry, 'payment_gateways' ) ) {
+			$all     = (array) $registry->payment_gateways();
+			$gateway = isset( $all[ Tack_Gateway_Net_Terms::ID ] ) ? $all[ Tack_Gateway_Net_Terms::ID ] : null;
+		}
+		$available = false;
+		if ( $gateway instanceof Tack_Gateway_Net_Terms ) {
+			try {
+				$available = true === $gateway->is_available();
+			} catch ( Exception $e ) {
+				$available = false; // Fail closed.
+			}
+		}
+		return array( 'netTermsAvailable' => $available );
+	}
+
+	/**
+	 * Schema of net_terms_cart_data().
+	 *
+	 * @return array
+	 */
+	public static function net_terms_cart_schema() {
+		return array(
+			'netTermsAvailable' => array(
+				'description' => 'Whether TackQuote net terms would be offered for this cart.',
+				'type'        => 'boolean',
+				'context'     => array( 'view', 'edit' ),
+				'readonly'    => true,
+			),
+		);
+	}
+
+	/**
+	 * Register the Cart block integration (`woocommerce_blocks_cart_block_registration`),
+	 * only when WooCommerce's IntegrationInterface exists.
+	 *
+	 * @param object $registry Automattic\WooCommerce\Blocks\Integrations\IntegrationRegistry.
+	 */
+	public static function register_cart_block_integration( $registry ) {
+		if ( ! interface_exists( 'Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface' ) || 'yes' !== get_option( 'tack_quotes_enable_widget', 'yes' ) ) {
+			return;
+		}
+		require_once TACK_QUOTES_DIR . 'includes/blocks/class-tack-cart-quote-block.php';
+		Tack_Cart_Quote_Block::register( $registry );
 	}
 
 	/**
