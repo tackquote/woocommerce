@@ -299,26 +299,6 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   display: inline-block;
 }
 
-/* Product Collection block (block themes): follow the card's own button, which
- * is centred or right-aligned by its block alignment, in its (small) type size. */
-.wc-block-product > .tack-card-quote-btn,
-.wc-block-product > .tack-card-quote-link {
-  display: block;
-  width: fit-content;
-  /* core/button's .wp-block-button__link is height:100% of its wrapper; here the
-   * "wrapper" is the whole card. */
-  height: auto;
-  font-size: var(--wp--preset--font-size--small, 0.875em);
-}
-
-.wc-block-product:has(.wp-block-woocommerce-product-button.align-center) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
-  margin-inline: auto;
-}
-
-.wc-block-product:has(.wp-block-woocommerce-product-button.align-right) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
-  margin-inline-start: auto;
-}
-
 /* ── 1.12.0: Cart block control (ExperimentalOrderMeta slot, above Proceed) ── */
 .tack-quote-cart-block {
   margin-block: var(--wp--preset--spacing--20, 0.75em) 0;
@@ -430,7 +410,20 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
  * `.storefront-handheld-footer-bar`, links ms(7) = 4.236em tall, hidden from 768px):
  * the launcher sits above it rather than over its cart link. */
 @media (max-width: 767px) {
+  body:has(.storefront-handheld-footer-bar) {
+    --tackquote-bottom-bar: var(--tackquote-bottom-bar-height, 4.236em);
+  }
+
   body:has(.storefront-handheld-footer-bar) .tack-quote-list-widget {
-    inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + var(--tackquote-bottom-bar-height, 4.236em) + env(safe-area-inset-bottom, 0px));
+    inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + var(--tackquote-bottom-bar) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The fixed cart control sits on the bar, and the launcher above both. */
+  body:has(.storefront-handheld-footer-bar) .tack-quote-cart-fixed {
+    inset-block-end: var(--tackquote-bottom-bar);
+  }
+
+  body:has(.storefront-handheld-footer-bar):has(.tack-quote-cart-fixed) .tack-quote-list-widget {
+    inset-block-end: calc(var(--tackquote-launcher-offset-y, var(--tack-fab-y, 20px)) + 72px + var(--tackquote-bottom-bar) + env(safe-area-inset-bottom, 0px));
   }
 }

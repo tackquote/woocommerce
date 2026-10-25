@@ -460,6 +460,10 @@ class Tack_Api_Client {
 		if ( class_exists( 'Tack_Standing', false ) ) {
 			Tack_Standing::observe_ping( $answer, $caps, $this->api_key() );
 		}
+		// The key works: a recorded storefront failure no longer describes the store.
+		if ( class_exists( 'Tack_Widget', false ) ) {
+			Tack_Widget::clear_request_failure();
+		}
 		return $caps;
 	}
 

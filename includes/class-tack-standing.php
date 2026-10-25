@@ -47,9 +47,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Tack_Standing {
 
 	/**
-	 * `{state: active|stood_down, reason: key_revoked|disconnected|'', key: fingerprint,
+	 * `{state: active|stood_down|unknown, reason: key_revoked|'', key: fingerprint,
 	 * supported: bool, checked: int}`. Small and read on every storefront request, so it
-	 * is autoloaded.
+	 * is autoloaded. `supported` (the server listed `standing` for this key) is a record
+	 * for diagnostics only: no decision reads it since 1.12.0's live QA.
 	 */
 	const OPTION = 'tack_quotes_standing';
 
@@ -140,6 +141,9 @@ class Tack_Standing {
 	 */
 	public static function observe_ping( $answer, array $capabilities, $key ) {
 		unset( $answer );
+		if ( class_exists( 'Tack_Widget', false ) ) {
+			Tack_Widget::clear_request_failure();
+		}
 		self::write(
 			array(
 				'state'     => self::STATE_ACTIVE,

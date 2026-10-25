@@ -30,7 +30,8 @@ if ( ! function_exists( 'doing_action' ) ) {
 if ( ! function_exists( 'wc_get_formatted_variation' ) ) {
 	/** @param object $v Variation. @return string */
 	function wc_get_formatted_variation( $v, $flat = false, $include_names = true, $skip = false ) {
-		return implode( ', ', $v->attrs );
+		// WooCommerce takes a variation, or a cart line's attribute => value array.
+		return is_array( $v ) ? implode( ', ', array_map( 'ucfirst', array_values( $v ) ) ) : implode( ', ', $v->attrs );
 	}
 }
 

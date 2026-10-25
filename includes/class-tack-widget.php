@@ -1324,8 +1324,8 @@ class Tack_Widget {
 				'variation_id' => isset( $item['variation_id'] ) ? (int) $item['variation_id'] : 0,
 				'quantity'     => isset( $item['quantity'] ) ? max( 1, (int) $item['quantity'] ) : 1,
 				'sku'          => method_exists( $data, 'get_sku' ) ? (string) $data->get_sku() : '',
-				'name'         => ! empty( $item['variation_id'] ) && function_exists( 'wc_get_product' )
-					? Tack_Block_Product::line_name( wc_get_product( (int) $item['product_id'] ), $data )
+				'name'         => ! empty( $item['variation_id'] )
+					? Tack_Block_Product::cart_line_name( $item, $data )
 					: ( method_exists( $data, 'get_name' ) ? (string) $data->get_name() : '' ),
 				'price'        => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $data ) : 0.0,
 			);
@@ -1814,6 +1814,8 @@ class Tack_Widget {
 			wp_send_json_error( array( 'message' => self::shopper_error( $result ) ), 502 );
 		}
 
+		// TackQuote took this request: an older failure no longer describes the store.
+		self::clear_request_failure();
 		wp_send_json_success(
 			array(
 				'quoteId'          => isset( $result['id'] ) ? $result['id'] : null,
@@ -1901,9 +1903,13 @@ class Tack_Widget {
 		if ( 429 === $status ) {
 			return __( 'Too many quote requests from this connection. Please wait a few minutes and try again.', 'tackquote' );
 		}
-		if ( $own && in_array( $status, array( 400, 422 ), true ) ) {
+		// A refusal of a field the plugin itself sent (an older server, a form that changed)
+		// is never the shopper's to fix, and neither is a validator's wording about the
+		// request's shape ("property answers should not exist", "must be a string").
+		$ours = self::refused_form_fields( $error ) || self::refused_attachment_fields( $error ) || self::refused_target_price( $error );
+		if ( ! $ours && $own && in_array( $status, array( 400, 422 ), true ) ) {
 			$message = trim( wp_strip_all_tags( (string) $error->get_error_message() ) );
-			if ( '' !== $message ) {
+			if ( '' !== $message && 1 !== preg_match( '/^property |should not exist|must be (?:a|an) /i', $message ) ) {
 				return function_exists( 'mb_substr' ) ? mb_substr( $message, 0, 300 ) : substr( $message, 0, 300 );
 			}
 		}
@@ -1945,6 +1951,15 @@ class Tack_Widget {
 				$logger->error( sprintf( 'quote request refused by TackQuote: HTTP %d %s %s', $status, $code, $message ), array( 'source' => 'tackquote' ) );
 			}
 		}
+	}
+
+	/**
+	 * Forget the recorded failure: a quote request or a connection check succeeded.
+	 *
+	 * @since 1.12.0
+	 */
+	public static function clear_request_failure() {
+		delete_transient( self::FAILURE_TRANSIENT );
 	}
 
 	/**

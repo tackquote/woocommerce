@@ -376,11 +376,10 @@ final class Tack_Quotes {
 			return array();
 		}
 		$variation_id = (int) ( $cart_item['variation_id'] ?? 0 );
-		$parent       = $variation_id > 0 && function_exists( 'wc_get_product' ) ? wc_get_product( (int) $cart_item['product_id'] ) : null;
 		return array(
 			'productId'   => (int) $cart_item['product_id'],
 			'variationId' => $variation_id,
-			'name'        => $variation_id > 0 ? Tack_Block_Product::line_name( $parent, $product ) : ( method_exists( $product, 'get_name' ) ? (string) $product->get_name() : '' ),
+			'name'        => $variation_id > 0 ? Tack_Block_Product::cart_line_name( $cart_item, $product ) : ( method_exists( $product, 'get_name' ) ? (string) $product->get_name() : '' ),
 			'sku'         => method_exists( $product, 'get_sku' ) ? (string) $product->get_sku() : '',
 			'price'       => function_exists( 'wc_get_price_excluding_tax' ) ? (float) wc_get_price_excluding_tax( $product ) : 0.0,
 		);

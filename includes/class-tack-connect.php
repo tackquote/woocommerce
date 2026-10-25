@@ -657,6 +657,8 @@ class Tack_Connect {
 				printf( '<span class="tack-pill tack-pill--error">%s</span>', esc_html__( 'Key rejected', 'tackquote' ) );
 			} elseif ( 'failed' === $state ) {
 				printf( '<span class="tack-pill tack-pill--error">%s</span>', esc_html__( 'Connection failed', 'tackquote' ) );
+			} elseif ( 'unverified' === $state ) {
+				printf( '<span class="tack-pill tack-pill--warn">%s</span>', esc_html__( 'Reachable, key not verified', 'tackquote' ) );
 			} else {
 				printf( '<span class="tack-pill tack-pill--warn">%s</span>', esc_html__( 'Key saved, not tested', 'tackquote' ) );
 			}

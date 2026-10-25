@@ -153,3 +153,45 @@ set_transient(
 check( 'D7: the cached refusal of the saved key reads as rejected', Tack_Api_Client::STATE_REJECTED === $qa_client->last_ping_failure() );
 tack_test_set_option( 'tack_quotes_api_key', 'tk_another' );
 check( 'D7: ... but not for another key', '' === ( new Tack_Api_Client() )->last_ping_failure() );
+
+// ── Re-review: uninstall, clearing the failure, validator text, "Any" attributes ──
+$qa_un = (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' );
+check( 'R-1: uninstall removes the storefront-failure transient', false !== strpos( $qa_un, "'" . Tack_Widget::FAILURE_TRANSIENT . "'" ) );
+check( 'R-1: the readme lists it with what it holds', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'readme.txt' ), '`' . Tack_Widget::FAILURE_TRANSIENT . '`' ) );
+
+tack_test_set_option( 'tack_quotes_api_key', 'tk_live_qa' );
+$GLOBALS['TACK_TRANSIENTS'] = array();
+Tack_Widget::record_request_failure( $qa_refused );
+Tack_Standing::observe_ping( array(), array( 'standing' ), 'tk_live_qa' );
+check( 'R-2: a passing ping (Tack_Standing active) clears the failure', null === Tack_Widget::last_request_failure() );
+$qa_w_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-widget.php' );
+check( 'R-2: a quote request TackQuote took clears it too', false !== strpos( $qa_w_src, "self::clear_request_failure();\n\t\twp_send_json_success(" ) );
+check( 'R-2: and the client\'s passing ping', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-api-client.php' ), "Tack_Widget::clear_request_failure();\n\t\t}\n\t\treturn \$caps;" ) );
+
+$qa_generic = 'We could not send your quote request right now. Please try again in a few minutes.';
+$qa_v       = function ( $message ) {
+	return new WP_Error( 'tack_http_400', $message, array( 'status' => 400, 'json' => true, 'statusCode' => 400 ) );
+};
+check( 'R-3: class-validator wording is never shown ("property answers should not exist")', $qa_generic === Tack_Widget::shopper_error( $qa_v( 'property answers should not exist' ) ) );
+check( 'R-3: nor "must be a string"', $qa_generic === Tack_Widget::shopper_error( $qa_v( 'note must be a string' ) ) );
+check( 'R-3: nor a refusal of a field the plugin sent (uploadIds)', $qa_generic === Tack_Widget::shopper_error( $qa_v( 'uploadIds: each value is not a valid id' ) ) );
+check( 'R-3: a plain shopper-fixable sentence still is', 'An attached file has expired or was not uploaded from this session. Please upload it again.' === Tack_Widget::shopper_error( $qa_v( 'An attached file has expired or was not uploaded from this session. Please upload it again.' ) ) );
+
+$qa_any = Tack_Quotes::cart_item_data(
+	array(
+		'product_id'   => 301,
+		'variation_id' => 302,
+		'variation'    => array( 'attribute_pa_size' => 'large', 'attribute_engraving' => 'yes please' ),
+		'data'         => $qa_var,
+	)
+);
+check( 'R-4: the cart line\'s own attributes name it (an "Any" value is kept)', 'Glove - Large, Yes please' === $qa_any['name'], $qa_any['name'] );
+$qa_none = Tack_Quotes::cart_item_data(
+	array(
+		'product_id'   => 301,
+		'variation_id' => 302,
+		'variation'    => array(),
+		'data'         => $qa_var,
+	)
+);
+check( 'R-4: without them, the variation\'s own label', 'Glove - Large, Blue' === $qa_none['name'] );

@@ -3,7 +3,7 @@ The latest releases are listed in readme.txt.
 
 = Unreleased =
 
-* Fixed: "Request a quote for your cart" in the Cart block now adds a variation as that variation of its product (with its options in the name), so it merges with the same variation added from the product page.
+* Fixed: "Request a quote for your cart" in the Cart block now adds a variation as that variation of its product (with its options in the name, including a value chosen for an "Any" attribute), so it merges with the same variation added from the product page. TackQuote still receives one line per variation.
 * Fixed: when TackQuote does not take a quote request because of the store's connection (for example a revoked API key), shoppers see "We could not send your quote request right now" instead of the server's message; administrators see the reason in a notice and on the Connection tab.
 * Fixed: a key TackQuote refuses no longer schedules a background check on every page view (the check now waits ten minutes whatever its outcome), and a refused key hides the storefront even if TackQuote never accepted it before, after the same confirming second check, never during a shopper's visit.
 * Fixed: the Connection tab no longer shows "Connected" for a key that was never tested or that TackQuote refused; the TackQuote page says when the key was refused and links to app.tackquote.com.
