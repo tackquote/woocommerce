@@ -25,10 +25,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  *      `https://app.tackquote.com/woocommerce/app?frame=<ticket>#code=<code>`; TackQuote
  *      allows the frame only for the store address saved on its connection. The code is in
  *      the URL fragment, which no server receives. Two-factor sign-in is never skipped.
- *   3. A WordPress user who is NOT linked gets no session at all, only "Link my TackQuote
- *      account": a new tab on app.tackquote.com where they sign in to TackQuote normally and
- *      confirm. Nobody is ever signed in as someone else, and the role in TackQuote is the
- *      linked person's own.
+ *   3. A WordPress user who is NOT linked gets no session at all, only a field for the
+ *      one-time code their own TackQuote user asks for under Connections → WooCommerce →
+ *      "Link a WordPress login" (10 minutes, works once). The plugin posts the code server to
+ *      server with the key, this WordPress user's id, login and secret
+ *      (`POST /integrations/woocommerce/embed/claim`); TackQuote links that TackQuote user to
+ *      THIS WordPress user and emails the account. Nobody is ever signed in as someone else,
+ *      and the role in TackQuote is the linked person's own. A stolen API key or a colleague
+ *      with the same capability needs the person's own code.
  *
  * "Open in a new tab" mints a fresh code for a top-level tab, for browsers that block
  * sign-in inside frames (Safari, or Chrome with third-party cookies blocked) and for anyone
@@ -56,7 +60,7 @@ class Tack_Embed_Admin {
 
 	/** The admin-post actions, each with its own nonce. */
 	const TAB_ACTION    = 'tackquote_embed_tab';
-	const LINK_ACTION   = 'tackquote_embed_link';
+	const CLAIM_ACTION  = 'tackquote_embed_claim';
 	const UNLINK_ACTION = 'tackquote_embed_unlink';
 
 	/** Timeout for the open call: an admin is waiting for the page. */
@@ -88,7 +92,7 @@ class Tack_Embed_Admin {
 		// After WooCommerce registers its own menu (priority 9 and 50), so the parent exists.
 		add_action( 'admin_menu', array( $this, 'add_menu' ), 60 );
 		add_action( 'admin_post_' . self::TAB_ACTION, array( $this, 'handle_tab' ) );
-		add_action( 'admin_post_' . self::LINK_ACTION, array( $this, 'handle_link' ) );
+		add_action( 'admin_post_' . self::CLAIM_ACTION, array( $this, 'handle_claim' ) );
 		add_action( 'admin_post_' . self::UNLINK_ACTION, array( $this, 'handle_unlink' ) );
 	}
 
@@ -161,16 +165,11 @@ class Tack_Embed_Admin {
 		if ( $user_id <= 0 ) {
 			return new WP_Error( 'tack_embed_no_user', __( 'Sign in to WordPress first.', 'tackquote' ) );
 		}
-		$user  = wp_get_current_user();
-		$label = isset( $user->display_name ) ? (string) $user->display_name : '';
-		$body  = array(
+		$body = array(
 			'wpUserId'     => (string) $user_id,
 			'wpUserSecret' => self::user_secret( $user_id ),
 			'purpose'      => 'tab' === $purpose ? 'tab' : 'frame',
 		);
-		if ( '' !== $label ) {
-			$body['wpUserLabel'] = function_exists( 'mb_substr' ) ? mb_substr( $label, 0, 80 ) : substr( $label, 0, 80 );
-		}
 		return $this->client()->request( 'POST', '/integrations/woocommerce/embed/open', $body, self::OPEN_TIMEOUT );
 	}
 
@@ -225,7 +224,7 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * The top-level URL for a linked (`tab`) or unlinked answer, or ''.
+	 * The top-level "Open in a new tab" URL for a linked (`tab`) answer, or ''.
 	 *
 	 * @param array $answer API answer.
 	 * @return string
@@ -239,10 +238,6 @@ class Tack_Embed_Admin {
 		if ( 'linked' === $status ) {
 			$code = self::token( $answer['loginCode'] ?? '' );
 			return '' === $code ? '' : $origin . '/woocommerce/open#code=' . rawurlencode( $code );
-		}
-		if ( 'unlinked' === $status ) {
-			$ticket = self::token( $answer['linkTicket'] ?? '' );
-			return '' === $ticket ? '' : $origin . '/woocommerce/link#ticket=' . rawurlencode( $ticket );
 		}
 		return '';
 	}
@@ -272,8 +267,12 @@ class Tack_Embed_Admin {
 	private static function results() {
 		return array(
 			'unlinked'    => array( 'success', __( 'Your WordPress login is no longer linked to TackQuote.', 'tackquote' ) ),
-			'already'     => array( 'info', __( 'Your WordPress login is already linked to TackQuote.', 'tackquote' ) ),
-			'failed'      => array( 'error', __( 'TackQuote did not answer just now. Try again in a minute.', 'tackquote' ) ),
+			'linked'      => array( 'success', __( 'Your WordPress login is now linked to your TackQuote account.', 'tackquote' ) ),
+			'wrong_code'  => array( 'error', __( 'That code is not right, or it has expired. Check the code TackQuote shows under Connections → WooCommerce, or ask for a new one there.', 'tackquote' ) ),
+			'throttled'   => array( 'error', __( 'Too many wrong codes from your WordPress login. Wait 15 minutes, then try again.', 'tackquote' ) ),
+			'refused'     => array( 'error', __( 'TackQuote could not link that account. Ask an admin of your TackQuote workspace for help.', 'tackquote' ) ),
+			'no_store'    => array( 'error', __( 'TackQuote cannot tell which of your connected stores this is. Use one API key per WordPress site.', 'tackquote' ) ),
+			'failed'      => array( 'error', __( 'TackQuote did not answer just now. Your link was not changed. Try again in a minute.', 'tackquote' ) ),
 			'unavailable' => array( 'error', __( 'TackQuote could not open a new tab for you. Reload this page to see why.', 'tackquote' ) ),
 		);
 	}
@@ -376,9 +375,12 @@ class Tack_Embed_Admin {
 
 		$src = self::frame_url( $answer );
 		if ( '' === $src ) {
+			$moved = isset( $answer['frameWithheld'] ) && 'store_address_moved' === $answer['frameWithheld'];
 			self::notice(
 				'info',
-				__( 'TackQuote does not know this store’s address, so it cannot be shown on this page. Use “Open in a new tab”.', 'tackquote' )
+				$moved
+					? __( 'This store’s address changed recently, so TackQuote is not shown on this page for a day. Use “Open in a new tab”.', 'tackquote' )
+					: __( 'TackQuote does not know this store’s address, so it cannot be shown on this page. Use “Open in a new tab”.', 'tackquote' )
 			);
 			return;
 		}
@@ -397,7 +399,7 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * An unlinked WordPress user: never a session, only how to link.
+	 * An unlinked WordPress user: never a session, only the code field.
 	 *
 	 * @param array $answer API answer.
 	 */
@@ -410,8 +412,18 @@ class Tack_Embed_Admin {
 				? __( 'Your WordPress login needs to be linked to TackQuote again on this site.', 'tackquote' )
 				: __( 'To use TackQuote here, link your WordPress login to your own TackQuote login. You do this once.', 'tackquote' )
 		) . '</p>';
-		echo '<p>' . esc_html__( 'A new tab opens on TackQuote: sign in there (or confirm, if you are signed in already), then come back and reload this page. You will see TackQuote with your own role. If you have no TackQuote login, ask an admin of your TackQuote workspace to invite you.', 'tackquote' ) . '</p>';
-		self::action_form( self::LINK_ACTION, __( 'Link my TackQuote account', 'tackquote' ), true, 'button-primary' );
+		echo '<ol>';
+		echo '<li>' . esc_html__( 'In TackQuote, open Connections → WooCommerce and choose “Link a WordPress login”.', 'tackquote' ) . '</li>';
+		echo '<li>' . esc_html__( 'Enter the code it shows here. It works once, for 10 minutes.', 'tackquote' ) . '</li>';
+		echo '</ol>';
+		echo '<p class="description">' . esc_html__( 'TackQuote then opens here as you, with your own role, and emails you about the new link. If you have no TackQuote login, ask an admin of your TackQuote workspace to invite you.', 'tackquote' ) . '</p>';
+		printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
+		echo '<input type="hidden" name="action" value="' . esc_attr( self::CLAIM_ACTION ) . '" />';
+		wp_nonce_field( self::CLAIM_ACTION, '_tqnonce' );
+		echo '<label for="tackquote-link-code">' . esc_html__( 'Link code', 'tackquote' ) . '</label> ';
+		echo '<input type="text" id="tackquote-link-code" name="tq_link_code" class="regular-text" autocomplete="off" spellcheck="false" maxlength="12" placeholder="ABCD-2345" required /> ';
+		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Link my TackQuote account', 'tackquote' ) . '</button>';
+		echo '</form>';
 		echo '</div>';
 	}
 
@@ -483,26 +495,65 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * "Link my TackQuote account": a fresh link ticket, straight to TackQuote's link page.
+	 * "Link my TackQuote account": post the code the person typed, server to server, with
+	 * this WordPress user's id, login and secret. Only fixed messages come back to the page.
 	 */
-	public function handle_link() {
-		self::guard( self::LINK_ACTION );
-		$answer = $this->open( 'frame' );
-		if ( is_array( $answer ) && 'linked' === ( $answer['status'] ?? '' ) ) {
-			$this->redirect( self::page_url( 'already' ), '' );
+	public function handle_claim() {
+		self::guard( self::CLAIM_ACTION );
+		$user_id = (int) get_current_user_id();
+		$user    = wp_get_current_user();
+		$login   = isset( $user->user_login ) ? (string) $user->user_login : '';
+		$code    = isset( $_POST['tq_link_code'] ) ? sanitize_text_field( wp_unslash( $_POST['tq_link_code'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in guard().
+		$code    = strtoupper( preg_replace( '/[^A-Za-z0-9-]/', '', $code ) );
+		if ( $user_id <= 0 || '' === $login || strlen( $code ) < 8 || strlen( $code ) > 12 ) {
+			$this->redirect( self::page_url( 'wrong_code' ), '' );
 			return;
 		}
-		$url = is_array( $answer ) && 'unlinked' === ( $answer['status'] ?? '' ) ? self::tab_url( $answer ) : '';
-		if ( '' === $url ) {
-			$this->redirect( self::page_url( is_wp_error( $answer ) ? 'failed' : 'unavailable' ), '' );
-			return;
+		$result = $this->client()->request(
+			'POST',
+			'/integrations/woocommerce/embed/claim',
+			array(
+				'code'         => $code,
+				'wpUserId'     => (string) $user_id,
+				'wpUserLogin'  => function_exists( 'mb_substr' ) ? mb_substr( $login, 0, 60 ) : substr( $login, 0, 60 ),
+				'wpUserSecret' => self::user_secret( $user_id ),
+			),
+			self::OPEN_TIMEOUT
+		);
+		$this->redirect( self::page_url( self::claim_result( $result ) ), '' );
+	}
+
+	/**
+	 * The result flag for a claim answer.
+	 *
+	 * @param array|WP_Error $result request() result.
+	 * @return string
+	 */
+	private static function claim_result( $result ) {
+		if ( ! is_wp_error( $result ) ) {
+			return isset( $result['status'] ) && 'linked' === $result['status'] ? 'linked' : 'failed';
 		}
-		$this->redirect( $url, (string) wp_parse_url( $url, PHP_URL_HOST ) );
+		$data   = $result->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+		if ( 400 === $status ) {
+			return 'wrong_code';
+		}
+		if ( 429 === $status ) {
+			return 'throttled';
+		}
+		if ( 403 === $status ) {
+			return 'refused';
+		}
+		if ( 409 === $status ) {
+			return 'no_store';
+		}
+		return 'failed';
 	}
 
 	/**
 	 * "Unlink my login": TackQuote removes this WordPress user's link (only with their own
-	 * secret), and the secret is replaced so the old link can never match again.
+	 * secret). Only when it confirms the removal is the secret replaced; on any failure the
+	 * secret stays (Fable P1).
 	 */
 	public function handle_unlink() {
 		self::guard( self::UNLINK_ACTION );
@@ -516,7 +567,9 @@ class Tack_Embed_Admin {
 			),
 			self::OPEN_TIMEOUT
 		);
-		if ( is_wp_error( $result ) ) {
+		if ( is_wp_error( $result ) || empty( $result['removed'] ) ) {
+			// Nothing was unlinked (TackQuote unreachable, or no link for this login): keep
+			// the secret, so a live link keeps opening and a retry can still prove it.
 			$this->redirect( self::page_url( 'failed' ), '' );
 			return;
 		}

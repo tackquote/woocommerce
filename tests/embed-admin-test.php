@@ -4,8 +4,10 @@
  *
  * Wire contract (TackQuote API, lane WOO-EMBED, migration 480):
  *   POST /integrations/woocommerce/embed/open   {wpUserId, wpUserSecret, wpUserLabel?, purpose}
- *        -> {status:'linked', loginCode, frameTicket, appOrigin, framePath, openPath, account}
- *         | {status:'unlinked', linkTicket, appOrigin, linkPath, reason}
+ *        -> {status:'linked', loginCode, frameTicket, frameWithheld, appOrigin, account}
+ *         | {status:'unlinked', reason, appOrigin}
+ *   POST /integrations/woocommerce/embed/claim  {code, wpUserId, wpUserLogin, wpUserSecret}
+ *        -> {status:'linked'} | 400 wrong code | 429 paused | 403 refused | 409 no store
  *         | {status:'refused', code, message} | {status:'no_store', message}
  *   POST /integrations/woocommerce/embed/unlink {wpUserId, wpUserSecret} -> {removed}
  *   Gated on the ping capability `embedded_dashboard`.
@@ -18,6 +20,8 @@
  *   E5 render a frame for an unlinked user                  → unlinked check
  *   E6 regenerate the secret on every open                  → secret check
  *   E7 keep the secret after unlink                         → unlink check
+ *   E8 delete the secret when the unlink call failed (P1)   → keep-secret check
+ *   E9 send another user's id or no secret with the claim    → claim body check
  *
  * Included from tests/run.php.
  *
@@ -96,12 +100,11 @@ $embed_linked = array(
 	'account'     => array( 'name' => 'Rae <b>Rep</b>', 'email' => 'rae@example.test' ),
 );
 $embed_unlinked = array(
-	'status'     => 'unlinked',
-	'linkTicket' => str_repeat( 'L', 43 ),
-	'appOrigin'  => 'https://app.tackquote.com',
-	'linkPath'   => '/woocommerce/link',
-	'reason'     => 'no_link',
+	'status'    => 'unlinked',
+	'appOrigin' => 'https://app.tackquote.com',
+	'reason'    => 'no_link',
 );
+$GLOBALS['TACK_USER_LOGIN'] = 'shopmanager';
 
 $GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
 tack_test_set_logged_in( true, 'admin@example.test' );
@@ -157,7 +160,13 @@ tack_test_set_option( 'tack_quotes_api_url', 'https://api.tackquote.com/v1' );
 $client                         = new Tack_Test_Embed_Client();
 $client->answers['/embed/open'] = $embed_unlinked;
 $out                            = tack_embed_render( new Tack_Test_Embed_Admin( $client ) );
-check( 'unlinked: no frame, no code, a Link button (E5)', false === strpos( $out, '<iframe' ) && false !== strpos( $out, 'Link my TackQuote account' ) && false === strpos( $out, str_repeat( 'L', 43 ) ) );
+check( 'unlinked: no frame, no session, a nonce-protected code field (E5)', false === strpos( $out, '<iframe' ) && false !== strpos( $out, 'name="tq_link_code"' ) && false !== strpos( $out, 'value="' . Tack_Embed_Admin::CLAIM_ACTION . '"' ) && false !== strpos( $out, 'name="_tqnonce"' ) );
+
+// The store address moved: no frame, the reason, new tab still offered.
+$client                         = new Tack_Test_Embed_Client();
+$client->answers['/embed/open'] = array_merge( $embed_linked, array( 'frameTicket' => null, 'frameWithheld' => 'store_address_moved' ) );
+$out                            = tack_embed_render( new Tack_Test_Embed_Admin( $client ) );
+check( 'a moved store address: no frame, says why, new tab offered', false === strpos( $out, '<iframe' ) && false !== strpos( $out, 'address changed recently' ) && false !== strpos( $out, 'Open in a new tab' ) );
 
 // ── Disconnected: no code, a reconnect link, capabilities forgotten ─────────
 $client                         = new Tack_Test_Embed_Client();
@@ -200,20 +209,38 @@ check(
 	array( 'https://app.tackquote.com/woocommerce/open#code=0a1b2c3d-1111-4111-8111-222222222222', 'app.tackquote.com' ) === ( $admin->redirects[0] ?? null ) && 'tab' === ( $client->calls[0][2]['purpose'] ?? '' )
 );
 
-$client                         = new Tack_Test_Embed_Client();
-$client->answers['/embed/open'] = $embed_unlinked;
-$admin                          = new Tack_Test_Embed_Admin( $client );
-$_POST['_tqnonce']              = wp_create_nonce( Tack_Embed_Admin::LINK_ACTION );
-$admin->handle_link();
+// Link my TackQuote account: the typed code goes server to server with THIS user's id,
+// login and secret; only a fixed flag comes back to the page (E9).
+$client                          = new Tack_Test_Embed_Client();
+$client->answers['/embed/claim'] = array( 'status' => 'linked' );
+$admin                           = new Tack_Test_Embed_Admin( $client );
+$_POST['_tqnonce']               = wp_create_nonce( Tack_Embed_Admin::CLAIM_ACTION );
+$_POST['tq_link_code']           = ' abcd-2345 ';
+$admin->handle_claim();
+$claim = $client->calls[0] ?? array();
 check(
-	'Link my TackQuote account: to /woocommerce/link#ticket=',
-	array( 'https://app.tackquote.com/woocommerce/link#ticket=' . str_repeat( 'L', 43 ), 'app.tackquote.com' ) === ( $admin->redirects[0] ?? null )
+	'claim: code, this user id, login and secret go to /embed/claim (E9)',
+	'/integrations/woocommerce/embed/claim' === ( $claim[1] ?? '' ) && 'ABCD-2345' === ( $claim[2]['code'] ?? '' ) && '1' === ( $claim[2]['wpUserId'] ?? '' ) && 'shopmanager' === ( $claim[2]['wpUserLogin'] ?? '' ) && ( $GLOBALS['TACK_USER_META'][1][ Tack_Embed_Admin::SECRET_META ] ?? 'x' ) === ( $claim[2]['wpUserSecret'] ?? '' )
 );
+check( 'claim: back to the page with "linked"', array( Tack_Embed_Admin::page_url( 'linked' ), '' ) === ( $admin->redirects[0] ?? null ) );
+foreach ( array( 400 => 'wrong_code', 429 => 'throttled', 403 => 'refused', 409 => 'no_store', 503 => 'failed' ) as $status => $flag ) {
+	$client                          = new Tack_Test_Embed_Client();
+	$client->answers['/embed/claim'] = new WP_Error( 'tack_http_' . $status, 'API said <b>no</b>', array( 'status' => $status ) );
+	$admin                           = new Tack_Test_Embed_Admin( $client );
+	$admin->handle_claim();
+	check( "claim: HTTP $status reads as $flag, never the API's text", array( Tack_Embed_Admin::page_url( $flag ), '' ) === ( $admin->redirects[0] ?? null ) );
+}
+$client                = new Tack_Test_Embed_Client();
+$admin                 = new Tack_Test_Embed_Admin( $client );
+$_POST['tq_link_code'] = 'x';
+$admin->handle_claim();
+check( 'claim: an impossible code is not sent at all', 0 === count( $client->calls ) && array( Tack_Embed_Admin::page_url( 'wrong_code' ), '' ) === ( $admin->redirects[0] ?? null ) );
+unset( $_POST['tq_link_code'] );
 
 // A wrong nonce, or another action's nonce: refused before any API call (E2).
 $client            = new Tack_Test_Embed_Client();
 $admin             = new Tack_Test_Embed_Admin( $client );
-$_POST['_tqnonce'] = wp_create_nonce( Tack_Embed_Admin::LINK_ACTION );
+$_POST['_tqnonce'] = wp_create_nonce( Tack_Embed_Admin::CLAIM_ACTION );
 $died              = false;
 try {
 	$admin->handle_tab();
@@ -233,4 +260,15 @@ check(
 	'Unlink: the API gets this user and secret, then the secret is gone (E7)',
 	'/integrations/woocommerce/embed/unlink' === ( $client->calls[0][1] ?? '' ) && $before === ( $client->calls[0][2]['wpUserSecret'] ?? '' ) && '' === ( $GLOBALS['TACK_USER_META'][1][ Tack_Embed_Admin::SECRET_META ] ?? '' )
 );
+
+// P1: an unlink TackQuote did not confirm keeps the secret (E8).
+foreach ( array( new WP_Error( 'tack_http_503', 'down', array( 'status' => 503 ) ), array( 'removed' => false ) ) as $answer ) {
+	$GLOBALS['TACK_USER_META'][1][ Tack_Embed_Admin::SECRET_META ] = str_repeat( 'c', 64 );
+	$client                           = new Tack_Test_Embed_Client();
+	$client->answers['/embed/unlink'] = $answer;
+	$admin                            = new Tack_Test_Embed_Admin( $client );
+	$_POST['_tqnonce']                = wp_create_nonce( Tack_Embed_Admin::UNLINK_ACTION );
+	$admin->handle_unlink();
+	check( 'Unlink not confirmed: the secret stays, "failed" (E8)', str_repeat( 'c', 64 ) === ( $GLOBALS['TACK_USER_META'][1][ Tack_Embed_Admin::SECRET_META ] ?? '' ) && array( Tack_Embed_Admin::page_url( 'failed' ), '' ) === ( $admin->redirects[0] ?? null ) );
+}
 unset( $_POST['_tqnonce'] );
