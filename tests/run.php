@@ -257,5 +257,8 @@ require __DIR__ . '/live-qa-2-test.php';
 echo "\n-- 1.13.0 one place: store settings from TackQuote, one menu, registration questions --\n";
 require __DIR__ . '/store-settings-test.php';
 
+// 1.13.1: the signed-in requester's WordPress user id, to a `requester_identity` server.
+require __DIR__ . '/requester-identity-1131-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );
