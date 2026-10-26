@@ -487,7 +487,8 @@ class Tack_Store_Settings {
 	 * `PUT /integrations/woocommerce/store-settings/from-plugin` with the seller route's
 	 * field shape (`orderSync {push, acknowledgePersonalData}`, `features {…}`,
 	 * `defaultWholesaleFormSlug`). On success the stored answer is replaced by
-	 * TackQuote's (or read again); on failure nothing local changes.
+	 * TackQuote's (or read again); on failure, including an accepted change whose
+	 * settings cannot be read back, nothing local changes and a WP_Error is returned.
 	 *
 	 * @param array                $change Fields to change.
 	 * @param Tack_Api_Client|null $client Client (tests).
@@ -513,8 +514,12 @@ class Tack_Store_Settings {
 		}
 		$settings = self::normalise( $answer );
 		if ( null === $settings ) {
-			// Saved, but the answer is not the settings: read them again.
-			self::refresh( $client, Tack_Api_Client::INTERACTIVE_TIMEOUT );
+			// Accepted, but the answer is not the settings: read them again. When that read
+			// fails too, nothing local changes and the caller reports it (fail closed): the
+			// plugin cannot say what TackQuote now holds.
+			if ( false === self::refresh( $client, Tack_Api_Client::INTERACTIVE_TIMEOUT ) ) {
+				return new WP_Error( 'tack_store_settings_unconfirmed', __( 'TackQuote did not confirm the change; reload this page to see what TackQuote now has', 'tackquote' ) );
+			}
 			return true;
 		}
 		update_option(

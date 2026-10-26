@@ -516,6 +516,37 @@ update_option( Tack_Store_Settings::OPTION, $ss_st );
 tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => null, 'wholesaleForms' => array( array( 'isDefault' => false ) ) ) ) ) ) );
 update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
 check( 'form: TackQuote\'s default saved with no default form named mirrors the plugin\'s own default form', Tack_Storefront_Forms::DEFAULT_SLUG === $ss_settings->sanitize_server_form_slug( '' ) && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+// TackQuote accepts the PUT but answers something that is not the settings: they are
+// read again. When that read fails as well, the plugin cannot say what TackQuote holds,
+// so nothing local changes and the seller is told (fail closed, never a silent success).
+$ss_ping = array( 200, array( 'ok' => true, 'capabilities' => array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) ) );
+Tack_Settings::reset_write_batch();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+$ss_before = get_option( Tack_Store_Settings::OPTION );
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping'           => $ss_ping,
+		'/store-settings/from-plugin'              => array( 200, array( 'ok' => true ) ),
+		'/integrations/woocommerce/store-settings' => array( 500, array( 'message' => 'down' ) ),
+	)
+);
+$ss_unconfirmed = Tack_Store_Settings::write( array( 'defaultWholesaleFormSlug' => 'distributor' ) );
+check( 'write: an accepted PUT whose settings cannot be read back is a WP_Error, not true', is_wp_error( $ss_unconfirmed ) && 'tack_store_settings_unconfirmed' === $ss_unconfirmed->get_error_code() && $ss_before === get_option( Tack_Store_Settings::OPTION ) );
+Tack_Settings::reset_write_batch();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+check( 'form: ...so the sanitizer keeps the previous local form and reports it', 'old-typed-slug' === $ss_settings->sanitize_server_form_slug( 'distributor' ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) && false !== strpos( (string) wp_json_encode( $GLOBALS['TACK_SETTINGS_ERRORS'] ), 'did not confirm' ) );
+// The same accepted PUT with a successful re-read: saved, and mirrored from the re-read.
+Tack_Settings::reset_write_batch();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping'           => $ss_ping,
+		'/store-settings/from-plugin'              => array( 200, array( 'ok' => true ) ),
+		'/integrations/woocommerce/store-settings' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'distributor' ) ) ),
+	)
+);
+check( 'form: an accepted PUT re-read successfully is saved and mirrored, no error (positive control)', 'distributor' === $ss_settings->sanitize_server_form_slug( 'distributor' ) && 'distributor' === Tack_Store_Settings::chosen_wholesale_form_slug() && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
 $_POST = array();
 
 // A server with store_settings but without store_settings_write: exactly 1.12.0.
