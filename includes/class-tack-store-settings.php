@@ -21,13 +21,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  *        -> { orderSync: { push }, features: { prices, orderLimits, buyerGroupBadge,
  *             taxExempt }, buyerGroups: [{ code, name }], wholesaleForms: [{ slug, name,
  *             isDefault }], defaultWholesaleFormSlug, updatedAt }
+ *   PUT  /integrations/woocommerce/store-settings/from-plugin (capability
+ *        `store_settings_write`) { orderSync?: { push, acknowledgePersonalData },
+ *        features?: { … }, defaultWholesaleFormSlug?: string|null } -> the same shape.
+ *        The plugin's own settings page writes through it, so everything 1.12.0 could
+ *        change from WordPress still can be.
  *   POST /integrations/woocommerce/store-settings/seed
  *        { orderSync: { push }, features: { ... } } -> the same shape as GET. TackQuote
  *        stores the values only when it holds none for this store.
  *
  * The rules:
  *
- *   - An older server (its fresh capability list has no `store_settings`) changes nothing:
+ *   - TackQuote decides only on a server that lists BOTH `store_settings` and
+ *     `store_settings_write`. Any other server (its fresh capability list lacks one) changes nothing:
  *     every feature reads the plugin's own option, exactly as in 1.12.0.
  *   - TackQuote's value wins. The plugin's own "Turn off … on this store" box can only
  *     switch a feature OFF here; it can never switch on what TackQuote has off.
@@ -42,8 +48,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Tack_Store_Settings {
 
-	/** The ping capability a server lists when it serves these routes. */
+	/** The ping capability a server lists when it serves the read and seed routes. */
 	const CAPABILITY = 'store_settings';
+
+	/**
+	 * The capability for the plugin's own write route (`PUT …/store-settings/from-plugin`).
+	 * TackQuote decides these settings ONLY on a server that lists both: the plugin must
+	 * be able to change everything it could change in 1.12.0, from inside WordPress.
+	 */
+	const WRITE_CAPABILITY = 'store_settings_write';
 
 	/** The last answer TackQuote gave, for the saved key (autoloaded: storefront reads it). */
 	const OPTION = 'tack_quotes_store_settings';
@@ -68,8 +81,9 @@ class Tack_Store_Settings {
 	const TAX_EXEMPT   = 'tax_exempt';
 
 	/** The settings paths. */
-	const GET_PATH  = '/integrations/woocommerce/store-settings';
-	const SEED_PATH = '/integrations/woocommerce/store-settings/seed';
+	const GET_PATH   = '/integrations/woocommerce/store-settings';
+	const SEED_PATH  = '/integrations/woocommerce/store-settings/seed';
+	const WRITE_PATH = '/integrations/woocommerce/store-settings/from-plugin';
 
 	/**
 	 * Every TackQuote-owned switch: the plugin's own (1.12.0) option, the local
@@ -163,7 +177,17 @@ class Tack_Store_Settings {
 		if ( null === $caps ) {
 			return null;
 		}
-		return in_array( self::CAPABILITY, $caps, true );
+		return self::offers_all( $caps );
+	}
+
+	/**
+	 * Does a capability list carry both the read and the write capability?
+	 *
+	 * @param string[] $caps Capabilities.
+	 * @return bool
+	 */
+	private static function offers_all( array $caps ) {
+		return in_array( self::CAPABILITY, $caps, true ) && in_array( self::WRITE_CAPABILITY, $caps, true );
 	}
 
 	/**
@@ -248,6 +272,16 @@ class Tack_Store_Settings {
 		}
 		$snapshot = self::snapshot();
 		return $snapshot['settings']['wholesaleForms'];
+	}
+
+	/**
+	 * The form chosen for this store in TackQuote, as stored there ('' = TackQuote's
+	 * default), or '' when TackQuote is not deciding.
+	 *
+	 * @return string
+	 */
+	public static function chosen_wholesale_form_slug() {
+		return self::is_server_driven() ? self::snapshot()['settings']['defaultWholesaleFormSlug'] : '';
 	}
 
 	/**
@@ -414,7 +448,7 @@ class Tack_Store_Settings {
 		}
 		$client  = $client instanceof Tack_Api_Client ? $client : new Tack_Api_Client();
 		$timeout = null === $timeout ? self::CRON_TIMEOUT : (int) $timeout;
-		if ( ! in_array( self::CAPABILITY, $client->server_capabilities(), true ) ) {
+		if ( ! self::offers_all( $client->server_capabilities() ) ) {
 			return false;
 		}
 
@@ -433,6 +467,44 @@ class Tack_Store_Settings {
 			}
 		}
 
+		update_option(
+			self::OPTION,
+			array(
+				'key'      => self::fingerprint(),
+				'fetched'  => time(),
+				'settings' => $settings,
+			),
+			true
+		);
+		return true;
+	}
+
+	/**
+	 * Change settings in TackQuote from the plugin's own settings page (1.13.0):
+	 * `PUT /integrations/woocommerce/store-settings/from-plugin` with the seller route's
+	 * field shape (`orderSync {push, acknowledgePersonalData}`, `features {…}`,
+	 * `defaultWholesaleFormSlug`). On success the stored answer is replaced by
+	 * TackQuote's (or read again); on failure nothing local changes.
+	 *
+	 * @param array                $change Fields to change.
+	 * @param Tack_Api_Client|null $client Client (tests).
+	 * @return true|WP_Error
+	 */
+	public static function write( array $change, $client = null ) {
+		if ( ! self::is_server_driven() ) {
+			return new WP_Error( 'tack_store_settings_unavailable', __( 'TackQuote does not take these settings from the plugin right now. Reload the page and try again.', 'tackquote' ) );
+		}
+		$client = $client instanceof Tack_Api_Client ? $client : new Tack_Api_Client();
+		$answer = $client->request( 'PUT', self::WRITE_PATH, $change, Tack_Api_Client::INTERACTIVE_TIMEOUT );
+		if ( is_wp_error( $answer ) ) {
+			return $answer;
+		}
+		$settings = self::normalise( $answer );
+		if ( null === $settings ) {
+			// Saved, but the answer is not the settings: read them again.
+			self::refresh( $client, Tack_Api_Client::INTERACTIVE_TIMEOUT );
+			return true;
+		}
 		update_option(
 			self::OPTION,
 			array(

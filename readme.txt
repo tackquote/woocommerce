@@ -203,8 +203,8 @@ kept in their user meta and, to open, `purpose` (`frame` in the page or `tab` fo
 also sends the one-time code they typed and their login name. No customer or order data.
 
 19. **Store settings** (since 1.13.0) — `GET /integrations/woocommerce/store-settings` every
-ten minutes and on opening settings; headers only. While TackQuote holds none, `POST …/store-settings/seed`
-sends which of order sync and the four B2B switches are on and the plugin's wholesale form slug.
+ten minutes and on opening settings; headers only. `PUT …/from-plugin` sends a setting you change on
+the tabs. While TackQuote holds none, `POST …/seed` sends the five switches and the form slug.
 
 This plugin sends data to no other external service.
 
@@ -443,7 +443,7 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 = Unreleased (1.13.0) =
 Full notes are in `changelog.txt`.
 
-* **One place for each setting.** On a TackQuote server that offers it, order sync, TackQuote prices, order limits, the buyer group badge and tax exemption are switched on in TackQuote; the plugin can still turn each off for this store. Buyer groups and the wholesale form come from TackQuote: nothing to copy by hand.
+* **One source for each setting.** On a TackQuote server that offers it, order sync, TackQuote prices, order limits, the buyer group badge, tax exemption and the wholesale form are saved in TackQuote, whether you change them in TackQuote or on the plugin's own tabs, which keep every 1.12.0 setting. Buyer groups and wholesale forms are picked from TackQuote's lists: nothing to copy by hand. Each switch can also be turned off for this store only.
 * **One menu entry**: WooCommerce → TackQuote holds the dashboard and the settings; shop managers can open both. The pasted key moved under Advanced on the Connection tab.
 * Fixed: the quote form asks the seller's own registration questions, so a seller with a required question no longer gets every request refused. The order-sync box no longer shows ticked before it was ever saved.
 

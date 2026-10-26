@@ -132,7 +132,7 @@ check( 'old server: no buyer group list', null === Tack_Store_Settings::buyer_gr
 
 // ── A store_settings server ─────────────────────────────────────────────────
 tack_ss_reset();
-tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 
 update_option( 'tack_quotes_enable_order_sync', 'no' );
 update_option( 'tack_quotes_enable_wholesale_pricing', 'no' );
@@ -177,14 +177,14 @@ check( 'no fresh capability list: the last answer still decides (fail closed)', 
 tack_ss_caps( array( 'standing' ) );
 update_option( 'tack_quotes_enable_order_sync', 'no' );
 check( 'server no longer lists store_settings: the plugin\'s own options again', ! Tack_Store_Settings::is_server_driven() && ! Tack_Order_Sync::is_enabled() );
-tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 
 // A different key: the stored answer belongs to the old one.
 update_option( 'tack_quotes_api_key', 'tq_live_other_key_0002' );
-tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 check( 'another key: the stored answer is not used', ! Tack_Store_Settings::is_server_driven() );
 update_option( 'tack_quotes_api_key', $ss_key );
-tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 
 // Cadence (Fable 2): the read rides ONLY the standing event, so background traffic stays
 // one ping + one read per ten minutes and the ping never runs more often than before.
@@ -206,7 +206,7 @@ check( 'cadence: a stale answer schedules no extra standing run (no extra ping)'
 } )() );
 tack_cx_routes(
 	array(
-		'/integrations/woocommerce/ping' => array( 200, array( 'ok' => true, 'capabilities' => array( 'standing', Tack_Store_Settings::CAPABILITY ) ) ),
+		'/integrations/woocommerce/ping' => array( 200, array( 'ok' => true, 'capabilities' => array( 'standing', Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) ) ),
 		'/store-settings'                => array( 200, tack_ss_answer() ),
 	)
 );
@@ -216,7 +216,7 @@ check( 'cadence: one standing run = exactly one ping and one store-settings read
 
 // ── Seed: TackQuote holds nothing yet ────────────────────────────────────────
 tack_ss_reset();
-tack_ss_caps( array( Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 update_option( 'tack_quotes_enable_order_sync', 'yes' );
 update_option( 'tack_quotes_enable_wholesale_pricing', 'yes' );
 update_option( 'tack_quotes_enable_order_limits', 'no' );
@@ -253,7 +253,7 @@ check( '...with no slug saved in the plugin, the seed says null (TackQuote keeps
 check( '...so an existing store keeps its behaviour', Tack_Order_Sync::is_enabled() && Tack_Wholesale_Pricing::is_enabled() && Tack_B2B_Notices::buyer_group_enabled() );
 
 tack_ss_reset();
-tack_ss_caps( array( Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 update_option( 'tack_quotes_enable_order_sync', 'yes' );
 tack_cx_routes(
 	array(
@@ -272,7 +272,7 @@ check( 'a seed answer still empty is not taken either', false === Tack_Store_Set
 
 // ── Settings screen on a store_settings server ──────────────────────────────
 tack_ss_reset();
-tack_ss_caps( array( Tack_Store_Settings::CAPABILITY ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 tack_cx_routes( array( '/store-settings' => array( 200, tack_ss_answer() ) ) );
 Tack_Store_Settings::refresh();
 tack_test_reset_settings_api();
@@ -281,31 +281,106 @@ $ss_settings->register_settings();
 $ss_reg = function ( $tab ) {
 	return tack_tabs_registered( Tack_Settings::option_group( $tab ) );
 };
-check( 'server mode: the pricing tab saves only the "turn off" boxes and the volume table', array( 'tack_quotes_off_buyer_group', 'tack_quotes_off_order_limits', 'tack_quotes_off_prices', 'tack_quotes_off_tax_exempt', 'tack_quotes_show_quantity_breaks' ) === $ss_reg( 'pricing' ), implode( ', ', $ss_reg( 'pricing' ) ) );
-check( '...so a save can never reset the plugin\'s own 1.12.0 switches', ! in_array( 'tack_quotes_enable_wholesale_pricing', $ss_reg( 'pricing' ), true ) );
-check( 'server mode: the order-sync tab saves only its "turn off" box', array( 'tack_quotes_off_order_sync' ) === $ss_reg( 'sync' ) );
-check( 'server mode: no typed group codes', ! in_array( Tack_Settings::OPTION_GROUP_CODES, $ss_reg( 'groups' ), true ) );
-check( 'server mode: no typed wholesale form slug', ! in_array( Tack_Storefront_Forms::OPTION_FORM_SLUG, $ss_reg( 'forms' ), true ) );
+check( 'server mode: the pricing tab still saves the 1.12.0 switches (written through to TackQuote) and the "turn off" boxes', array( 'tack_quotes_apply_tax_exempt', 'tack_quotes_enable_buyer_group', 'tack_quotes_enable_order_limits', 'tack_quotes_enable_wholesale_pricing', 'tack_quotes_off_buyer_group', 'tack_quotes_off_order_limits', 'tack_quotes_off_prices', 'tack_quotes_off_tax_exempt', 'tack_quotes_show_quantity_breaks' ) === $ss_reg( 'pricing' ), implode( ', ', $ss_reg( 'pricing' ) ) );
+check( 'server mode: the order-sync tab saves its switch and its "turn off" box', array( 'tack_quotes_enable_order_sync', 'tack_quotes_off_order_sync' ) === $ss_reg( 'sync' ) );
+check( 'server mode: buyer groups are picked (still saved)', in_array( Tack_Settings::OPTION_GROUP_CODES, $ss_reg( 'groups' ), true ) );
+check( 'server mode: the wholesale form is picked (still saved)', in_array( Tack_Storefront_Forms::OPTION_FORM_SLUG, $ss_reg( 'forms' ), true ) );
 $GLOBALS['TACK_CAPS'] = array( 'manage_options', 'manage_woocommerce' );
-$ss_html              = tack_tabs_page( $ss_settings, 'pricing' );
+tack_test_set_option( Tack_Settings::OPTION_GROUP_CODES, array() );
 foreach ( array( 'connection', 'storefront', 'pricing', 'groups', 'forms', 'sync' ) as $ss_tab ) {
 	$ss_drawn = tack_tabs_posted_names( tack_tabs_render_sections( $ss_tab ) );
 	check( "server mode: tab '$ss_tab' draws exactly the options its group saves", $ss_drawn === $ss_reg( $ss_tab ), 'registered-not-drawn: ' . implode( ',', array_diff( $ss_reg( $ss_tab ), $ss_drawn ) ) . ' | drawn-not-registered: ' . implode( ',', array_diff( $ss_drawn, $ss_reg( $ss_tab ) ) ) );
 }
-check( 'pricing tab: TackQuote\'s value is shown read-only', false !== strpos( $ss_html, 'tack-pill--ok">On in TackQuote<' ) && false !== strpos( $ss_html, 'tack-pill--off">Off in TackQuote<' ) );
-check( '...with "Change in TackQuote"', false !== strpos( $ss_html, 'Change in TackQuote' ) );
+$ss_html = tack_tabs_page( $ss_settings, 'pricing' );
+check( 'pricing tab: the switch stays editable and shows TackQuote\'s value', (bool) preg_match( '/name="tack_quotes_enable_wholesale_pricing" value="yes" checked/', $ss_html ) && (bool) preg_match( '/name="tack_quotes_enable_order_limits" value="yes"\s*\/>/', $ss_html ) );
+check( '...with the state in TackQuote', false !== strpos( $ss_html, 'tack-pill--ok">On in TackQuote<' ) && false !== strpos( $ss_html, 'tack-pill--off">Off in TackQuote<' ) );
 check( '...and a "Turn off … on this store" box', false !== strpos( $ss_html, 'Turn off TackQuote prices on this store' ) );
 $ss_html = tack_tabs_page( $ss_settings, 'groups' );
-check( 'groups tab: TackQuote\'s groups listed, no code typed', false !== strpos( $ss_html, '<code>GOLD</code>' ) && false === strpos( $ss_html, 'name="' . Tack_Settings::OPTION_GROUP_CODES . '"' ) );
-check( 'the restriction grids offer TackQuote\'s groups', in_array( 'TIER2', $ss_settings->known_group_codes(), true ) );
+check( 'groups tab: TackQuote\'s groups to pick from, no code typed', false !== strpos( $ss_html, 'value="GOLD"' ) && false === strpos( $ss_html, 'type="text" id="' . Tack_Settings::OPTION_GROUP_CODES ) );
+check( 'the restriction grids offer TackQuote\'s groups (none picked: all)', array( 'GOLD', 'TIER2' ) === array_values( array_intersect( array( 'GOLD', 'TIER2' ), $ss_settings->known_group_codes() ) ) );
+check( 'picked groups: only codes TackQuote lists are kept', array( 'TIER2' ) === $ss_settings->sanitize_server_group_codes( array( '', 'tier2', 'NOPE' ) ) );
+tack_test_set_option( Tack_Settings::OPTION_GROUP_CODES, array( 'TIER2' ) );
+check( '...and the grids then offer only those', in_array( 'TIER2', $ss_settings->known_group_codes(), true ) && ! in_array( 'GOLD', $ss_settings->known_group_codes(), true ) );
+tack_test_set_option( Tack_Settings::OPTION_GROUP_CODES, array() );
 $ss_html = tack_tabs_page( $ss_settings, 'forms' );
-check( 'forms tab: the form TackQuote chose, read-only', false !== strpos( $ss_html, '<strong>Distributors</strong> <code>distributor</code>' ) && false === strpos( $ss_html, 'name="' . Tack_Storefront_Forms::OPTION_FORM_SLUG . '"' ) );
+check( 'forms tab: the wholesale form is picked from TackQuote\'s list', false !== strpos( $ss_html, '<select id="' . Tack_Storefront_Forms::OPTION_FORM_SLUG . '"' ) && false !== strpos( $ss_html, '<option value="distributor" selected=\'selected\'>Distributors (distributor)</option>' ) );
 $ss_html = tack_tabs_page( $ss_settings, 'overview' );
 check( 'overview: order sync shows what is in force (TackQuote on)', (bool) preg_match( '/tack-card-sync.{0,400}tack-pill--ok">On</s', $ss_html ) );
 
+// ── Write-through (owner 2026-10-26: nothing 1.12.0 could do becomes impossible) ──
+$ss_put = function () {
+	return array_values(
+		array_filter(
+			$GLOBALS['TACK_HTTP_REQUESTS'],
+			function ( $r ) {
+				return false !== strpos( $r['url'], '/store-settings/from-plugin' ) && 'PUT' === $r['args']['method'];
+			}
+		)
+	);
+};
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+$_POST['option_page']           = Tack_Settings::option_group( 'pricing' );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true ) ) ) ) ) );
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'yes', 'tack_quotes_apply_tax_exempt' => 'no', 'tack_quotes_off_prices' => 'no' ) );
+$ss_puts = $ss_put();
+check( 'write: only the changed switch is sent, once, to PUT …/store-settings/from-plugin', 1 === count( $ss_puts ) && array( 'features' => array( 'orderLimits' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ), wp_json_encode( $ss_puts ) );
+check( '...TackQuote\'s answer becomes the stored value, and the local option mirrors it', Tack_B2B_Notices::order_limits_enabled() && 'yes' === get_option( 'tack_quotes_enable_order_limits' ) );
+
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 400, array( 'statusCode' => 400, 'message' => 'Nope from TackQuote' ) ) ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'yes', 'tack_quotes_apply_tax_exempt' => 'no' ) );
+check( 'write refused: the previous value stays (here and in force)', 'yes' === get_option( 'tack_quotes_enable_wholesale_pricing' ) && Tack_Wholesale_Pricing::is_enabled() );
+check( '...and the reason is shown', 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) && false !== strpos( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2], 'TackQuote did not save it' ) );
+
+// Order sync ON needs the personal-data statement.
+$_POST['option_page'] = Tack_Settings::option_group( 'sync' );
+$ss_st                = get_option( Tack_Store_Settings::OPTION );
+$ss_st['settings']['orderSync']['push'] = false;
+update_option( Tack_Store_Settings::OPTION, $ss_st );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer() ) ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_tabs_save( Tack_Settings::option_group( 'sync' ), array( 'tack_quotes_enable_order_sync' => array( 'on' => 'yes' ) ) );
+check( 'order sync ON without the statement: nothing sent, stays off, reason shown', array() === $ss_put() && ! Tack_Order_Sync::is_enabled() && 'no' === get_option( 'tack_quotes_enable_order_sync' ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+tack_tabs_save( Tack_Settings::option_group( 'sync' ), array( 'tack_quotes_enable_order_sync' => array( 'on' => 'yes', 'ack' => 'yes' ) ) );
+$ss_puts = $ss_put();
+check( 'order sync ON with the statement: acknowledgePersonalData true is sent', 1 === count( $ss_puts ) && array( 'orderSync' => array( 'push' => true, 'acknowledgePersonalData' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ) && Tack_Order_Sync::is_enabled() );
+
+// Not the tab's own options.php save (activation's add_option, other code): never written.
+unset( $_POST['option_page'] );
+$GLOBALS['TACK_HTTP_REQUESTS'] = array();
+$ss_cb = null;
+foreach ( $GLOBALS['TACK_SETTINGS'] as $ss_setting ) {
+	if ( 'tack_quotes_enable_order_limits' === $ss_setting['option'] ) {
+		$ss_cb = $ss_setting['args']['sanitize_callback'];
+	}
+}
+check( 'an update_option() outside the tab\'s own save never writes to TackQuote (TackQuote has it off; the call says on)', false === Tack_Store_Settings::server_value( Tack_Store_Settings::ORDER_LIMITS ) && 'yes' === call_user_func( $ss_cb, 'yes' ) && array() === $ss_put() );
+$_POST['option_page']  = Tack_Settings::option_group( 'pricing' );
+$GLOBALS['TACK_CAPS']  = array( 'read' );
+check( '...nor a save by someone without the tab\'s capability', 'yes' === call_user_func( $ss_cb, 'yes' ) && array() === $ss_put() );
+$GLOBALS['TACK_CAPS'] = array( 'manage_options', 'manage_woocommerce' );
+
+// The wholesale form, picked and saved in TackQuote.
+$_POST['option_page'] = Tack_Settings::option_group( 'forms' );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'trade-signup' ) ) ) ) );
+check( 'form: a listed form is saved in TackQuote and used', 'trade-signup' === $ss_settings->sanitize_server_form_slug( 'trade-signup' ) && 1 === count( $ss_put() ) && array( 'defaultWholesaleFormSlug' => 'trade-signup' ) === json_decode( (string) $ss_put()[0]['args']['body'], true ) && 'trade-signup' === Tack_Storefront_Forms::default_slug() );
+$GLOBALS['TACK_HTTP_REQUESTS'] = array();
+check( 'form: one TackQuote does not list is refused, nothing sent', 'trade-signup' !== $ss_settings->sanitize_server_form_slug( 'made-up' ) && array() === $ss_put() );
+check( 'form: TackQuote\'s default is sent as null', ( function () use ( $ss_settings, $ss_put ) {
+	$ss_settings->sanitize_server_form_slug( '' );
+	$p = $ss_put();
+	return 1 === count( $p ) && array( 'defaultWholesaleFormSlug' => null ) === json_decode( (string) $p[0]['args']['body'], true );
+} )() );
+unset( $_POST['option_page'] );
+
+// A server with store_settings but without store_settings_write: exactly 1.12.0.
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY ) );
+check( 'no store_settings_write: TackQuote does not decide (local 1.12.0 options)', ! Tack_Store_Settings::is_server_driven() );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
+
 // "Change in TackQuote": the embedded dashboard when the server offers it, else a new tab.
 check( 'change link: TackQuote\'s WooCommerce page in a new tab without the embedded dashboard', array( 'url' => 'https://app.tackquote.com/settings/integrations/woocommerce', 'new_tab' => true ) === Tack_Store_Settings::change_link() );
-tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, 'embedded_dashboard' ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, 'embedded_dashboard' ) );
 check( 'change link: WooCommerce → TackQuote when the server offers the dashboard', false === Tack_Store_Settings::change_link()['new_tab'] && false !== strpos( Tack_Store_Settings::change_link()['url'], 'page=' . Tack_Embed_Admin::PAGE_SLUG ) );
 
 // ── Old server: the 1.12.0 screen, with the order-sync default fixed ────────
