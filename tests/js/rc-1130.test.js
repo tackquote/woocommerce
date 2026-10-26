@@ -27,11 +27,20 @@ function check(label, fn) {
   }
 }
 
-check('P2: the card wrapper is a named inline-size container that stretches across the card', () => {
+check('P2: the card wrapper is a named inline-size container that spans the card', () => {
   const rule = /\.wp-block-button\.tack-card-quote \{([^}]*container:[^}]*)\}/.exec(css);
   assert.ok(rule, 'a container rule on the wrapper');
   assert.match(rule[1], /container:\s*tack-card-quote\s*\/\s*inline-size;/);
   assert.match(rule[1], /align-self:\s*stretch;/);
+});
+
+check('P2: directly in a core flex layout (Row or Stack) the wrapper is no container and follows the layout', () => {
+  const rule = /:where\(\.is-layout-flex\) > \.wp-block-button\.tack-card-quote \{([^}]*)\}/.exec(css);
+  assert.ok(rule, 'the flex opt-out rule');
+  assert.match(rule[1], /container-type:\s*normal;/);
+  assert.match(rule[1], /align-self:\s*auto;/);
+  // It must come AFTER the container rule (same specificity: the later one wins).
+  assert.ok(css.indexOf(rule[0]) > css.indexOf('container: tack-card-quote / inline-size;'), 'after the container rule');
 });
 
 check('P2: in a narrow card only the side padding changes (one line, theme button kept)', () => {
