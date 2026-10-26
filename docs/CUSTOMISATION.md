@@ -124,6 +124,15 @@ The two form templates' output, and the net terms and wholesale summaries', is s
 The request form (modal) and the drawer's rows are built by `assets/js/tack-quotes.js`, not
 by a template; restyle them with CSS.
 
+WooCommerce's own templates the quote buttons read (1.12.0): a theme that overrides the
+grouped product template (`woocommerce/single-product/add-to-cart/grouped.php`) must keep
+its hidden `<input name="add-to-cart" value="<group ID>">` and each child's
+`quantity[<child ID>]` field. The buttons find a grouped product's form through the first
+(they sit after the form when no child can be added to the cart) and quote one line per
+child from the second. A child on quote or out of stock gets the plugin's own
+`tack_quantity[<child ID>]` through the `woocommerce_grouped_product_list_column_quantity`
+filter, which an override must keep applying.
+
 ## Filters (all since 1.10.0)
 
 | Filter | Arguments | Use |

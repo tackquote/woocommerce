@@ -130,6 +130,42 @@ check('cartLine: a cart item\'s Any choice rides on the line', () => {
   assert.equal(plain.attributes, undefined);
 });
 
+// Follow-up: rows the server will quote no line for (re-price `dropped`).
+check('dropRows: a grouped parent left in the list is removed; all removed were grouped', () => {
+  const list = [
+    { productId: 252, variationId: 0, quantity: 4 },
+    { productId: 233, variationId: 0, quantity: 6 },
+  ];
+  const r = api.dropRows(list, [{ product_id: 252, variation_id: 0, grouped: true }]);
+  assert.deepEqual(r.kept.map((x) => x.productId), [233]);
+  assert.equal(r.removed.length, 1);
+  assert.equal(r.allGrouped, true);
+});
+
+check('dropRows: a deleted product removed alongside -> not all grouped', () => {
+  const list = [{ productId: 252 }, { productId: 9 }];
+  const r = api.dropRows(list, [
+    { product_id: 252, variation_id: 0, grouped: true },
+    { product_id: 9, variation_id: 0, grouped: false },
+  ]);
+  assert.equal(r.kept.length, 0);
+  assert.equal(r.allGrouped, false);
+});
+
+check('dropRows: nothing dropped -> list unchanged, no message', () => {
+  const list = [{ productId: 233 }];
+  const r = api.dropRows(list, []);
+  assert.deepEqual(r.kept, list);
+  assert.equal(r.allGrouped, false);
+  assert.equal(api.dropRows(list, undefined).kept.length, 1);
+});
+
+check('dropRows: matched on product AND variation', () => {
+  const list = [{ productId: 240, variationId: 241 }, { productId: 240, variationId: 0 }];
+  const r = api.dropRows(list, [{ product_id: 240, variation_id: 0, grouped: false }]);
+  assert.deepEqual(r.kept.map((x) => x.variationId), [241]);
+});
+
 if (failures) {
   console.log('\n' + failures + ' failure(s)');
   process.exit(1);

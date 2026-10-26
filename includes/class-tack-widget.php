@@ -2488,6 +2488,33 @@ class Tack_Widget {
 	}
 
 	/**
+	 * One decoded quote-list row as the quote request would see it: the product quoted,
+	 * or, when the request would quote no line for it, the row as the re-price answer's
+	 * `dropped` names it (`grouped` true for a grouped product, which is quoted as its
+	 * children, never itself).
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param array $row A row from decode_rows().
+	 * @return array{0:WC_Product|null,1:array{product_id:int,variation_id:int,grouped:bool}|null}
+	 */
+	private function resolve_row( array $row ) {
+		$product = wc_get_product( $row['product_id'] );
+		$quoted  = $product instanceof WC_Product ? $this->resolve_purchasable( $product, $row['variation_id'] ) : null;
+		if ( $quoted ) {
+			return array( $quoted, null );
+		}
+		return array(
+			null,
+			array(
+				'product_id'   => (int) $row['product_id'],
+				'variation_id' => (int) $row['variation_id'],
+				'grouped'      => $product instanceof WC_Product && $product->is_type( 'grouped' ),
+			),
+		);
+	}
+
+	/**
 	 * The `attribute_* => value` pairs a quote row or request carries for a variation's
 	 * "Any …" attributes (1.12.0), bounded and reduced to strings. Which of them count is
 	 * decided against the variation and its parent (`chosen_any_attributes()`).
@@ -2577,13 +2604,19 @@ class Tack_Widget {
 		$items_json = isset( $_POST['items'] ) ? sanitize_textarea_field( wp_unslash( $_POST['items'] ) ) : '';
 		$asks       = array();
 		$resolved   = array();
+
+		/*
+		 * Rows the quote request would quote no line for (1.12.0 follow-up): a product
+		 * that is gone or that this visitor may not quote, a variable product with no
+		 * variation, or a grouped product saved in the list before grouped products were
+		 * quoted as their children. The list drops them, so the shopper does not send a
+		 * request for something that is silently left out; `grouped` lets it say why.
+		 */
+		$dropped = array();
 		foreach ( $this->decode_rows( $items_json ) as $row ) {
-			$product = wc_get_product( $row['product_id'] );
-			if ( ! $product instanceof WC_Product ) {
-				continue;
-			}
-			$product = $this->resolve_purchasable( $product, $row['variation_id'] );
-			if ( ! $product ) {
+			list( $product, $gone ) = $this->resolve_row( $row );
+			if ( null !== $gone ) {
+				$dropped[] = $gone;
 				continue;
 			}
 			$sku = (string) $product->get_sku();
@@ -2603,7 +2636,12 @@ class Tack_Widget {
 			);
 		}
 		if ( empty( $asks ) ) {
-			wp_send_json_success( array( 'items' => array() ) );
+			wp_send_json_success(
+				array(
+					'items'   => array(),
+					'dropped' => $dropped,
+				)
+			);
 		}
 
 		$pricing = new Tack_Wholesale_Pricing();
@@ -2624,6 +2662,11 @@ class Tack_Widget {
 			);
 		}
 
-		wp_send_json_success( array( 'items' => $out ) );
+		wp_send_json_success(
+			array(
+				'items'   => $out,
+				'dropped' => $dropped,
+			)
+		);
 	}
 }
