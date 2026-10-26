@@ -115,5 +115,17 @@ $GLOBALS['product'] = $pt_tshirt;
 $qa2_loop           = tack_parity_capture( array( new Tack_Widget(), 'render_card_button' ) );
 $GLOBALS['product'] = null;
 check( 'card (classic loop): keeps WooCommerce\'s `button` class', 1 === preg_match( '/<button[^>]*class="[^"]*\bbutton\b[^"]*tack-card-quote-btn/', $qa2_loop ), $qa2_loop );
+// 1.13.0: the classic loop on a block theme ([products] on Twenty Twenty-Five) gets the
+// narrow-card wrapper; a classic theme keeps the 1.12.0 markup (no wrapper).
+$qa2_theme                   = $GLOBALS['TACK_BLOCK_THEME'] ?? false;
+$GLOBALS['product']          = $pt_tshirt;
+$GLOBALS['TACK_BLOCK_THEME'] = true;
+$qa2_loop_block              = tack_parity_capture( array( new Tack_Widget(), 'render_card_button' ) );
+$GLOBALS['TACK_BLOCK_THEME'] = false;
+$qa2_loop_classic            = tack_parity_capture( array( new Tack_Widget(), 'render_card_button' ) );
+$GLOBALS['TACK_BLOCK_THEME'] = $qa2_theme;
+$GLOBALS['product']          = null;
+check( 'card (classic loop, block theme): the control sits in the narrow-card wrapper', 1 === preg_match( '/^<div class="tack-card-quote-classic"><button[^>]*tack-card-quote-btn[^>]*>.*<\/button><\/div>$/s', trim( $qa2_loop_block ) ), $qa2_loop_block );
+check( 'card (classic loop, classic theme): no wrapper, as in 1.12.0', false === strpos( $qa2_loop_classic, 'tack-card-quote-classic' ) && false !== strpos( $qa2_loop_classic, 'tack-card-quote-btn' ), $qa2_loop_classic );
 check( 'accent: also paints a control that wears only the Button block classes', false !== strpos( Tack_Widget::accent_css( '#123456' ), 'html:root body :is(.button,.wp-element-button).tack-card-quote-btn.tack-card-quote-btn' ) );
 tack_test_set_option( Tack_Widget::OPT_CARD_BUTTONS, 'no' );

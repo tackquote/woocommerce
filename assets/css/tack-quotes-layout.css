@@ -461,8 +461,19 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   container-type: normal;
 }
 
+/* The classic loop (shop page of a classic template, the [products] shortcode) on a
+ * block theme: the control sits in its own block-level wrapper in li.product
+ * (Tack_Widget::render_card_button()), the same narrow-card container. */
+.tack-card-quote-classic {
+  container: tack-card-quote / inline-size;
+}
+
+:where(.is-layout-flex) > .tack-card-quote-classic {
+  container-type: normal;
+}
+
 @container tack-card-quote (max-width: 14rem) {
-  .wp-block-button.tack-card-quote > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  :is(.wp-block-button.tack-card-quote, .tack-card-quote-classic) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
     padding-inline: 1em;
   }
 }

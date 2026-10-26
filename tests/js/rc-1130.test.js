@@ -47,9 +47,14 @@ check('P2: in a narrow card only the side padding changes (one line, theme butto
   const block = /@container tack-card-quote \(max-width:\s*14rem\)\s*\{([\s\S]*?)\n\}/.exec(css);
   assert.ok(block, 'the narrow-card container query');
   const inner = block[1];
-  assert.match(inner, /\.wp-block-button\.tack-card-quote > :is\(\.tack-card-quote-btn, \.tack-card-quote-link\)\s*\{[^}]*padding-inline:\s*1em;/);
+  assert.match(inner, /:is\(\.wp-block-button\.tack-card-quote, \.tack-card-quote-classic\) > :is\(\.tack-card-quote-btn, \.tack-card-quote-link\)\s*\{[^}]*padding-inline:\s*1em;/);
   assert.doesNotMatch(inner, /(?:^|[^-])width\s*:/, 'no width is set on the control');
   assert.doesNotMatch(inner, /white-space|text-overflow|font-size|padding-block/, 'nothing else of the theme button changes');
+});
+
+check('P2 (classic loop): the [products]/classic-template wrapper is the same container, with the flex opt-out', () => {
+  assert.match(css, /\.tack-card-quote-classic \{\s*container:\s*tack-card-quote\s*\/\s*inline-size;\s*\}/);
+  assert.match(css, /:where\(\.is-layout-flex\) > \.tack-card-quote-classic \{\s*container-type:\s*normal;\s*\}/);
 });
 
 check('P2: the label still wraps rather than being cut if a card is narrower still', () => {
