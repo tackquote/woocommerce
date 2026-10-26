@@ -20,6 +20,11 @@
 	--tack-error-bg: #fcf0f1;
 	--tack-off-bg: #f0f0f1;
 	--tack-radius: 8px;
+}
+
+/* The settings screen keeps a readable width; TackQuote → Dashboard (which shares the
+ * .tack-admin scope for its tab bar) lets the embedded workspace span the content column. */
+.tack-admin:not(.tackquote-embed) {
 	max-width: 1180px;
 }
 

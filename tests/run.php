@@ -84,10 +84,20 @@ $GLOBALS['TACK_HOOKS'] = array();
 $settings->init();
 // Fable 💭: the dashboard's tab bar is styled (tack-admin.css, stylesheet only) and the
 // settings page refuses with a real 403.
+// The dashboard's hook suffix is what add_submenu_page() answered (core prefixes it with
+// sanitize_title() of the translated menu title), never a literal.
+$GLOBALS['TACK_SUBMENU_HOOK'][ Tack_Embed_Admin::PAGE_SLUG ] = 'tackquote-de_page_tackquote-dashboard';
+( new Tack_Embed_Admin() )->add_menu();
+unset( $GLOBALS['TACK_SUBMENU_HOOK'] );
 $GLOBALS['TACK_ENQUEUED_STYLES'] = array();
 $settings->add_menu();
-$settings->enqueue_assets( Tack_Settings::DASHBOARD_HOOK );
-check( 'Dashboard: tack-admin.css is enqueued on tackquote_page_tackquote-dashboard', isset( $GLOBALS['TACK_ENQUEUED_STYLES']['tackquote-admin'] ) && ! isset( $GLOBALS['TACK_ENQUEUED_STYLES']['wp-color-picker'] ) );
+$settings->enqueue_assets( 'tackquote-de_page_tackquote-dashboard' );
+check( 'Dashboard: tack-admin.css is enqueued on the hook add_submenu_page() returned (here a translated prefix)', 'tackquote-de_page_tackquote-dashboard' === Tack_Embed_Admin::hook_suffix() && isset( $GLOBALS['TACK_ENQUEUED_STYLES']['tackquote-admin'] ) && ! isset( $GLOBALS['TACK_ENQUEUED_STYLES']['wp-color-picker'] ) );
+$GLOBALS['TACK_ENQUEUED_STYLES'] = array();
+$settings->enqueue_assets( 'tackquote_page_tackquote-dashboard' );
+check( '...not on a guessed literal hook name', array() === $GLOBALS['TACK_ENQUEUED_STYLES'] );
+$admin_css = (string) file_get_contents( TACK_QUOTES_DIR . 'assets/css/tack-admin.css' );
+check( 'the settings width cap does not apply to the Dashboard (the frame spans the content column)', 1 === preg_match( '/\.tack-admin:not\(\.tackquote-embed\)\s*\{\s*max-width:\s*1180px;\s*\}/', $admin_css ) && 0 === preg_match( '/\.tack-admin\s*\{[^}]*max-width/', $admin_css ) );
 check( '...and the dashboard wrap carries the .tack-admin scope its tab rules need', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php' ), '<div class="wrap tackquote-embed tack-admin">' ) );
 $GLOBALS['TACK_ENQUEUED_STYLES'] = array();
 $settings->enqueue_assets( 'edit.php' );

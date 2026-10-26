@@ -111,9 +111,6 @@ class Tack_Settings {
 	 */
 	const CAPABILITY = 'manage_woocommerce';
 
-	/** The hook suffix of TackQuote → Dashboard (Tack_Embed_Admin), a submenu of this menu. */
-	const DASHBOARD_HOOK = 'tackquote_page_tackquote-dashboard';
-
 	/**
 	 * The hook suffix WordPress gave the page (for the asset check).
 	 *
@@ -215,7 +212,8 @@ class Tack_Settings {
 	 */
 	public function enqueue_assets( $hook_suffix ) {
 		// TackQuote → Dashboard shares the settings' tab bar: the stylesheet only.
-		if ( self::DASHBOARD_HOOK === $hook_suffix ) {
+		$dashboard = class_exists( 'Tack_Embed_Admin', false ) ? Tack_Embed_Admin::hook_suffix() : '';
+		if ( '' !== $dashboard && $dashboard === $hook_suffix ) {
 			wp_enqueue_style( 'tackquote-admin', TACK_QUOTES_URL . 'assets/css/tack-admin.css', array(), TACK_QUOTES_VERSION );
 			return;
 		}

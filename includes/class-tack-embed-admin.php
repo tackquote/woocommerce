@@ -68,7 +68,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Tack_Embed_Admin {
 
-	/** The submenu slug under WooCommerce. */
+	/**
+	 * The page's hook suffix (hook_suffix()).
+	 *
+	 * @var string
+	 */
+	private static $hook_suffix = '';
+
+	/** The submenu slug under the TackQuote menu. */
 	const PAGE_SLUG = 'tackquote-dashboard';
 
 	/**
@@ -175,7 +182,7 @@ class Tack_Embed_Admin {
 	 * the menu, and placed first (position 0).
 	 */
 	public function add_menu() {
-		add_submenu_page(
+		$hook              = add_submenu_page(
 			Tack_Settings::PAGE_SLUG,
 			__( 'TackQuote dashboard', 'tackquote' ),
 			__( 'Dashboard', 'tackquote' ),
@@ -184,6 +191,18 @@ class Tack_Embed_Admin {
 			array( $this, 'render_page' ),
 			0
 		);
+		self::$hook_suffix = is_string( $hook ) ? $hook : '';
+	}
+
+	/**
+	 * The hook suffix WordPress gave TackQuote → Dashboard, as add_submenu_page() returned
+	 * it ('' before `admin_menu`). Not a literal: core builds its prefix from the translated
+	 * menu title (get_plugin_page_hookname() → sanitize_title()).
+	 *
+	 * @return string
+	 */
+	public static function hook_suffix() {
+		return self::$hook_suffix;
 	}
 
 	/**

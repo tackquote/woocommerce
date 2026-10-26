@@ -224,7 +224,8 @@ function add_submenu_page( $parent, $page_title, $menu_title, $capability, $menu
 	$GLOBALS['TACK_SUBMENU_PARENTS'][ $menu_slug ]  = $parent;
 	$GLOBALS['TACK_SUBMENU_TITLES'][ $menu_slug ]   = $page_title;
 	$GLOBALS['TACK_SUBMENUS'][]                     = array( 'parent' => $parent, 'page_title' => $page_title, 'menu_title' => $menu_title, 'cap' => $capability, 'slug' => $menu_slug, 'position' => func_num_args() > 6 ? func_get_arg( 6 ) : null );
-	return $parent . '_page_' . $menu_slug;
+	// A test may answer a hook suffix as core would for a translated menu title.
+	return $GLOBALS['TACK_SUBMENU_HOOK'][ $menu_slug ] ?? $parent . '_page_' . $menu_slug;
 }
 
 /**
