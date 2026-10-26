@@ -369,6 +369,26 @@ tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answ
 tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
 $ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
 check( '...and never to a server without it', is_array( $ss_body ) && ! array_key_exists( 'wpUserId', $ss_body ) );
+// Fable 2: no fresh capability list -> ask the server, do not drop the attribution.
+tack_ss_caps( null );
+$GLOBALS['TACK_CURRENT_USER_ID'] = 9;
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping' => array( 200, array( 'ok' => true, 'capabilities' => array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) ) ),
+		'/store-settings/from-plugin'    => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => false ) ) ) ),
+	)
+);
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( 'actor: with no fresh capability list the server is asked, and wpUserId still goes', is_array( $ss_body ) && 9 === ( $ss_body['wpUserId'] ?? null ) );
+// Fable 4: nobody signed in (user id 0) -> no wpUserId at all.
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) );
+$GLOBALS['TACK_CURRENT_USER_ID'] = 0;
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => true ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( 'actor: user id 0 sends no wpUserId', is_array( $ss_body ) && ! array_key_exists( 'wpUserId', $ss_body ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
 unset( $GLOBALS['TACK_CURRENT_USER_ID'] );
 
 // Order sync ON needs the personal-data statement.

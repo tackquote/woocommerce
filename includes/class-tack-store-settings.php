@@ -500,8 +500,11 @@ class Tack_Store_Settings {
 		$client = $client instanceof Tack_Api_Client ? $client : new Tack_Api_Client();
 		// Who changed it: the WordPress user id only (an opaque number, no name or email),
 		// to a server that lists `store_settings_actor` (an older one would refuse the field).
-		$caps = $client->cached_capabilities();
-		if ( is_array( $caps ) && in_array( self::ACTOR_CAPABILITY, $caps, true ) && get_current_user_id() > 0 ) {
+		// With no fresh capability list, ask (an administrator's save, never a shopper's
+		// request) rather than silently dropping who made the change.
+		$caps  = $client->cached_capabilities();
+		$actor = is_array( $caps ) ? in_array( self::ACTOR_CAPABILITY, $caps, true ) : $client->supports( self::ACTOR_CAPABILITY );
+		if ( $actor && get_current_user_id() > 0 ) {
 			$change['wpUserId'] = (int) get_current_user_id();
 		}
 		$answer = $client->request( 'PUT', self::WRITE_PATH, $change, Tack_Api_Client::INTERACTIVE_TIMEOUT );
