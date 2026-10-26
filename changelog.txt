@@ -1,6 +1,10 @@
 TackQuote: Request a Quote & B2B Wholesale for WooCommerce. Full changelog, newest first.
 The latest releases are listed in readme.txt.
 
+= Unreleased =
+
+* **Link your TackQuote account in one place.** On WooCommerce → TackQuote, "Link my TackQuote account" now opens TackQuote in a new tab: sign in as yourself, confirm "Link WordPress login … on … to …", and WordPress opens the dashboard. No code to copy between the two. It needs a TackQuote server that offers it; otherwise, and as a fallback ("Have a link code?"), the one-time code from Integrations → WooCommerce → Link a WordPress login works as before. The link is bound to the WordPress login that pressed the button (a one-time PKCE verifier and state kept in that user's meta for ten minutes), so an approval made from a forwarded link by someone else links nothing.
+
 = 1.12.0 =
 Released 2026-10-26.
 

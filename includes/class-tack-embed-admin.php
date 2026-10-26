@@ -34,6 +34,31 @@ if ( ! defined( 'ABSPATH' ) ) {
  *      and the role in TackQuote is the linked person's own. A stolen API key or a colleague
  *      with the same capability needs the person's own code.
  *
+ * ONE-CLICK LINK (1.13.0, server capability `embedded_link_oauth`, TackQuote migration 481).
+ * An unlinked WordPress user gets ONE primary button, "Link my TackQuote account"; the typed
+ * code above stays as the fallback ("Have a link code?"):
+ *
+ *   a. START (`admin-post.php?action=tackquote_embed_link_start`, nonce + capability). This
+ *      PHP makes an RFC 7636 code verifier and a state, keeps them ONLY in this WordPress
+ *      user's meta (`PENDING_META`, 10 minutes, single use), and asks TackQuote server to
+ *      server (`POST /integrations/woocommerce/embed/link-requests`) with the key, this user's
+ *      id, login and secret, the S256 challenge, the state and the return address it expects.
+ *      TackQuote answers a one-time authorize URL on the TackQuote app (only that host for the
+ *      default API URL); the new tab goes there.
+ *   b. The person signs in to TackQuote as themselves and confirms "Link WordPress login <login>
+ *      (#id) on <store> to <you>?". TackQuote sends the tab back to THIS site's
+ *      `admin-post.php?action=tackquote_link_return` (the address it has saved for the store,
+ *      never one from the browser) with a one-time `code` and the `state`.
+ *   c. RETURN. Capability, then the state against THIS user's pending meta (constant time; the
+ *      meta is deleted first, so a replayed return finds nothing), then the code is exchanged
+ *      server to server with the verifier and this user's secret
+ *      (`POST /integrations/woocommerce/embed/link-exchange`). A link approved from a forwarded
+ *      URL by someone else lands in THEIR browser, where no verifier waits, and links nothing.
+ *
+ * Why no WordPress nonce on the return: it is a redirect from another site and cannot carry
+ * one. The state bound to this user's meta and consumed once, plus the capability, are the
+ * forgery defence (the OAuth `state` pattern, as Tack_Connect).
+ *
  * "Open in a new tab" mints a fresh code for a top-level tab, for browsers that block
  * sign-in inside frames (Safari, or Chrome with third-party cookies blocked) and for anyone
  * who prefers the full window.
@@ -58,10 +83,41 @@ class Tack_Embed_Admin {
 	/** The server capability this page needs (ping `capabilities`). */
 	const SERVER_CAPABILITY = 'embedded_dashboard';
 
+	/**
+	 * The server capability of the one-click link (TackQuote migration 481). Without it the
+	 * page offers the typed code only, exactly as 1.12.0.
+	 *
+	 * @since 1.13.0
+	 */
+	const ONECLICK_CAPABILITY = 'embedded_link_oauth';
+
+	/**
+	 * User meta holding this WordPress user's pending one-click link: the PKCE verifier, a
+	 * SHA-256 of the state and when it started. Single use, `LINK_TTL` seconds.
+	 *
+	 * @since 1.13.0
+	 */
+	const PENDING_META = '_tackquote_link_pending';
+
+	/** How long a started one-click link stays usable (TackQuote keeps its side 10 minutes). */
+	const LINK_TTL = 600;
+
+	/** The page TackQuote's authorize URL must name (app origin + this path + `#request=`). */
+	const AUTHORIZE_PATH = '/auth/link/woocommerce';
+
 	/** The admin-post actions, each with its own nonce. */
 	const TAB_ACTION    = 'tackquote_embed_tab';
 	const CLAIM_ACTION  = 'tackquote_embed_claim';
 	const UNLINK_ACTION = 'tackquote_embed_unlink';
+
+	/** The one-click link's start action (1.13.0). */
+	const LINK_START_ACTION = 'tackquote_embed_link_start';
+
+	/**
+	 * The one-click return action. TackQuote builds the return address as `<saved store
+	 * address>/wp-admin/admin-post.php?action=` + this, so it must not change.
+	 */
+	const LINK_RETURN_ACTION = 'tackquote_link_return';
 
 	/** Timeout for the open call: an admin is waiting for the page. */
 	const OPEN_TIMEOUT = 10;
@@ -94,6 +150,11 @@ class Tack_Embed_Admin {
 		add_action( 'admin_post_' . self::TAB_ACTION, array( $this, 'handle_tab' ) );
 		add_action( 'admin_post_' . self::CLAIM_ACTION, array( $this, 'handle_claim' ) );
 		add_action( 'admin_post_' . self::UNLINK_ACTION, array( $this, 'handle_unlink' ) );
+		add_action( 'admin_post_' . self::LINK_START_ACTION, array( $this, 'handle_link_start' ) );
+		add_action( 'admin_post_' . self::LINK_RETURN_ACTION, array( $this, 'handle_link_return' ) );
+		// Signed out when TackQuote sends the tab back (an expired WordPress session): WordPress's
+		// own login screen first, then this same return as the signed-in user.
+		add_action( 'admin_post_nopriv_' . self::LINK_RETURN_ACTION, array( $this, 'handle_link_return_signed_out' ) );
 	}
 
 	/**
@@ -274,6 +335,14 @@ class Tack_Embed_Admin {
 			'no_store'    => array( 'error', __( 'TackQuote cannot tell which of your connected stores this is. Use one API key per WordPress site.', 'tackquote' ) ),
 			'failed'      => array( 'error', __( 'TackQuote did not answer just now. Your link was not changed. Try again in a minute.', 'tackquote' ) ),
 			'unavailable' => array( 'error', __( 'TackQuote could not open a new tab for you. Reload this page to see why.', 'tackquote' ) ),
+			// 1.13.0: the one-click link.
+			'expired'     => array( 'error', __( 'Nothing was linked: this link request expired, was already used, or was started from another WordPress login. Press Link my TackQuote account again.', 'tackquote' ) ),
+			'cancelled'   => array( 'warning', __( 'Linking was cancelled in TackQuote. Nothing changed.', 'tackquote' ) ),
+			'grant'       => array( 'error', __( 'Nothing was linked: TackQuote could not finish, because the approval expired or was already used. Press Link my TackQuote account again.', 'tackquote' ) ),
+			'moved'       => array( 'warning', __( 'This store’s address changed in the last day, so one-click linking is paused until tomorrow. Use a link code instead.', 'tackquote' ) ),
+			'address'     => array( 'warning', __( 'TackQuote cannot send you back to this WordPress admin, because it has another address saved for this store. Use a link code instead.', 'tackquote' ) ),
+			'no_oneclick' => array( 'warning', __( 'One-click linking is not available for this store right now. Use a link code instead.', 'tackquote' ) ),
+			'bad_open'    => array( 'error', __( 'TackQuote answered with a sign-in address this plugin will not open, so nothing was changed. Use a link code instead.', 'tackquote' ) ),
 		);
 	}
 
@@ -446,12 +515,15 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * An unlinked WordPress user: never a session, only the code field.
+	 * An unlinked WordPress user: never a session. With the one-click link (1.13.0) ONE primary
+	 * button, and the typed code folded under "Have a link code?"; without it (an older
+	 * server) the code field only, as 1.12.0.
 	 *
 	 * @param array $answer API answer.
 	 */
 	private function render_unlinked( array $answer ) {
 		$mismatch = isset( $answer['reason'] ) && 'secret_mismatch' === $answer['reason'];
+		$oneclick = in_array( self::ONECLICK_CAPABILITY, $this->client()->server_capabilities(), true );
 		echo '<div class="card" style="max-width:640px;">';
 		echo '<h2>' . esc_html__( 'Link your TackQuote account', 'tackquote' ) . '</h2>';
 		echo '<p>' . esc_html(
@@ -459,19 +531,46 @@ class Tack_Embed_Admin {
 				? __( 'Your WordPress login needs to be linked to TackQuote again on this site.', 'tackquote' )
 				: __( 'To use TackQuote here, link your WordPress login to your own TackQuote login. You do this once.', 'tackquote' )
 		) . '</p>';
+		if ( ! $oneclick ) {
+			self::render_code_steps();
+			self::render_code_form( __( 'Link my TackQuote account', 'tackquote' ), 'button-primary' );
+			echo '</div>';
+			return;
+		}
+		echo '<p>' . esc_html__( 'TackQuote opens in a new tab: sign in as yourself and confirm. Then this page opens TackQuote for you.', 'tackquote' ) . '</p>';
+		self::action_form( self::LINK_START_ACTION, __( 'Link my TackQuote account', 'tackquote' ), true, 'button-primary' );
+		echo '<p class="description">' . esc_html__( 'TackQuote opens as you, with your own role, and emails you about the new link. If you have no TackQuote login, ask an admin of your TackQuote workspace to invite you.', 'tackquote' ) . '</p>';
+		echo '<details style="margin-top:12px;"><summary>' . esc_html__( 'Have a link code?', 'tackquote' ) . '</summary>';
+		self::render_code_steps();
+		self::render_code_form( __( 'Link with this code', 'tackquote' ), 'button-secondary' );
+		echo '</details>';
+		echo '</div>';
+	}
+
+	/**
+	 * Where a link code comes from (the fallback).
+	 */
+	private static function render_code_steps() {
 		echo '<ol>';
 		echo '<li>' . esc_html__( 'In TackQuote, open Integrations → WooCommerce and choose “Link a WordPress login”.', 'tackquote' ) . '</li>';
 		echo '<li>' . esc_html__( 'Enter the code it shows here. It works once, for 10 minutes.', 'tackquote' ) . '</li>';
 		echo '</ol>';
-		echo '<p class="description">' . esc_html__( 'TackQuote then opens here as you, with your own role, and emails you about the new link. If you have no TackQuote login, ask an admin of your TackQuote workspace to invite you.', 'tackquote' ) . '</p>';
+	}
+
+	/**
+	 * The link-code form (posts to `CLAIM_ACTION`).
+	 *
+	 * @param string $label        Button label.
+	 * @param string $button_class Button class.
+	 */
+	private static function render_code_form( $label, $button_class ) {
 		printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
 		echo '<input type="hidden" name="action" value="' . esc_attr( self::CLAIM_ACTION ) . '" />';
 		wp_nonce_field( self::CLAIM_ACTION, '_tqnonce' );
 		echo '<label for="tackquote-link-code">' . esc_html__( 'Link code', 'tackquote' ) . '</label> ';
 		echo '<input type="text" id="tackquote-link-code" name="tq_link_code" class="regular-text" autocomplete="off" spellcheck="false" maxlength="12" placeholder="ABCD-2345" required /> ';
-		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Link my TackQuote account', 'tackquote' ) . '</button>';
+		echo '<button type="submit" class="button ' . esc_attr( $button_class ) . '">' . esc_html( $label ) . '</button>';
 		echo '</form>';
-		echo '</div>';
 	}
 
 	/**
@@ -620,8 +719,11 @@ class Tack_Embed_Admin {
 		if ( 403 === $status ) {
 			return 'refused';
 		}
+		// Only TackQuote's own "which store is this" 409 is no_store; the other 409 (this
+		// login was linked by another request a moment ago) reads as "try again".
 		if ( 409 === $status ) {
-			return 'no_store';
+			$code = is_array( $data ) && isset( $data['code'] ) ? (string) $data['code'] : '';
+			return 'WOO_LINK_NO_STORE' === $code ? 'no_store' : 'failed';
 		}
 		return 'failed';
 	}
@@ -651,6 +753,234 @@ class Tack_Embed_Admin {
 		}
 		delete_user_meta( $user_id, self::SECRET_META );
 		$this->redirect( self::page_url( 'unlinked' ), '' );
+	}
+
+	// ── One-click link (1.13.0) ──────────────────────────────────────────────
+
+	/**
+	 * The current WordPress user's login, clipped to what TackQuote stores.
+	 *
+	 * @return string
+	 */
+	private static function current_login() {
+		$user  = wp_get_current_user();
+		$login = isset( $user->user_login ) ? (string) $user->user_login : '';
+		return function_exists( 'mb_substr' ) ? mb_substr( $login, 0, 60 ) : substr( $login, 0, 60 );
+	}
+
+	/**
+	 * This site's return address for the one-click link, as TackQuote derives it from the
+	 * store address it has saved. Sent only so TackQuote can refuse early (and this page offer
+	 * the code) when the two differ; TackQuote never sends the browser to this value.
+	 *
+	 * @return string
+	 */
+	public static function link_return_url() {
+		return admin_url( 'admin-post.php?action=' . self::LINK_RETURN_ACTION );
+	}
+
+	/**
+	 * The host of the authorize URL TackQuote answered with, or '' when it must not be
+	 * opened: not https (http only on a development host), not the TackQuote app for the
+	 * default API URL, a query, credentials, another path, or no one-time request in the
+	 * fragment.
+	 *
+	 * @param mixed $url authorizeUrl.
+	 * @return string
+	 */
+	public static function authorize_url_host( $url ) {
+		if ( ! is_string( $url ) || strlen( $url ) > 512 ) {
+			return '';
+		}
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) || isset( $parts['query'] ) ) {
+			return '';
+		}
+		$port   = isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '';
+		$origin = strtolower( (string) ( $parts['scheme'] ?? '' ) ) . '://' . strtolower( (string) $parts['host'] ) . $port;
+		if ( '' === self::app_origin( $origin ) ) {
+			return '';
+		}
+		if ( self::AUTHORIZE_PATH !== ( $parts['path'] ?? '' ) || 1 !== preg_match( '/^request=[A-Za-z0-9_-]{43}$/', (string) ( $parts['fragment'] ?? '' ) ) ) {
+			return '';
+		}
+		return strtolower( (string) $parts['host'] );
+	}
+
+	/**
+	 * "Link my TackQuote account": start a one-click link for the current WordPress user and
+	 * send this (new) tab to TackQuote's authorize page.
+	 */
+	public function handle_link_start() {
+		self::guard( self::LINK_START_ACTION );
+		$user_id = (int) get_current_user_id();
+		$login   = self::current_login();
+		if ( $user_id <= 0 || '' === $login ) {
+			$this->redirect( self::page_url( 'failed' ), '' );
+			return;
+		}
+		$verifier = Tack_Connect::new_verifier();
+		$state    = Tack_Connect::b64url( random_bytes( 24 ) );
+		// Kept with THIS WordPress user only; a newer start replaces it.
+		update_user_meta(
+			$user_id,
+			self::PENDING_META,
+			array(
+				'verifier' => $verifier,
+				'state'    => hash( 'sha256', $state ),
+				'iat'      => time(),
+			)
+		);
+		$answer = $this->client()->request(
+			'POST',
+			'/integrations/woocommerce/embed/link-requests',
+			array(
+				'wpUserId'            => (string) $user_id,
+				'wpUserLogin'         => $login,
+				'wpUserSecret'        => self::user_secret( $user_id ),
+				'codeChallenge'       => Tack_Connect::challenge( $verifier ),
+				'codeChallengeMethod' => 'S256',
+				'state'               => $state,
+				'returnUrl'           => self::link_return_url(),
+			),
+			self::OPEN_TIMEOUT
+		);
+
+		$url  = is_array( $answer ) ? ( $answer['authorizeUrl'] ?? '' ) : '';
+		$host = is_wp_error( $answer ) ? '' : self::authorize_url_host( $url );
+		if ( '' === $host ) {
+			delete_user_meta( $user_id, self::PENDING_META );
+			$flag = is_wp_error( $answer ) ? self::link_start_result( $answer ) : 'bad_open';
+			if ( 'disconnected' === $flag ) {
+				$this->client()->forget_capabilities();
+			}
+			$this->redirect( self::page_url( $flag ), '' );
+			return;
+		}
+		$this->redirect( (string) $url, $host );
+	}
+
+	/**
+	 * The result flag for a refused start.
+	 *
+	 * @param WP_Error $error request() error.
+	 * @return string
+	 */
+	private static function link_start_result( $error ) {
+		$data   = $error->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+		$code   = is_array( $data ) && isset( $data['code'] ) ? (string) $data['code'] : '';
+		if ( 401 === $status || 'tack_no_key' === $error->get_error_code() ) {
+			return 'disconnected';
+		}
+		$by_code = array(
+			'WOO_LINK_ONECLICK_ADDRESS_MOVED'   => 'moved',
+			'WOO_LINK_ONECLICK_RETURN_MISMATCH' => 'address',
+			'WOO_LINK_ONECLICK_NO_ADDRESS'      => 'no_oneclick',
+			'WOO_LINK_NO_STORE'                 => 'no_store',
+		);
+		if ( isset( $by_code[ $code ] ) ) {
+			return $by_code[ $code ];
+		}
+		if ( 403 === $status ) {
+			return 'refused';
+		}
+		if ( 409 === $status ) {
+			return 'no_oneclick';
+		}
+		return 'failed';
+	}
+
+	/**
+	 * `admin_post_nopriv_tackquote_link_return`: the tab came back without a WordPress
+	 * session. WordPress's login screen, then back here signed in (`auth_redirect()`).
+	 */
+	public function handle_link_return_signed_out() {
+		auth_redirect();
+	}
+
+	/**
+	 * `admin_post_tackquote_link_return`: TackQuote sent this tab back with a one-time code.
+	 */
+	public function handle_link_return() {
+		// The address bar holds a one-time code until the redirect below replaces it.
+		if ( ! headers_sent() ) {
+			header( 'Referrer-Policy: no-referrer' );
+		}
+
+		/*
+		 * A redirect from TackQuote cannot carry a WordPress nonce; finish_link() checks the
+		 * state against this user's single-use pending meta instead. Only these three
+		 * parameters are read.
+		 */
+		$query = array();
+		foreach ( array( 'code', 'state', 'error' ) as $name ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- see above: the single-use state is the forgery check.
+			if ( isset( $_GET[ $name ] ) && is_string( $_GET[ $name ] ) ) {
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- see above: the single-use state is the forgery check.
+				$query[ $name ] = sanitize_text_field( wp_unslash( $_GET[ $name ] ) );
+			}
+		}
+		$this->redirect( self::page_url( $this->finish_link( $query ) ), '' );
+	}
+
+	/**
+	 * Check the return and exchange the code. Never reports a link TackQuote did not confirm.
+	 *
+	 * @param array $query code, state, error.
+	 * @return string The result flag for the page.
+	 */
+	public function finish_link( $query ) {
+		self::require_capability();
+		$user_id = (int) get_current_user_id();
+		$query   = is_array( $query ) ? $query : array();
+		$code    = isset( $query['code'] ) && is_string( $query['code'] ) ? $query['code'] : '';
+		$state   = isset( $query['state'] ) && is_string( $query['state'] ) ? $query['state'] : '';
+		$error   = isset( $query['error'] ) && is_string( $query['error'] ) ? sanitize_key( $query['error'] ) : '';
+
+		// Taken once, before anything else can use it: a replayed return finds nothing.
+		$pending = get_user_meta( $user_id, self::PENDING_META, true );
+		delete_user_meta( $user_id, self::PENDING_META );
+		$iat = is_array( $pending ) ? (int) ( $pending['iat'] ?? 0 ) : 0;
+		if ( $user_id <= 0 || ! is_array( $pending ) || '' === $state
+			|| time() - $iat > self::LINK_TTL || $iat > time() + 60
+			|| ! hash_equals( (string) ( $pending['state'] ?? '' ), hash( 'sha256', $state ) )
+			|| ! is_string( $pending['verifier'] ?? null ) ) {
+			return 'expired';
+		}
+		if ( '' !== $error ) {
+			return 'access_denied' === $error ? 'cancelled' : 'expired';
+		}
+		if ( 1 !== preg_match( '/^[A-Za-z0-9_-]{43}$/', $code ) ) {
+			return 'expired';
+		}
+		$result = $this->client()->request(
+			'POST',
+			'/integrations/woocommerce/embed/link-exchange',
+			array(
+				'code'         => $code,
+				'codeVerifier' => $pending['verifier'],
+				'wpUserId'     => (string) $user_id,
+				'wpUserSecret' => self::user_secret( $user_id ),
+			),
+			self::OPEN_TIMEOUT
+		);
+		if ( ! is_wp_error( $result ) ) {
+			return isset( $result['status'] ) && 'linked' === $result['status'] ? 'linked' : 'failed';
+		}
+		$data   = $result->get_error_data();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+		if ( 401 === $status || 'tack_no_key' === $result->get_error_code() ) {
+			$this->client()->forget_capabilities();
+			return 'disconnected';
+		}
+		if ( 400 === $status ) {
+			return 'grant';
+		}
+		if ( 403 === $status ) {
+			return 'refused';
+		}
+		return 'failed';
 	}
 
 	/**

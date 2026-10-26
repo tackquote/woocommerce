@@ -202,7 +202,8 @@ https://docs.github.com/site-policy/privacy-policies/github-general-privacy-stat
 `POST /integrations/woocommerce/embed/unlink`. Sent only when a user who can manage WooCommerce opens
 WooCommerce → TackQuote or presses its buttons. Sends that user's WordPress user ID, a random secret
 kept in their user meta and, to open, `purpose` (`frame` in the page or `tab` for a new tab); linking
-also sends the one-time code they typed and their login name. No customer or order data.
+also sends the one-time code they typed and their login name (1.13.0: or `…/embed/link-requests`
+and `…/link-exchange`, PKCE). No customer or order data.
 
 This plugin sends data to no other external service.
 

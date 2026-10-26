@@ -200,6 +200,10 @@ require __DIR__ . '/rest-keys-test.php';
 echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
 require __DIR__ . '/embed-admin-test.php';
 
+// 1.13.0 "Link my TackQuote account" in one place, started in WordPress (one-click link).
+echo "\n-- one-click link (WooCommerce → TackQuote, started in WordPress) --\n";
+require __DIR__ . '/oneclick-link-test.php';
+
 // 1.12.0 live QA fixes (D1, D2, D4, D7, D8, D10; D3 is in rest-keys-test.php).
 echo "\n-- 1.12.0 live QA fixes --\n";
 require __DIR__ . '/live-qa-1120-test.php';
