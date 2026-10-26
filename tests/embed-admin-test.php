@@ -238,13 +238,19 @@ check(
 	'/integrations/woocommerce/embed/claim' === ( $claim[1] ?? '' ) && 'ABCD-2345' === ( $claim[2]['code'] ?? '' ) && '1' === ( $claim[2]['wpUserId'] ?? '' ) && 'shopmanager' === ( $claim[2]['wpUserLogin'] ?? '' ) && ( $GLOBALS['TACK_USER_META'][1][ Tack_Embed_Admin::SECRET_META ] ?? 'x' ) === ( $claim[2]['wpUserSecret'] ?? '' )
 );
 check( 'claim: back to the page with "linked"', array( Tack_Embed_Admin::page_url( 'linked' ), '' ) === ( $admin->redirects[0] ?? null ) );
-foreach ( array( 400 => 'wrong_code', 429 => 'throttled', 403 => 'refused', 409 => 'no_store', 503 => 'failed' ) as $status => $flag ) {
+foreach ( array( 400 => 'wrong_code', 429 => 'throttled', 403 => 'refused', 409 => 'failed', 503 => 'failed' ) as $status => $flag ) {
 	$client                          = new Tack_Test_Embed_Client();
 	$client->answers['/embed/claim'] = new WP_Error( 'tack_http_' . $status, 'API said <b>no</b>', array( 'status' => $status ) );
 	$admin                           = new Tack_Test_Embed_Admin( $client );
 	$admin->handle_claim();
 	check( "claim: HTTP $status reads as $flag, never the API's text", array( Tack_Embed_Admin::page_url( $flag ), '' ) === ( $admin->redirects[0] ?? null ) );
 }
+// N4: only TackQuote's own WOO_LINK_NO_STORE 409 reads as no_store.
+$client                          = new Tack_Test_Embed_Client();
+$client->answers['/embed/claim'] = new WP_Error( 'tack_http_409', 'x', array( 'status' => 409, 'code' => 'WOO_LINK_NO_STORE' ) );
+$admin                           = new Tack_Test_Embed_Admin( $client );
+$admin->handle_claim();
+check( 'claim: a 409 WOO_LINK_NO_STORE reads as no_store; any other 409 as failed (N4)', array( Tack_Embed_Admin::page_url( 'no_store' ), '' ) === ( $admin->redirects[0] ?? null ) );
 $client                = new Tack_Test_Embed_Client();
 $admin                 = new Tack_Test_Embed_Admin( $client );
 $_POST['tq_link_code'] = 'x';

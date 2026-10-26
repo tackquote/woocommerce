@@ -199,8 +199,9 @@ https://docs.github.com/site-policy/privacy-policies/github-general-privacy-stat
 `POST /integrations/woocommerce/embed/open`, `POST /integrations/woocommerce/embed/claim` and
 `POST /integrations/woocommerce/embed/unlink`. Sent only when a user who can manage WooCommerce opens
 WooCommerce → TackQuote or presses its buttons. Sends that user's WordPress user ID, a random secret
-kept in their user meta and, to open, `purpose` (`frame` in the page or `tab` for a new tab); linking
-also sends the one-time code they typed and their login name. No customer or order data.
+kept in their user meta and, to open, `purpose` (`frame` or `tab`); linking also sends the one-time
+code typed and their login name (1.13.0: `…/embed/link-requests`, `…/link-exchange`). No customer or
+order data.
 
 19. **Store settings** (since 1.13.0) — `GET /integrations/woocommerce/store-settings` every
 ten minutes and when settings open; headers only. `PUT …/from-plugin` sends settings you change and
@@ -444,6 +445,7 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 Full notes are in `changelog.txt`.
 
 * **One source for each setting.** On a TackQuote server that offers it, order sync, TackQuote prices, order limits, the buyer group badge, tax exemption and the wholesale form are saved in TackQuote, whether you change them in TackQuote or on the plugin's own tabs, which keep every 1.12.0 setting. Buyer groups and wholesale forms are picked from TackQuote's lists: nothing to copy by hand. Each switch can also be turned off for this store only.
+* **Link your TackQuote account in one click** from WooCommerce → TackQuote (sign in and confirm); the link code stays as a fallback.
 * **One menu entry**: WooCommerce → TackQuote holds the dashboard and the settings. Shop managers can now change the Storefront, B2B pricing, Buyer groups and Forms tabs (written to TackQuote where it keeps them); Connection and Order sync stay administrator-only. The pasted key moved under Advanced on the Connection tab.
 * Fixed: the quote form asks the seller's own registration questions, so a seller with a required question no longer gets every request refused. The order-sync box no longer shows ticked before it was ever saved.
 
