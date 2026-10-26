@@ -24,7 +24,7 @@ function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF
 // string really goes through gettext at render time; empty by default, so identity.
 $GLOBALS['TACK_TRANSLATIONS'] = array();
 function esc_html__( $text, $domain = null ) { return __( $text, $domain ); }
-function __( $text, $domain = null ) { return $GLOBALS['TACK_TRANSLATIONS'][ $text ] ?? $text; }
+function __( $text, $domain = null ) { $GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1; return $GLOBALS['TACK_TRANSLATIONS'][ $text ] ?? $text; }
 $GLOBALS['TACK_HOOKS']   = array();
 $GLOBALS['TACK_REMOVED'] = array();
 $GLOBALS['TACK_FILTERS'] = array();
@@ -89,7 +89,7 @@ function wp_get_current_user() {
 function checked( $a, $b = true, $echo = true ) { return (string) $a === (string) $b ? "checked='checked'" : ''; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 function sanitize_text_field( $t ) { return trim( (string) $t ); }
-function esc_attr__( $t, $d = null ) { return $t; }
+function esc_attr__( $t, $d = null ) { $GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1; return $t; }
 function wc_add_notice( $msg, $type = 'success' ) { $GLOBALS['TACK_NOTICES'][] = $msg; }
 
 class TackStubRoles {
@@ -154,6 +154,23 @@ function settings_errors() {
 function esc_html_e( $text, $domain = null ) {
 	echo esc_html( __( $text, $domain ) );
 }
+// Every translation function counts (the D1 guard: nothing may translate before
+// after_setup_theme). esc_html_e() counts through __().
+if ( ! function_exists( '_e' ) ) {
+	function _e( $text, $domain = null ) {
+		echo __( $text, $domain ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub.
+	}
+}
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = null ) {
+		return __( $text, $domain );
+	}
+}
+if ( ! function_exists( 'esc_attr_e' ) ) {
+	function esc_attr_e( $text, $domain = null ) {
+		echo esc_attr( __( $text, $domain ) );
+	}
+}
 function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false ) {
 	$GLOBALS['TACK_ENQUEUED_STYLES'][ $handle ] = $src;
 }
@@ -177,6 +194,7 @@ if ( ! defined( 'DAY_IN_SECONDS' ) ) {
 
 /** Plural form. The stub ignores locale rules; only the branch matters. */
 function _n( $single, $plural, $number, $domain = null ) {
+	$GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1;
 	return 1 === (int) $number ? $single : $plural;
 }
 
@@ -197,13 +215,17 @@ function current_user_can( $cap ) { return in_array( $cap, (array) $GLOBALS['TAC
 
 function add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $callback = null, $icon = null, $position = null ) {
 	$GLOBALS['TACK_REGISTERED_PAGES'][ $menu_slug ] = $capability;
+	$GLOBALS['TACK_MENUS'][ $menu_slug ]            = array( 'page_title' => $page_title, 'menu_title' => $menu_title, 'cap' => $capability, 'icon' => $icon, 'position' => $position );
 	return 'toplevel_page_' . $menu_slug;
 }
 
 function add_submenu_page( $parent, $page_title, $menu_title, $capability, $menu_slug, $callback = null ) {
 	$GLOBALS['TACK_REGISTERED_PAGES'][ $menu_slug ] = $capability;
 	$GLOBALS['TACK_SUBMENU_PARENTS'][ $menu_slug ]  = $parent;
-	return $parent . '_page_' . $menu_slug;
+	$GLOBALS['TACK_SUBMENU_TITLES'][ $menu_slug ]   = $page_title;
+	$GLOBALS['TACK_SUBMENUS'][]                     = array( 'parent' => $parent, 'page_title' => $page_title, 'menu_title' => $menu_title, 'cap' => $capability, 'slug' => $menu_slug, 'position' => func_num_args() > 6 ? func_get_arg( 6 ) : null );
+	// A test may answer a hook suffix as core would for a translated menu title.
+	return $GLOBALS['TACK_SUBMENU_HOOK'][ $menu_slug ] ?? $parent . '_page_' . $menu_slug;
 }
 
 /**

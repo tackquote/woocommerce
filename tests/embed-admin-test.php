@@ -114,10 +114,16 @@ $GLOBALS['TACK_USER_META'] = array();
 
 // ── Menu ──────────────────────────────────────────────────────────────────
 $GLOBALS['TACK_REGISTERED_PAGES'] = array();
+$GLOBALS['TACK_SUBMENUS']         = array();
 ( new Tack_Embed_Admin() )->add_menu();
 check(
-	'WooCommerce → TackQuote is registered for manage_woocommerce (E1)',
+	'TackQuote → Dashboard is registered for manage_woocommerce (E1)',
 	'manage_woocommerce' === ( $GLOBALS['TACK_REGISTERED_PAGES'][ Tack_Embed_Admin::PAGE_SLUG ] ?? null )
+);
+$embed_item = $GLOBALS['TACK_SUBMENUS'][0] ?? array();
+check(
+	'1.13.0: it is the FIRST item of the top-level TackQuote menu ("Dashboard", position 0), with a page title',
+	Tack_Settings::PAGE_SLUG === ( $embed_item['parent'] ?? null ) && 'Dashboard' === ( $embed_item['menu_title'] ?? null ) && 0 === ( $embed_item['position'] ?? null ) && '' !== trim( (string) ( $embed_item['page_title'] ?? '' ) )
 );
 
 // ── Linked: one frame, src from the ticket + code, the code in the FRAGMENT ──
@@ -128,7 +134,12 @@ $expected_src                        = 'https://app.tackquote.com/woocommerce/ap
 check( 'linked: the frame loads /woocommerce/app?frame=<ticket>#code=<code>', false !== strpos( $out, 'src="' . $expected_src . '"' ), $out );
 check( 'linked: the frame is sandboxed without top navigation', false !== strpos( $out, 'sandbox="allow-scripts' ) && false === strpos( $out, 'allow-top-navigation' ) );
 check( 'linked: the account name is escaped', false !== strpos( $out, 'Rae &lt;b&gt;Rep&lt;/b&gt;' ) && false === strpos( $out, '<b>Rep</b>' ) );
+check( 'linked: the bar states the LINK to the named account, never a sign-in (the frame may still ask for a second factor)', false !== strpos( $out, 'Your WordPress login is linked to the TackQuote account Rae &lt;b&gt;Rep&lt;/b&gt;.' ) && false === stripos( $out, 'signed in' ) );
 check( 'linked: Open in a new tab and Unlink are nonce-protected POST forms', 2 <= substr_count( $out, 'name="_tqnonce"' ) && false !== strpos( $out, 'target="_blank"' ) );
+$client_anon                         = new Tack_Test_Embed_Client();
+$client_anon->answers['/embed/open'] = array_merge( $embed_linked, array( 'account' => array() ) );
+$out_anon                            = tack_embed_render( new Tack_Test_Embed_Admin( $client_anon ) );
+check( 'linked, no account name: the bar still states only the link, never a sign-in', false !== strpos( $out_anon, 'Your WordPress login is linked to a TackQuote account.' ) && false === stripos( $out_anon, 'signed in' ) );
 $open_call = $client->calls[0] ?? array();
 check( 'the open goes server to server with the WordPress user id and a 64-hex secret', '/integrations/woocommerce/embed/open' === ( $open_call[1] ?? '' ) && '1' === ( $open_call[2]['wpUserId'] ?? '' ) && 1 === preg_match( '/^[0-9a-f]{64}$/', (string) ( $open_call[2]['wpUserSecret'] ?? '' ) ) && 'frame' === ( $open_call[2]['purpose'] ?? '' ) );
 check( 'the secret never reaches the page', false === strpos( $out, (string) ( $open_call[2]['wpUserSecret'] ?? 'x' ) ) );

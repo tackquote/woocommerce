@@ -493,13 +493,60 @@ $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
 $ss_settings->sanitize_server_form_slug( 'distributor' );
 $ss_settings->sanitize_server_form_slug( 'distributor' );
 check( 'form: a replayed sanitize in the same save sends once and reports once', 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+// "TackQuote's default" that TackQuote did NOT save: the local form stays what it was.
 Tack_Settings::reset_write_batch();
-tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'distributor' ) ) ) ) );
+$GLOBALS['TACK_HTTP_REQUESTS']   = array();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+check( 'form: TackQuote\'s default refused by TackQuote keeps the previous local form and says so', '' !== Tack_Store_Settings::chosen_wholesale_form_slug() && 'old-typed-slug' === $ss_settings->sanitize_server_form_slug( '' ) && 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+// "TackQuote's default" saved: the local option mirrors the form TackQuote now uses (its
+// default form), never the slug picked before, so a later fallback cannot revive it.
+Tack_Settings::reset_write_batch();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => null ) ) ) ) );
 $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
 update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
 $ss_first = $ss_settings->sanitize_server_form_slug( '' );
 $ss_settings->sanitize_server_form_slug( $ss_first );
-check( 'form: the replayed sanitize gets the saved (possibly unlisted) slug and reports nothing', 'old-typed-slug' === $ss_first && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+check( 'form: TackQuote\'s default saved mirrors TackQuote\'s default form locally (not the old slug); the replay gets it and reports nothing', 'trade-signup' === $ss_first && '' === Tack_Store_Settings::chosen_wholesale_form_slug() && 'trade-signup' === $ss_settings->sanitize_server_form_slug( $ss_first ) && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+// TackQuote names no default form: the plugin's own default form (1.12.0's).
+Tack_Settings::reset_write_batch();
+$ss_st = get_option( Tack_Store_Settings::OPTION );
+$ss_st['settings']['defaultWholesaleFormSlug'] = 'distributor';
+update_option( Tack_Store_Settings::OPTION, $ss_st );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => null, 'wholesaleForms' => array( array( 'isDefault' => false ) ) ) ) ) ) );
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+check( 'form: TackQuote\'s default saved with no default form named mirrors the plugin\'s own default form', Tack_Storefront_Forms::DEFAULT_SLUG === $ss_settings->sanitize_server_form_slug( '' ) && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+// TackQuote accepts the PUT but answers something that is not the settings: they are
+// read again. When that read fails as well, the plugin cannot say what TackQuote holds,
+// so nothing local changes and the seller is told (fail closed, never a silent success).
+$ss_ping = array( 200, array( 'ok' => true, 'capabilities' => array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) ) );
+Tack_Settings::reset_write_batch();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+$ss_before = get_option( Tack_Store_Settings::OPTION );
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping'           => $ss_ping,
+		'/store-settings/from-plugin'              => array( 200, array( 'ok' => true ) ),
+		'/integrations/woocommerce/store-settings' => array( 500, array( 'message' => 'down' ) ),
+	)
+);
+$ss_unconfirmed = Tack_Store_Settings::write( array( 'defaultWholesaleFormSlug' => 'distributor' ) );
+check( 'write: an accepted PUT whose settings cannot be read back is a WP_Error, not true', is_wp_error( $ss_unconfirmed ) && 'tack_store_settings_unconfirmed' === $ss_unconfirmed->get_error_code() && $ss_before === get_option( Tack_Store_Settings::OPTION ) );
+Tack_Settings::reset_write_batch();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+check( 'form: ...so the sanitizer keeps the previous local form and reports it', 'old-typed-slug' === $ss_settings->sanitize_server_form_slug( 'distributor' ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) && false !== strpos( (string) wp_json_encode( $GLOBALS['TACK_SETTINGS_ERRORS'] ), 'did not confirm' ) );
+// The same accepted PUT with a successful re-read: saved, and mirrored from the re-read.
+Tack_Settings::reset_write_batch();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping'           => $ss_ping,
+		'/store-settings/from-plugin'              => array( 200, array( 'ok' => true ) ),
+		'/integrations/woocommerce/store-settings' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'distributor' ) ) ),
+	)
+);
+check( 'form: an accepted PUT re-read successfully is saved and mirrored, no error (positive control)', 'distributor' === $ss_settings->sanitize_server_form_slug( 'distributor' ) && 'distributor' === Tack_Store_Settings::chosen_wholesale_form_slug() && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
 $_POST = array();
 
 // A server with store_settings but without store_settings_write: exactly 1.12.0.
@@ -510,7 +557,7 @@ tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE
 // "Change in TackQuote": the embedded dashboard when the server offers it, else a new tab.
 check( 'change link: TackQuote\'s WooCommerce page in a new tab without the embedded dashboard', array( 'url' => 'https://app.tackquote.com/settings/integrations/woocommerce', 'new_tab' => true ) === Tack_Store_Settings::change_link() );
 tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, 'embedded_dashboard' ) );
-check( 'change link: WooCommerce → TackQuote when the server offers the dashboard', false === Tack_Store_Settings::change_link()['new_tab'] && false !== strpos( Tack_Store_Settings::change_link()['url'], 'page=' . Tack_Embed_Admin::PAGE_SLUG ) );
+check( 'change link: TackQuote → Dashboard when the server offers it', false === Tack_Store_Settings::change_link()['new_tab'] && false !== strpos( Tack_Store_Settings::change_link()['url'], 'page=' . Tack_Embed_Admin::PAGE_SLUG ) );
 
 // ── Old server: the 1.12.0 screen, with the order-sync default fixed ────────
 tack_ss_reset();
@@ -530,14 +577,7 @@ Tack_Settings::render_nav( 'dashboard' );
 $ss_nav = (string) ob_get_clean();
 check( 'nav: Dashboard first and current, then every settings tab', (bool) preg_match( '/page=tackquote-dashboard" class="nav-tab nav-tab-active" aria-current="page">Dashboard<.*tab=connection.*tab=sync/s', $ss_nav ) );
 check( 'the dashboard page prints the shared tab bar', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php' ), "Tack_Settings::render_nav( 'dashboard' );" ) );
-check( 'menu: the settings page highlights WooCommerce → TackQuote', ( function () use ( $ss_settings ) {
-	$_GET['page'] = Tack_Settings::PAGE_SLUG;
-	$GLOBALS['TACK_IS_ADMIN'] = true;
-	$ok = 'woocommerce' === $ss_settings->menu_parent( 'x' ) && Tack_Embed_Admin::PAGE_SLUG === $ss_settings->menu_submenu( null );
-	unset( $_GET['page'] );
-	$GLOBALS['TACK_IS_ADMIN'] = false;
-	return $ok && 'x' === $ss_settings->menu_parent( 'x' );
-} )() );
+check( 'menu: no WooCommerce highlight filters remain (the TackQuote menu is its own)', ! method_exists( 'Tack_Settings', 'menu_parent' ) && ! method_exists( 'Tack_Settings', 'menu_submenu' ) && ! method_exists( 'Tack_Settings', 'hide_menu_entry' ) );
 
 // ── Registration questions (customFields) ───────────────────────────────────
 $ss_config = array(
@@ -588,6 +628,30 @@ foreach ( array_merge( array( Tack_Store_Settings::OPTION ), array_column( Tack_
 	}
 }
 check( 'uninstall.php deletes the store settings and every "turn off" box', array() === $ss_missing, implode( ', ', $ss_missing ) );
+
+// D1 (Studio QA): Tack_Settings::init() runs on plugins_loaded and must not translate
+// anything (WordPress 6.7+ notices a text domain loaded before `init`).
+$GLOBALS['TACK_I18N_CALLS'] = 0;
+( new Tack_Settings() )->init();
+check( 'D1: Tack_Settings::init() calls no translation function', 0 === $GLOBALS['TACK_I18N_CALLS'], (string) $GLOBALS['TACK_I18N_CALLS'] );
+check( 'D1: the untranslated tab slugs match the tabs, in order', Tack_Settings::TAB_SLUGS === array_keys( Tack_Settings::tabs() ) );
+// Fable nit: the whole bootstrap, front end and admin, translates nothing either.
+foreach ( array( false, true ) as $ss_admin ) {
+	$GLOBALS['TACK_IS_ADMIN']   = $ss_admin;
+	$GLOBALS['TACK_I18N_CALLS'] = 0;
+	( new ReflectionClass( 'Tack_Quotes' ) )->newInstanceWithoutConstructor()->init();
+	check( 'D1: the whole Tack_Quotes::init() makes no translation call (' . ( $ss_admin ? 'admin' : 'front end' ) . ')', 0 === $GLOBALS['TACK_I18N_CALLS'], (string) $GLOBALS['TACK_I18N_CALLS'] );
+}
+$GLOBALS['TACK_IS_ADMIN'] = false;
+$GLOBALS['TACK_I18N_CALLS'] = 0;
+_n( 'a', 'b', 2 );
+_x( 'a', 'ctx' );
+ob_start();
+_e( 'a' );
+esc_attr_e( 'a' );
+ob_end_clean();
+check( 'the i18n counter sees _n, _x, _e and esc_attr_e (positive control)', 4 === $GLOBALS['TACK_I18N_CALLS'] );
+check( 'schema version: activation no longer writes it, uninstall still deletes old rows', false === strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quotes.php' ), "add_option( 'tack_quotes_schema_version'" ) && false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' ), "'tack_quotes_schema_version'" ) );
 
 // Clean up for later suites.
 tack_ss_reset();

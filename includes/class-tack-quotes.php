@@ -79,7 +79,7 @@ final class Tack_Quotes {
 		$this->settings = new Tack_Settings();
 		$this->settings->init();
 
-		// 1.12.0: WooCommerce → TackQuote, the TackQuote dashboard inside WooCommerce admin.
+		// TackQuote → Dashboard (1.12.0 under WooCommerce; 1.13.0 in the TackQuote menu).
 		if ( is_admin() ) {
 			( new Tack_Embed_Admin() )->init();
 		}
@@ -775,7 +775,9 @@ final class Tack_Quotes {
 		// Tack_Widget::button_label().
 		add_option( 'tack_quotes_show_add_to_quote', 'yes' );
 		add_option( 'tack_quotes_show_request_quote', 'yes' );
-		add_option( 'tack_quotes_schema_version', TACK_QUOTES_VERSION );
+		// `tack_quotes_schema_version` is no longer written (1.13.0): nothing ever read it,
+		// and a value frozen at the first activation's version only misled. uninstall.php
+		// still deletes rows earlier versions left.
 		// Storefront application forms ship OFF: a merchant adds the tabs deliberately.
 		add_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::DEFAULT_SLUG );
 		add_option( Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, 'no' );

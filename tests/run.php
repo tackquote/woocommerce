@@ -68,17 +68,42 @@ check(
 	"link '$linked' vs constant '" . Tack_Settings::PAGE_SLUG . "'"
 );
 
-// 1.13.0: one menu entry (WooCommerce → TackQuote), so the settings page has no menu
-// entry of its own and the shop-manager capability; the API key itself stays behind
-// manage_options (Tack_Settings::tab_capability(), settings-tabs-test.php).
-check(
-	'the settings page requires manage_woocommerce',
-	'manage_woocommerce' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null )
-);
-check(
-	'...registered with no menu entry of its own (parent \'\', not a top-level menu)',
-	'' === ( $GLOBALS['TACK_SUBMENU_PARENTS'][ Tack_Settings::PAGE_SLUG ] ?? null )
-);
+// 1.13.0 (owner decision): TackQuote is its own top-level menu again, as in 1.12.0, with
+// Dashboard first and Settings (the tabs inside). Everything needs manage_woocommerce; the
+// API key itself stays behind manage_options (Tack_Settings::tab_capability()).
+$tack_menu = $GLOBALS['TACK_MENUS'][ Tack_Settings::PAGE_SLUG ] ?? array();
+check( 'top-level TackQuote menu, for manage_woocommerce', 'manage_woocommerce' === ( $tack_menu['cap'] ?? null ) && 'manage_woocommerce' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null ) );
+check( '...with the 1.12.0 icon and position, and a page title (D2: admin-header.php never gets null)', Tack_Settings::MENU_ICON === ( $tack_menu['icon'] ?? null ) && 56 === ( $tack_menu['position'] ?? null ) && '' !== trim( (string) ( $tack_menu['page_title'] ?? '' ) ) );
+$tack_sub = array();
+foreach ( $GLOBALS['TACK_SUBMENUS'] as $tack_item ) {
+	$tack_sub[ $tack_item['slug'] ] = $tack_item;
+}
+check( '...its own item is "Settings" (same slug, the tabs inside), with a page title', Tack_Settings::PAGE_SLUG === ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['parent'] ?? null ) && 'Settings' === ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['menu_title'] ?? null ) && '' !== trim( (string) ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['page_title'] ?? '' ) ) && 'manage_woocommerce' === ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['cap'] ?? null ) );
+check( '...and nothing under WooCommerce any more', ! in_array( 'woocommerce', array_column( $GLOBALS['TACK_SUBMENUS'], 'parent' ), true ) );
+$GLOBALS['TACK_HOOKS'] = array();
+$settings->init();
+// Fable 💭: the dashboard's tab bar is styled (tack-admin.css, stylesheet only) and the
+// settings page refuses with a real 403.
+// The dashboard's hook suffix is what add_submenu_page() answered (core prefixes it with
+// sanitize_title() of the translated menu title), never a literal.
+$GLOBALS['TACK_SUBMENU_HOOK'][ Tack_Embed_Admin::PAGE_SLUG ] = 'tackquote-de_page_tackquote-dashboard';
+( new Tack_Embed_Admin() )->add_menu();
+unset( $GLOBALS['TACK_SUBMENU_HOOK'] );
+$GLOBALS['TACK_ENQUEUED_STYLES'] = array();
+$settings->add_menu();
+$settings->enqueue_assets( 'tackquote-de_page_tackquote-dashboard' );
+check( 'Dashboard: tack-admin.css is enqueued on the hook add_submenu_page() returned (here a translated prefix)', 'tackquote-de_page_tackquote-dashboard' === Tack_Embed_Admin::hook_suffix() && isset( $GLOBALS['TACK_ENQUEUED_STYLES']['tackquote-admin'] ) && ! isset( $GLOBALS['TACK_ENQUEUED_STYLES']['wp-color-picker'] ) );
+$GLOBALS['TACK_ENQUEUED_STYLES'] = array();
+$settings->enqueue_assets( 'tackquote_page_tackquote-dashboard' );
+check( '...not on a guessed literal hook name', array() === $GLOBALS['TACK_ENQUEUED_STYLES'] );
+$admin_css = (string) file_get_contents( TACK_QUOTES_DIR . 'assets/css/tack-admin.css' );
+check( 'the settings width cap does not apply to the Dashboard (the frame spans the content column)', 1 === preg_match( '/\.tack-admin:not\(\.tackquote-embed\)\s*\{\s*max-width:\s*1180px;\s*\}/', $admin_css ) && 0 === preg_match( '/\.tack-admin\s*\{[^}]*max-width/', $admin_css ) );
+check( '...and the dashboard wrap carries the .tack-admin scope its tab rules need', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php' ), '<div class="wrap tackquote-embed tack-admin">' ) );
+$GLOBALS['TACK_ENQUEUED_STYLES'] = array();
+$settings->enqueue_assets( 'edit.php' );
+check( '...and nothing on other screens', array() === $GLOBALS['TACK_ENQUEUED_STYLES'] );
+check( 'the settings page dies with response 403', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-settings.php' ), "wp_die( esc_html__( 'You do not have permission to access this page.', 'tackquote' ), '', array( 'response' => 403 ) );" ) );
+check( 'D3: no parent_file/submenu_file override and no admin_head removal (WordPress opens the TackQuote menu and marks the item itself)', array() === array_values( array_intersect( array( 'parent_file', 'submenu_file', 'admin_head' ), array_column( $GLOBALS['TACK_HOOKS'], 'hook' ) ) ) );
 
 echo "\n-- quote-only (B2B catalog) mode --\n";
 require __DIR__ . '/catalog-mode-test.php';
@@ -202,12 +227,12 @@ require __DIR__ . '/storefront-1120-test.php';
 echo "\n-- catalogue and order sync, stand-down, lifecycle, updates --\n";
 require __DIR__ . '/rest-keys-test.php';
 
-// 1.12.0 WooCommerce → TackQuote: the dashboard inside WooCommerce admin.
-echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
+// 1.12.0 TackQuote dashboard (WooCommerce → TackQuote in 1.12.0, TackQuote → Dashboard since 1.13.0).
+echo "\n-- embedded dashboard (TackQuote → Dashboard) --\n";
 require __DIR__ . '/embed-admin-test.php';
 
 // 1.13.0 "Link my TackQuote account" in one place, started in WordPress (one-click link).
-echo "\n-- one-click link (WooCommerce → TackQuote, started in WordPress) --\n";
+echo "\n-- one-click link (TackQuote → Dashboard, started in WordPress) --\n";
 require __DIR__ . '/oneclick-link-test.php';
 
 // 1.12.0 live QA fixes (D1, D2, D4, D7, D8, D10; D3 is in rest-keys-test.php).

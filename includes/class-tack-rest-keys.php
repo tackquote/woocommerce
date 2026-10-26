@@ -124,7 +124,7 @@ class Tack_Rest_Keys {
 		}
 		$nonce = isset( $_POST[ self::NONCE_FIELD ] ) ? sanitize_text_field( wp_unslash( $_POST[ self::NONCE_FIELD ] ) ) : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
-			wp_die( esc_html__( 'This link has expired. Go back to WooCommerce → TackQuote → Connection and press the button again.', 'tackquote' ), '', array( 'response' => 403 ) );
+			wp_die( esc_html__( 'This link has expired. Go back to TackQuote → Settings → Connection and press the button again.', 'tackquote' ), '', array( 'response' => 403 ) );
 		}
 		$outcome = $this->start();
 		$this->redirect( isset( $outcome['redirect'] ) ? $outcome['redirect'] : Tack_Settings::tab_url( 'connection' ) );

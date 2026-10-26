@@ -1,6 +1,6 @@
 <?php
 /**
- * The TackQuote dashboard inside WooCommerce admin (WooCommerce → TackQuote).
+ * The TackQuote dashboard inside WordPress admin (TackQuote → Dashboard).
  *
  * @package TackQuotes
  * @since   1.12.0
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * WooCommerce → TackQuote: the seller's TackQuote workspace in a frame, signed in as the
+ * TackQuote → Dashboard: the seller's TackQuote workspace in a frame, signed in as the
  * WordPress user's OWN linked TackQuote account.
  *
  * How it signs in (TackQuote API, `POST /integrations/woocommerce/embed/open`):
@@ -68,7 +68,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Tack_Embed_Admin {
 
-	/** The submenu slug under WooCommerce. */
+	/**
+	 * The page's hook suffix (hook_suffix()).
+	 *
+	 * @var string
+	 */
+	private static $hook_suffix = '';
+
+	/** The submenu slug under the TackQuote menu. */
 	const PAGE_SLUG = 'tackquote-dashboard';
 
 	/**
@@ -145,7 +152,7 @@ class Tack_Embed_Admin {
 	 * Hook registration.
 	 */
 	public function init() {
-		// After WooCommerce registers its own menu (priority 9 and 50), so the parent exists.
+		// After Tack_Settings::add_menu() (priority 10) registered the TackQuote menu.
 		add_action( 'admin_menu', array( $this, 'add_menu' ), 60 );
 		add_action( 'admin_post_' . self::TAB_ACTION, array( $this, 'handle_tab' ) );
 		add_action( 'admin_post_' . self::CLAIM_ACTION, array( $this, 'handle_claim' ) );
@@ -170,17 +177,32 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * WooCommerce → TackQuote.
+	 * TackQuote → Dashboard: the first item of the top-level TackQuote menu (1.13.0;
+	 * 1.12.0 had it under WooCommerce). Added after Tack_Settings::add_menu() registered
+	 * the menu, and placed first (position 0).
 	 */
 	public function add_menu() {
-		add_submenu_page(
-			'woocommerce',
-			__( 'TackQuote', 'tackquote' ),
-			__( 'TackQuote', 'tackquote' ),
+		$hook              = add_submenu_page(
+			Tack_Settings::PAGE_SLUG,
+			__( 'TackQuote dashboard', 'tackquote' ),
+			__( 'Dashboard', 'tackquote' ),
 			self::CAPABILITY,
 			self::PAGE_SLUG,
-			array( $this, 'render_page' )
+			array( $this, 'render_page' ),
+			0
 		);
+		self::$hook_suffix = is_string( $hook ) ? $hook : '';
+	}
+
+	/**
+	 * The hook suffix WordPress gave TackQuote → Dashboard, as add_submenu_page() returned
+	 * it ('' before `admin_menu`). Not a literal: core builds its prefix from the translated
+	 * menu title (get_plugin_page_hookname() → sanitize_title()).
+	 *
+	 * @return string
+	 */
+	public static function hook_suffix() {
+		return self::$hook_suffix;
 	}
 
 	/**
@@ -347,13 +369,13 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * Render WooCommerce → TackQuote.
+	 * Render TackQuote → Dashboard.
 	 */
 	public function render_page() {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to open TackQuote.', 'tackquote' ), '', array( 'response' => 403 ) );
 		}
-		echo '<div class="wrap tackquote-embed">';
+		echo '<div class="wrap tackquote-embed tack-admin">';
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'TackQuote', 'tackquote' ) . '</h1>';
 		// 1.13.0: one menu entry, one tab bar: Dashboard, then the plugin's settings tabs.
 		Tack_Settings::render_nav( 'dashboard' );
@@ -412,7 +434,7 @@ class Tack_Embed_Admin {
 			} else {
 				self::notice(
 					'warning',
-					__( 'Your TackQuote server does not offer the dashboard inside WooCommerce yet. Open TackQuote instead:', 'tackquote' ),
+					__( 'Your TackQuote server does not offer the dashboard inside WordPress yet. Open TackQuote instead:', 'tackquote' ),
 					'https://' . self::DEFAULT_APP_HOST . '/',
 					self::DEFAULT_APP_HOST
 				);
@@ -480,12 +502,14 @@ class Tack_Embed_Admin {
 				$who = $account[ $field ];
 			}
 		}
+		// The bar states the link, never a sign-in: whether the frame is signed in
+		// (a second factor may still be pending) is only known inside the frame.
 		echo '<div class="tackquote-embed-bar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;">';
 		echo '<span>' . esc_html(
 			'' === $who
-				? __( 'Signed in to TackQuote through your linked login.', 'tackquote' )
+				? __( 'Your WordPress login is linked to a TackQuote account.', 'tackquote' )
 				/* translators: %s: the linked TackQuote account's name or email. */
-				: sprintf( __( 'Signed in to TackQuote as %s.', 'tackquote' ), $who )
+				: sprintf( __( 'Your WordPress login is linked to the TackQuote account %s.', 'tackquote' ), $who )
 		) . '</span>';
 		self::action_form( self::TAB_ACTION, __( 'Open in a new tab', 'tackquote' ), true, 'button-secondary' );
 		self::action_form( self::UNLINK_ACTION, __( 'Unlink my login', 'tackquote' ), false, 'button-link' );
