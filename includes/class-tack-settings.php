@@ -358,6 +358,11 @@ class Tack_Settings {
 	public function register_settings() {
 		$checkbox = array( $this, 'sanitize_checkbox' );
 
+		// A request's write outcomes never outlive it, also on a persistent PHP worker
+		// that keeps static state between requests (admin_init runs before options.php
+		// sanitizes anything).
+		self::reset_write_batch();
+
 		// 1.13.0: an administrator opening this page reads TackQuote's store settings when
 		// the stored answer is older than five minutes, BEFORE the fields are chosen below,
 		// so the form drawn and the options it saves are the same set.
@@ -1953,7 +1958,7 @@ class Tack_Settings {
 	 * @param string $feature Tack_Store_Settings feature.
 	 * @return string
 	 */
-	private static function feature_name( $feature ) {
+	public static function feature_name( $feature ) {
 		$names = array(
 			Tack_Store_Settings::ORDER_SYNC   => __( 'Order sync', 'tackquote' ),
 			Tack_Store_Settings::PRICES       => __( 'TackQuote prices', 'tackquote' ),
@@ -1999,12 +2004,21 @@ class Tack_Settings {
 				checked( $server, true, false ),
 				esc_html( $labels[ $feature ] )
 			);
-			if ( ! $server ) {
+			// With push off in TackQuote the statement is always in the form (so ticking,
+			// unticking and ticking again on one page still carries it); tack-admin.js shows it
+			// only while the switch is ticked. With push on, a short hint replaces it.
+			if ( $server ) {
+				// Push is on in TackQuote: the statement is already recorded there, and
+				// keeping push on (or turning it off) needs none.
+				echo '<p class="description tack-order-sync-ack">' . esc_html__( 'Your statement about the personal data order sync sends is already recorded in TackQuote.', 'tackquote' ) . '</p>';
+			} else {
+				$this->open_when( $def['legacy'] . '[on]', 'yes', 'tack-order-sync-ack' );
 				printf(
 					'<p><label><input type="checkbox" name="%1$s[ack]" value="yes" /> %2$s</label></p>',
 					esc_attr( $def['legacy'] ),
 					esc_html__( 'I understand that turning this on sends my customers\' personal data, as listed below, to TackQuote.', 'tackquote' )
 				);
+				echo '</div>';
 			}
 		} else {
 			$this->toggle( $def['legacy'], $labels[ $feature ], $server );
@@ -2059,6 +2073,54 @@ class Tack_Settings {
 	}
 
 	/**
+	 * The outcome of this request's write to TackQuote, per tab: the value each switch
+	 * of the tab is saved as. One options.php save sends ONE request for all the switches
+	 * it changed, and a second sanitize call for the same option (WordPress runs the
+	 * sanitizer again when update_option() falls back to add_option() on a first save)
+	 * reuses the outcome instead of writing, or reporting an error, twice.
+	 *
+	 * @var array<string, array<string, string>>
+	 */
+	private static $write_batch = array();
+
+	/**
+	 * Forget this request's write outcomes (a new options.php request starts empty; the
+	 * tests replay several saves in one process).
+	 */
+	public static function reset_write_batch() {
+		self::$write_batch = array();
+	}
+
+	/**
+	 * The TackQuote-owned switches each tab's form carries.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return string[] Tack_Store_Settings features.
+	 */
+	private static function tab_features( $tab ) {
+		if ( 'sync' === $tab ) {
+			return array( Tack_Store_Settings::ORDER_SYNC );
+		}
+		if ( 'pricing' === $tab ) {
+			return array( Tack_Store_Settings::PRICES, Tack_Store_Settings::ORDER_LIMITS, Tack_Store_Settings::BUYER_GROUP, Tack_Store_Settings::TAX_EXEMPT );
+		}
+		return array();
+	}
+
+	/**
+	 * A switch's posted value: 'yes'/'no', and whether the personal-data statement was
+	 * ticked (order sync only, posted as `[on]` and `[ack]`).
+	 *
+	 * @param mixed $value Raw value.
+	 * @return array{0:string,1:bool}
+	 */
+	private function posted_switch( $value ) {
+		$ack   = is_array( $value ) && isset( $value['ack'] ) && 'yes' === $value['ack'];
+		$value = is_array( $value ) ? ( $value['on'] ?? 'no' ) : $value;
+		return array( $this->sanitize_checkbox( $value ), $ack );
+	}
+
+	/**
 	 * Save a TackQuote-owned switch: in TackQuote first, then (only when TackQuote took it)
 	 * locally. On a refusal the previous value stays and the reason is shown.
 	 *
@@ -2068,38 +2130,73 @@ class Tack_Settings {
 	 * @return string 'yes' or 'no'.
 	 */
 	public function write_through( $tab, $feature, $value ) {
-		$ack   = is_array( $value ) && isset( $value['ack'] ) && 'yes' === $value['ack'];
-		$value = is_array( $value ) ? ( $value['on'] ?? 'no' ) : $value;
-		$new   = $this->sanitize_checkbox( $value );
-		$def   = Tack_Store_Settings::features()[ $feature ];
+		$new = $this->posted_switch( $value )[0];
 		if ( ! Tack_Store_Settings::is_server_driven() || ! self::is_tab_save( $tab ) ) {
 			// Not this form's own save: a local write only, as in 1.12.0.
 			return $new;
 		}
-		$current = true === Tack_Store_Settings::server_value( $feature ) ? 'yes' : 'no';
-		if ( $new === $current ) {
-			return $new;
+		if ( ! isset( self::$write_batch[ $tab ] ) ) {
+			self::$write_batch[ $tab ] = $this->write_tab( $tab );
 		}
-		if ( Tack_Store_Settings::ORDER_SYNC === $feature ) {
-			if ( 'yes' === $new && ! $ack ) {
-				add_settings_error( $def['legacy'], 'tack_order_sync_ack', __( 'Order sync was not turned on: tick the statement about personal data first.', 'tackquote' ) );
-				return $current;
+		return self::$write_batch[ $tab ][ $feature ] ?? $new;
+	}
+
+	/**
+	 * Send every switch this tab's save changed to TackQuote, in ONE request.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return array<string, string> The value each switch is saved as.
+	 */
+	private function write_tab( $tab ) {
+		$features = Tack_Store_Settings::features();
+		$saved    = array();
+		$change   = array();
+		$changed  = array();
+		foreach ( self::tab_features( $tab ) as $feature ) {
+			$def = $features[ $feature ];
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- options.php verified this group's nonce before any sanitizer runs (is_tab_save() checked the group and capability); the values are reduced to yes/no by posted_switch().
+			$raw     = isset( $_POST[ $def['legacy'] ] ) ? map_deep( wp_unslash( $_POST[ $def['legacy'] ] ), 'sanitize_key' ) : 'no';
+			$posted  = $this->posted_switch( $raw );
+			$current = true === Tack_Store_Settings::server_value( $feature ) ? 'yes' : 'no';
+
+			$saved[ $feature ] = $current;
+			if ( $posted[0] === $current ) {
+				continue;
 			}
-			$change = array( 'orderSync' => array_merge( array( 'push' => 'yes' === $new ), 'yes' === $new ? array( 'acknowledgePersonalData' => true ) : array() ) );
-		} else {
-			$change = array( 'features' => array( $def['field'] => 'yes' === $new ) );
+			if ( Tack_Store_Settings::ORDER_SYNC === $feature ) {
+				if ( 'yes' === $posted[0] && ! $posted[1] ) {
+					add_settings_error( $def['legacy'], 'tack_order_sync_ack', __( 'Order sync was not turned on: tick the statement about personal data first.', 'tackquote' ) );
+					continue;
+				}
+				$change['orderSync'] = array_merge( array( 'push' => 'yes' === $posted[0] ), 'yes' === $posted[0] ? array( 'acknowledgePersonalData' => true ) : array() );
+			} else {
+				$change['features'][ $def['field'] ] = 'yes' === $posted[0];
+			}
+			$changed[ $feature ] = $posted[0];
+		}
+		if ( empty( $changed ) ) {
+			return $saved;
 		}
 		$result = Tack_Store_Settings::write( $change );
 		if ( is_wp_error( $result ) ) {
+			$names = array_map( array( __CLASS__, 'feature_name' ), array_keys( $changed ) );
 			add_settings_error(
-				$def['legacy'],
+				self::option_group( $tab ),
 				'tack_store_settings_write',
-				/* translators: 1: a feature, e.g. "Order limits"; 2: TackQuote's reason. */
-				sprintf( __( '%1$s was not changed: TackQuote did not save it (%2$s).', 'tackquote' ), self::feature_name( $feature ), $result->get_error_message() )
+				sprintf(
+					/* translators: 1: one feature or a comma-separated list, e.g. "Order limits, Buyer group badge"; 2: TackQuote's reason. */
+					_n( '%1$s was not changed: TackQuote did not save it (%2$s).', '%1$s were not changed: TackQuote did not save them (%2$s).', count( $names ), 'tackquote' ),
+					implode( ', ', $names ),
+					$result->get_error_message()
+				)
 			);
-			return $current;
+			return $saved;
 		}
-		return $new;
+		// Saved locally as TackQuote now stores it (its answer), not as posted.
+		foreach ( array_keys( $changed ) as $feature ) {
+			$saved[ $feature ] = true === Tack_Store_Settings::server_value( $feature ) ? 'yes' : 'no';
+		}
+		return $saved;
 	}
 
 	/**
@@ -2167,6 +2264,11 @@ class Tack_Settings {
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			return $stored;
 		}
+		// A second sanitize of the same save (first-time add_option) reuses the outcome,
+		// before anything is checked again: it receives the already-saved value.
+		if ( self::is_tab_save( 'forms' ) && isset( self::$write_batch['forms']['slug'] ) ) {
+			return self::$write_batch['forms']['slug'];
+		}
 		$slug   = is_string( $value ) ? trim( $value ) : '';
 		$listed = array();
 		foreach ( (array) Tack_Store_Settings::wholesale_forms() as $form ) {
@@ -2179,6 +2281,7 @@ class Tack_Settings {
 		if ( ! self::is_tab_save( 'forms' ) ) {
 			return '' === $slug ? $stored : $slug;
 		}
+		self::$write_batch['forms']['slug'] = $stored;
 		if ( Tack_Store_Settings::chosen_wholesale_form_slug() !== $slug ) {
 			$result = Tack_Store_Settings::write( array( 'defaultWholesaleFormSlug' => '' !== $slug ? $slug : null ) );
 			if ( is_wp_error( $result ) ) {
@@ -2191,7 +2294,8 @@ class Tack_Settings {
 				return $stored;
 			}
 		}
-		return '' === $slug ? $stored : $slug;
+		self::$write_batch['forms']['slug'] = '' === $slug ? $stored : $slug;
+		return self::$write_batch['forms']['slug'];
 	}
 
 	/**

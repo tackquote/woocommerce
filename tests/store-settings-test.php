@@ -318,32 +318,145 @@ $ss_put = function () {
 		)
 	);
 };
+/**
+ * Replay one options.php request for a tab: its POST, a fresh request, then the save.
+ *
+ * @param string $tab  Tab.
+ * @param array  $post Fields.
+ */
+function tack_ss_save( $tab, array $post ) {
+	$_POST = $post + array( 'option_page' => Tack_Settings::option_group( $tab ) );
+	Tack_Settings::reset_write_batch();
+	tack_tabs_save( Tack_Settings::option_group( $tab ), $post );
+}
+$ss_pricing = function ( array $over ) {
+	return $over + array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'no', 'tack_quotes_enable_buyer_group' => 'yes', 'tack_quotes_apply_tax_exempt' => 'no', 'tack_quotes_off_prices' => 'no' );
+};
 $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
-$_POST['option_page']           = Tack_Settings::option_group( 'pricing' );
 tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true ) ) ) ) ) );
-tack_tabs_save( Tack_Settings::option_group( 'pricing' ), array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'yes', 'tack_quotes_apply_tax_exempt' => 'no', 'tack_quotes_off_prices' => 'no' ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'yes' ) ) );
 $ss_puts = $ss_put();
 check( 'write: only the changed switch is sent, once, to PUT …/store-settings/from-plugin', 1 === count( $ss_puts ) && array( 'features' => array( 'orderLimits' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ), wp_json_encode( $ss_puts ) );
 check( '...TackQuote\'s answer becomes the stored value, and the local option mirrors it', Tack_B2B_Notices::order_limits_enabled() && 'yes' === get_option( 'tack_quotes_enable_order_limits' ) );
 
+// Follow-up 2: several changed switches in one save = ONE request.
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_puts = $ss_put();
+check( 'batch: two changed switches are ONE request carrying both', 1 === count( $ss_puts ) && array( 'features' => array( 'buyerGroupBadge' => false, 'taxExempt' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ), wp_json_encode( $ss_puts ) );
+check( '...and both are saved', 'no' === get_option( 'tack_quotes_enable_buyer_group' ) && 'yes' === get_option( 'tack_quotes_apply_tax_exempt' ) && Tack_Tax_Exempt::is_enabled() );
+
+// Follow-up 4: a second sanitize of the same save (first-time add_option) reuses the outcome.
 tack_cx_routes( array( '/store-settings/from-plugin' => array( 400, array( 'statusCode' => 400, 'message' => 'Nope from TackQuote' ) ) ) );
 $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
-tack_tabs_save( Tack_Settings::option_group( 'pricing' ), array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'yes', 'tack_quotes_apply_tax_exempt' => 'no' ) );
+$_POST = $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) + array( 'option_page' => Tack_Settings::option_group( 'pricing' ) );
+Tack_Settings::reset_write_batch();
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
+check( 'first-time add_option replays the sanitizer: still one request and one error', 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
 check( 'write refused: the previous value stays (here and in force)', 'yes' === get_option( 'tack_quotes_enable_wholesale_pricing' ) && Tack_Wholesale_Pricing::is_enabled() );
-check( '...and the reason is shown', 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) && false !== strpos( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2], 'TackQuote did not save it' ) );
+check( '...and the reason is shown, naming the switch', false !== strpos( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2], 'TackQuote did not save it' ) && false !== strpos( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2], 'TackQuote prices' ) );
+// Fable 4: a refused save with TWO changed switches rolls both back and names both.
+$ss_before_two = array( get_option( 'tack_quotes_enable_buyer_group' ), get_option( 'tack_quotes_apply_tax_exempt' ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_ss_save(
+	'pricing',
+	$ss_pricing(
+		array(
+			'tack_quotes_enable_wholesale_pricing' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::PRICES ) ? 'yes' : 'no',
+			'tack_quotes_enable_order_limits'      => true === Tack_Store_Settings::server_value( Tack_Store_Settings::ORDER_LIMITS ) ? 'yes' : 'no',
+			'tack_quotes_enable_buyer_group'       => true === Tack_Store_Settings::server_value( Tack_Store_Settings::BUYER_GROUP ) ? 'no' : 'yes',
+			'tack_quotes_apply_tax_exempt'         => true === Tack_Store_Settings::server_value( Tack_Store_Settings::TAX_EXEMPT ) ? 'no' : 'yes',
+		)
+	)
+);
+$ss_err = (string) ( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2] ?? '' );
+check( 'two refused: both roll back to TackQuote\'s values', ( true === Tack_Store_Settings::server_value( Tack_Store_Settings::BUYER_GROUP ) ? 'yes' : 'no' ) === get_option( 'tack_quotes_enable_buyer_group' ) && ( true === Tack_Store_Settings::server_value( Tack_Store_Settings::TAX_EXEMPT ) ? 'yes' : 'no' ) === get_option( 'tack_quotes_apply_tax_exempt' ) );
+check( '...one error names both, plural', 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) && false !== strpos( $ss_err, 'Buyer group badge' ) && false !== strpos( $ss_err, 'Tax-exempt buyers' ) && false !== strpos( $ss_err, 'were not changed: TackQuote did not save them' ), $ss_err );
+
+// Follow-up 1: the acting WordPress user id, only to a server that lists store_settings_actor.
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) );
+$GLOBALS['TACK_CURRENT_USER_ID'] = 7;
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => false ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( 'actor: wpUserId (a number, nothing else about the user) goes to a server that lists store_settings_actor', is_array( $ss_body ) && 7 === ( $ss_body['wpUserId'] ?? null ) && array( 'features', 'wpUserId' ) === array_keys( $ss_body ), wp_json_encode( $ss_body ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => true ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( '...and never to a server without it', is_array( $ss_body ) && ! array_key_exists( 'wpUserId', $ss_body ) );
+// Fable 2: no fresh capability list -> ask the server, do not drop the attribution.
+tack_ss_caps( null );
+$GLOBALS['TACK_CURRENT_USER_ID'] = 9;
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping' => array( 200, array( 'ok' => true, 'capabilities' => array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) ) ),
+		'/store-settings/from-plugin'    => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => false ) ) ) ),
+	)
+);
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( 'actor: with no fresh capability list the server is asked, and wpUserId still goes', is_array( $ss_body ) && 9 === ( $ss_body['wpUserId'] ?? null ) );
+// Fable 4: nobody signed in (user id 0) -> no wpUserId at all.
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) );
+$GLOBALS['TACK_CURRENT_USER_ID'] = 0;
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => true ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( 'actor: user id 0 sends no wpUserId', is_array( $ss_body ) && ! array_key_exists( 'wpUserId', $ss_body ) );
+tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY ) );
+unset( $GLOBALS['TACK_CURRENT_USER_ID'] );
 
 // Order sync ON needs the personal-data statement.
-$_POST['option_page'] = Tack_Settings::option_group( 'sync' );
 $ss_st                = get_option( Tack_Store_Settings::OPTION );
 $ss_st['settings']['orderSync']['push'] = false;
 update_option( Tack_Store_Settings::OPTION, $ss_st );
 tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer() ) ) );
 $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
-tack_tabs_save( Tack_Settings::option_group( 'sync' ), array( 'tack_quotes_enable_order_sync' => array( 'on' => 'yes' ) ) );
+tack_ss_save( 'sync', array( 'tack_quotes_enable_order_sync' => array( 'on' => 'yes' ) ) );
 check( 'order sync ON without the statement: nothing sent, stays off, reason shown', array() === $ss_put() && ! Tack_Order_Sync::is_enabled() && 'no' === get_option( 'tack_quotes_enable_order_sync' ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
-tack_tabs_save( Tack_Settings::option_group( 'sync' ), array( 'tack_quotes_enable_order_sync' => array( 'on' => 'yes', 'ack' => 'yes' ) ) );
+tack_ss_save( 'sync', array( 'tack_quotes_enable_order_sync' => array( 'on' => 'yes', 'ack' => 'yes' ) ) );
 $ss_puts = $ss_put();
 check( 'order sync ON with the statement: acknowledgePersonalData true is sent', 1 === count( $ss_puts ) && array( 'orderSync' => array( 'push' => true, 'acknowledgePersonalData' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ) && Tack_Order_Sync::is_enabled() );
+
+// Fable 3: after a save, the local option is what TackQuote stored, not what was posted.
+$ss_before = get_option( Tack_Store_Settings::OPTION );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => false, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => true ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+check( 'mirror: TackQuote answered order limits off, so the local option says off too', 1 === count( $ss_put() ) && 'no' === get_option( 'tack_quotes_enable_order_limits' ) && ! Tack_B2B_Notices::order_limits_enabled() );
+update_option( Tack_Store_Settings::OPTION, $ss_before );
+
+// Fable 1: register_settings() (admin_init) starts each request with an empty write cache.
+$_POST = $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'no' ) ) + array( 'option_page' => Tack_Settings::option_group( 'pricing' ) );
+Tack_Settings::reset_write_batch();
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
+$GLOBALS['TACK_HTTP_REQUESTS'] = array();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true ) ) ) ) ) );
+$_POST = $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_wholesale_pricing' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::PRICES ) ? 'yes' : 'no', 'tack_quotes_enable_buyer_group' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::BUYER_GROUP ) ? 'yes' : 'no', 'tack_quotes_apply_tax_exempt' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::TAX_EXEMPT ) ? 'yes' : 'no' ) ) + array( 'option_page' => Tack_Settings::option_group( 'pricing' ) );
+$ss_settings->register_settings();
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
+check( 'a new request (admin_init) never reuses the previous request\'s write outcome', 1 === count( $ss_put() ) && 'yes' === get_option( 'tack_quotes_enable_order_limits' ) );
+$ss_st = get_option( Tack_Store_Settings::OPTION );
+$ss_st['settings']['features']['orderLimits'] = false;
+update_option( Tack_Store_Settings::OPTION, $ss_st );
+update_option( 'tack_quotes_enable_order_limits', 'no' );
+
+// Follow-up 3: the statement is always in the form; JS shows it only while it is needed.
+$ss_st                = get_option( Tack_Store_Settings::OPTION );
+foreach ( array( true, false ) as $ss_push ) {
+	$ss_st['settings']['orderSync']['push'] = $ss_push;
+	update_option( Tack_Store_Settings::OPTION, $ss_st );
+	ob_start();
+	$ss_settings->field_server_feature( array( 'feature' => Tack_Store_Settings::ORDER_SYNC ) );
+	$ss_field = (string) ob_get_clean();
+	check(
+		'consent: push ' . ( $ss_push ? 'ON shows the "already recorded" hint, no unticked box' : 'OFF renders the box, shown while the switch is ticked' ),
+		$ss_push
+			? ( false === strpos( $ss_field, 'name="tack_quotes_enable_order_sync[ack]"' ) && false !== strpos( $ss_field, 'already recorded in TackQuote' ) )
+			: ( false !== strpos( $ss_field, 'name="tack_quotes_enable_order_sync[ack]"' ) && false !== strpos( $ss_field, 'data-tack-when="tack_quotes_enable_order_sync[on]" data-tack-when-value="yes"' ) )
+	);
+}
 
 // Not the tab's own options.php save (activation's add_option, other code): never written.
 unset( $_POST['option_page'] );
@@ -363,15 +476,31 @@ $GLOBALS['TACK_CAPS'] = array( 'manage_options', 'manage_woocommerce' );
 // The wholesale form, picked and saved in TackQuote.
 $_POST['option_page'] = Tack_Settings::option_group( 'forms' );
 tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'trade-signup' ) ) ) ) );
+Tack_Settings::reset_write_batch();
 check( 'form: a listed form is saved in TackQuote and used', 'trade-signup' === $ss_settings->sanitize_server_form_slug( 'trade-signup' ) && 1 === count( $ss_put() ) && array( 'defaultWholesaleFormSlug' => 'trade-signup' ) === json_decode( (string) $ss_put()[0]['args']['body'], true ) && 'trade-signup' === Tack_Storefront_Forms::default_slug() );
 $GLOBALS['TACK_HTTP_REQUESTS'] = array();
+Tack_Settings::reset_write_batch();
 check( 'form: one TackQuote does not list is refused, nothing sent', 'trade-signup' !== $ss_settings->sanitize_server_form_slug( 'made-up' ) && array() === $ss_put() );
 check( 'form: TackQuote\'s default is sent as null', ( function () use ( $ss_settings, $ss_put ) {
+	Tack_Settings::reset_write_batch();
 	$ss_settings->sanitize_server_form_slug( '' );
 	$p = $ss_put();
 	return 1 === count( $p ) && array( 'defaultWholesaleFormSlug' => null ) === json_decode( (string) $p[0]['args']['body'], true );
 } )() );
-unset( $_POST['option_page'] );
+Tack_Settings::reset_write_batch();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 500, array( 'message' => 'down' ) ) ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+$ss_settings->sanitize_server_form_slug( 'distributor' );
+$ss_settings->sanitize_server_form_slug( 'distributor' );
+check( 'form: a replayed sanitize in the same save sends once and reports once', 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+Tack_Settings::reset_write_batch();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'distributor' ) ) ) ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+$ss_first = $ss_settings->sanitize_server_form_slug( '' );
+$ss_settings->sanitize_server_form_slug( $ss_first );
+check( 'form: the replayed sanitize gets the saved (possibly unlisted) slug and reports nothing', 'old-typed-slug' === $ss_first && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+$_POST = array();
 
 // A server with store_settings but without store_settings_write: exactly 1.12.0.
 tack_ss_caps( array( Tack_Store_Settings::CAPABILITY ) );

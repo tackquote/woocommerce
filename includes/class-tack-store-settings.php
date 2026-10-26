@@ -58,6 +58,9 @@ class Tack_Store_Settings {
 	 */
 	const WRITE_CAPABILITY = 'store_settings_write';
 
+	/** The capability for `wpUserId` (the acting WordPress user) on the write route. */
+	const ACTOR_CAPABILITY = 'store_settings_actor';
+
 	/** The last answer TackQuote gave, for the saved key (autoloaded: storefront reads it). */
 	const OPTION = 'tack_quotes_store_settings';
 
@@ -495,6 +498,15 @@ class Tack_Store_Settings {
 			return new WP_Error( 'tack_store_settings_unavailable', __( 'TackQuote does not take these settings from the plugin right now. Reload the page and try again.', 'tackquote' ) );
 		}
 		$client = $client instanceof Tack_Api_Client ? $client : new Tack_Api_Client();
+		// Who changed it: the WordPress user id only (an opaque number, no name or email),
+		// to a server that lists `store_settings_actor` (an older one would refuse the field).
+		// With no fresh capability list, ask (an administrator's save, never a shopper's
+		// request) rather than silently dropping who made the change.
+		$caps  = $client->cached_capabilities();
+		$actor = is_array( $caps ) ? in_array( self::ACTOR_CAPABILITY, $caps, true ) : $client->supports( self::ACTOR_CAPABILITY );
+		if ( $actor && get_current_user_id() > 0 ) {
+			$change['wpUserId'] = (int) get_current_user_id();
+		}
 		$answer = $client->request( 'PUT', self::WRITE_PATH, $change, Tack_Api_Client::INTERACTIVE_TIMEOUT );
 		if ( is_wp_error( $answer ) ) {
 			return $answer;
