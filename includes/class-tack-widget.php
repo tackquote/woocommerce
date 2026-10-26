@@ -1246,24 +1246,7 @@ class Tack_Widget {
 			--$this->block_cards[ $id ];
 			return;
 		}
-		$html = $this->card_button_html( $product );
-		if ( '' === $html ) {
-			return;
-		}
-
-		/*
-		 * On a block theme the control wears the theme's element button (wide side padding
-		 * on Twenty Twenty-Five), so in a narrow card the longer "Add to Quote" wrapped
-		 * where Add to cart did not. A block-level wrapper lets the stylesheet give the
-		 * label the side padding back in a narrow card only (tack-quotes-layout.css,
-		 * `tack-card-quote` container). Classic themes size their own `.button` and keep
-		 * the 1.12.0 markup.
-		 */
-		if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
-			echo '<div class="tack-card-quote-classic">' . wp_kses( $html, self::card_button_allowed_html() ) . '</div>';
-			return;
-		}
-		echo wp_kses( $html, self::card_button_allowed_html() );
+		echo wp_kses( $this->card_button_html( $product ), self::card_button_allowed_html() );
 	}
 
 	/**

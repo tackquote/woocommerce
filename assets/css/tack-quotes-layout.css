@@ -436,38 +436,29 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   word-break: normal;
 }
 
-/* 1.13.0: in a narrow card (a phone-width grid), a theme with wide button padding
- * (Twenty Twenty-Five: 2.25rem a side) leaves too little room for "Add to Quote", which
- * is longer than "Add to cart", so it wrapped to two lines and stood taller than the
- * card's own button. Only in a narrow card, the control keeps the theme's button
- * (classes, font, colours, vertical padding) and gives the label the room the side
- * padding took: one line, the card button's height. No width is set; wider cards and
- * themes with smaller padding are untouched. */
-/* Both wrappers: the block-grid one (after the Product Button block) and, on a block
- * theme, the classic-loop one in li.product (Tack_Widget::render_card_button(): the shop
- * page of a classic template, the [products] shortcode). A size container is sized
- * without its content, so it must stretch across the card: `align-self: stretch` keeps it
- * full width where the card is a flex column that aligns items to the start (WooCommerce's
- * twenty-twenty-three.css gives li.product `display: flex; flex-direction: column;
- * align-items: flex-start`), and is harmless in normal flow and in a grid cell. */
-:is(.wp-block-button.tack-card-quote, .tack-card-quote-classic) {
-  align-self: stretch;
-  container: tack-card-quote / inline-size;
+/* 1.13.0: in a flex parent that does not wrap (a core Row with flexWrap: nowrap), the
+ * wrapper and the control may shrink below their content's width and the label breaks
+ * inside the card instead of overflowing into the next one. In every other layout this
+ * changes nothing (the control is never wider than the card already). */
+.wp-block-button.tack-card-quote {
+  min-width: 0;
+  max-width: 100%;
 }
 
-/* Directly inside a core flex layout (a Row, or a Stack: `.is-layout-flex`, which
- * wp-includes/block-supports/layout.php gives `flex-wrap: wrap; align-items: center`,
- * and a Stack `flex-direction: column; align-items: flex-start` by default), stretching
- * would centre the control where the card's own Add to cart sits at the start, and in a
- * Row the container would be 0 wide. There the wrapper is no container and follows the
- * layout, as in 1.12.0. */
-:where(.is-layout-flex) > :is(.wp-block-button.tack-card-quote, .tack-card-quote-classic) {
-  align-self: auto;
-  container-type: normal;
+.wp-block-button.tack-card-quote > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-@container tack-card-quote (max-width: 14rem) {
-  :is(.wp-block-button.tack-card-quote, .tack-card-quote-classic) > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+/* 1.13.0: at phone widths a theme with wide button padding (Twenty Twenty-Five: 2.25rem
+ * a side) leaves "Add to Quote", longer than "Add to cart", too little room in a card, so
+ * it wrapped to two lines and stood taller than the card's own button. At WooCommerce's
+ * own small-screen breakpoint (768px: woocommerce-smallscreen.css,
+ * `woocommerce_style_smallscreen_breakpoint`) the card controls only (block grids and the
+ * classic loop) take 1em side padding. A viewport query sizes nothing and contains
+ * nothing, so it cannot change any layout; wider screens are as in 1.12.0. */
+@media only screen and (max-width: 768px) {
+  :is(.tack-card-quote-btn, .tack-card-quote-link) {
     padding-inline: 1em;
   }
 }
