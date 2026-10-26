@@ -120,7 +120,7 @@ class Tack_Settings {
 		// 1.13.0: the page lives under WooCommerce → TackQuote; keep that entry highlighted.
 		add_filter( 'parent_file', array( $this, 'menu_parent' ) );
 		add_filter( 'submenu_file', array( $this, 'menu_submenu' ) );
-		add_filter( 'admin_title', array( $this, 'admin_title' ), 10, 2 );
+		add_action( 'admin_head', array( $this, 'hide_menu_entry' ) );
 		// The untranslated tab slugs: init() runs on plugins_loaded, and translating here
 		// (tabs() builds the labels with __()) loads the text domain before `init`, which
 		// WordPress 6.7+ reports as a notice on every request.
@@ -150,8 +150,14 @@ class Tack_Settings {
 	 * to TackQuote.
 	 */
 	public function add_menu() {
+		// Registered UNDER WooCommerce, then hidden from the menu at `admin_head`
+		// (hide_menu_entry()): until then WordPress resolves the page's title
+		// (get_admin_page_title(), read by admin-header.php before `admin_head`) and its
+		// parent from this entry, so the screen has a title and WooCommerce's menu opens
+		// on it, like any WooCommerce page. A page registered with no parent has neither:
+		// a null title (strip_tags() notice in admin-header.php) and a closed menu.
 		$hook              = add_submenu_page(
-			'',
+			'woocommerce',
 			__( 'TackQuote settings', 'tackquote' ),
 			__( 'TackQuote settings', 'tackquote' ),
 			self::CAPABILITY,
@@ -159,6 +165,15 @@ class Tack_Settings {
 			array( $this, 'render_page' )
 		);
 		$this->hook_suffix = is_string( $hook ) ? $hook : '';
+	}
+
+	/**
+	 * `admin_head`: take the settings entry out of the WooCommerce menu (the menu is drawn
+	 * after `admin_head`, by menu-header.php), so WooCommerce → TackQuote stays the one
+	 * entry. The page itself stays registered and reachable.
+	 */
+	public function hide_menu_entry() {
+		remove_submenu_page( 'woocommerce', self::PAGE_SLUG );
 	}
 
 	/**
@@ -208,20 +223,6 @@ class Tack_Settings {
 	 */
 	public function menu_submenu( $submenu_file ) {
 		return self::is_settings_page() && class_exists( 'Tack_Embed_Admin', false ) ? Tack_Embed_Admin::PAGE_SLUG : $submenu_file;
-	}
-
-	/**
-	 * `admin_title`: a page with no menu entry has no title of its own.
-	 *
-	 * @param string $admin_title Full title.
-	 * @param string $title       Page title.
-	 * @return string
-	 */
-	public function admin_title( $admin_title, $title = '' ) {
-		if ( ! self::is_settings_page() || '' !== trim( (string) $title ) ) {
-			return $admin_title;
-		}
-		return __( 'TackQuote settings', 'tackquote' ) . $admin_title;
 	}
 
 	/**

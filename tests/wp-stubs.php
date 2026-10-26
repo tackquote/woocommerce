@@ -200,9 +200,18 @@ function add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $call
 	return 'toplevel_page_' . $menu_slug;
 }
 
+if ( ! function_exists( 'remove_submenu_page' ) ) {
+	/** @param string $parent Parent. @param string $slug Slug. @return bool */
+	function remove_submenu_page( $parent, $slug ) {
+		$GLOBALS['TACK_REMOVED_SUBMENUS'][] = array( $parent, $slug );
+		return true;
+	}
+}
+
 function add_submenu_page( $parent, $page_title, $menu_title, $capability, $menu_slug, $callback = null ) {
 	$GLOBALS['TACK_REGISTERED_PAGES'][ $menu_slug ] = $capability;
 	$GLOBALS['TACK_SUBMENU_PARENTS'][ $menu_slug ]  = $parent;
+	$GLOBALS['TACK_SUBMENU_TITLES'][ $menu_slug ]   = $page_title;
 	return $parent . '_page_' . $menu_slug;
 }
 

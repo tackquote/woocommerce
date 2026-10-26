@@ -76,9 +76,22 @@ check(
 	'manage_woocommerce' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null )
 );
 check(
-	'...registered with no menu entry of its own (parent \'\', not a top-level menu)',
-	'' === ( $GLOBALS['TACK_SUBMENU_PARENTS'][ Tack_Settings::PAGE_SLUG ] ?? null )
+	'...registered under WooCommerce with a title (Studio QA D2/D3: a page with no parent has a null title and a closed menu)',
+	'woocommerce' === ( $GLOBALS['TACK_SUBMENU_PARENTS'][ Tack_Settings::PAGE_SLUG ] ?? null )
+		&& '' !== trim( (string) ( $GLOBALS['TACK_SUBMENU_TITLES'][ Tack_Settings::PAGE_SLUG ] ?? '' ) )
 );
+$GLOBALS['TACK_HOOKS'] = array();
+$settings->init();
+$GLOBALS['TACK_REMOVED_SUBMENUS'] = array();
+$settings->hide_menu_entry();
+check(
+	'...and taken out of the WooCommerce menu only at admin_head, after WordPress resolved its title and parent',
+	in_array( array( 'hook' => 'admin_head', 'priority' => 10, 'args' => 1 ), $GLOBALS['TACK_HOOKS'], true )
+		&& array( array( 'woocommerce', Tack_Settings::PAGE_SLUG ) ) === $GLOBALS['TACK_REMOVED_SUBMENUS']
+);
+$GLOBALS['TACK_REMOVED_SUBMENUS'] = array();
+$settings->add_menu();
+check( '...never at admin_menu (the title would be lost again)', array() === $GLOBALS['TACK_REMOVED_SUBMENUS'] );
 
 echo "\n-- quote-only (B2B catalog) mode --\n";
 require __DIR__ . '/catalog-mode-test.php';
