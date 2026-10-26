@@ -436,29 +436,25 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   word-break: normal;
 }
 
-/* 1.13.0: in a flex parent that does not wrap (a core Row with flexWrap: nowrap), the
- * wrapper and the control may shrink below their content's width and the label breaks
- * inside the card instead of overflowing into the next one. In every other layout this
- * changes nothing (the control is never wider than the card already). */
-.wp-block-button.tack-card-quote {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.wp-block-button.tack-card-quote > :is(.tack-card-quote-btn, .tack-card-quote-link) {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 /* 1.13.0: at phone widths a theme with wide button padding (Twenty Twenty-Five: 2.25rem
  * a side) leaves "Add to Quote", longer than "Add to cart", too little room in a card, so
- * it wrapped to two lines and stood taller than the card's own button. At WooCommerce's
- * own small-screen breakpoint (768px: woocommerce-smallscreen.css,
- * `woocommerce_style_smallscreen_breakpoint`) the card controls only (block grids and the
- * classic loop) take 1em side padding. A viewport query sizes nothing and contains
- * nothing, so it cannot change any layout; wider screens are as in 1.12.0. */
+ * it wrapped to two lines and stood taller than the card's own button. At phone widths
+ * the card controls only (block grids and the classic loop) take 1em side padding. A
+ * viewport query sizes nothing and contains nothing, so it cannot change any layout;
+ * wider screens are as in 1.12.0.
+ *
+ * 768px is the default of WooCommerce's small-screen breakpoint (woocommerce-smallscreen.css
+ * is enqueued for `only screen and (max-width: 768px)`). WooCommerce lets a site change
+ * that server-side with the `woocommerce_style_smallscreen_breakpoint` filter; a static
+ * stylesheet cannot follow the filter, so this uses the default.
+ *
+ * The selectors carry their own weight rather than relying on which stylesheet prints
+ * last: the block-grid control inside its wrapper, and the classic-loop control inside
+ * WooCommerce's product list (as specific as WooCommerce's own `ul.products li.product`
+ * button rules). */
 @media only screen and (max-width: 768px) {
-  :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  .wp-block-button.tack-card-quote > :is(.tack-card-quote-btn, .tack-card-quote-link),
+  .woocommerce ul.products li.product :is(.tack-card-quote-btn, .tack-card-quote-link) {
     padding-inline: 1em;
   }
 }
