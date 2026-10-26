@@ -443,32 +443,26 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
  * (classes, font, colours, vertical padding) and gives the label the room the side
  * padding took: one line, the card button's height. No width is set; wider cards and
  * themes with smaller padding are untouched. */
-.wp-block-button.tack-card-quote {
-  /* The wrapper is block-level here (a card's flow or a grid cell), so it already spans
-   * the card; `align-self` keeps it spanning in a grid that aligns items otherwise. */
+/* Both wrappers: the block-grid one (after the Product Button block) and, on a block
+ * theme, the classic-loop one in li.product (Tack_Widget::render_card_button(): the shop
+ * page of a classic template, the [products] shortcode). A size container is sized
+ * without its content, so it must stretch across the card: `align-self: stretch` keeps it
+ * full width where the card is a flex column that aligns items to the start (WooCommerce's
+ * twenty-twenty-three.css gives li.product `display: flex; flex-direction: column;
+ * align-items: flex-start`), and is harmless in normal flow and in a grid cell. */
+:is(.wp-block-button.tack-card-quote, .tack-card-quote-classic) {
   align-self: stretch;
   container: tack-card-quote / inline-size;
 }
 
 /* Directly inside a core flex layout (a Row, or a Stack: `.is-layout-flex`, which
  * wp-includes/block-supports/layout.php gives `flex-wrap: wrap; align-items: center`,
- * and a Stack `flex-direction: column; align-items: flex-start` by default), a size
- * container would be sized without its content: 0 wide in a Row, and stretched (the
- * control centred) where the card's own Add to cart sits at the start of a Stack. There
- * the wrapper is no container and follows the layout, as in 1.12.0. */
-:where(.is-layout-flex) > .wp-block-button.tack-card-quote {
+ * and a Stack `flex-direction: column; align-items: flex-start` by default), stretching
+ * would centre the control where the card's own Add to cart sits at the start, and in a
+ * Row the container would be 0 wide. There the wrapper is no container and follows the
+ * layout, as in 1.12.0. */
+:where(.is-layout-flex) > :is(.wp-block-button.tack-card-quote, .tack-card-quote-classic) {
   align-self: auto;
-  container-type: normal;
-}
-
-/* The classic loop (shop page of a classic template, the [products] shortcode) on a
- * block theme: the control sits in its own block-level wrapper in li.product
- * (Tack_Widget::render_card_button()), the same narrow-card container. */
-.tack-card-quote-classic {
-  container: tack-card-quote / inline-size;
-}
-
-:where(.is-layout-flex) > .tack-card-quote-classic {
   container-type: normal;
 }
 

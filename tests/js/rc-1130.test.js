@@ -27,15 +27,15 @@ function check(label, fn) {
   }
 }
 
-check('P2: the card wrapper is a named inline-size container that spans the card', () => {
-  const rule = /\.wp-block-button\.tack-card-quote \{([^}]*container:[^}]*)\}/.exec(css);
-  assert.ok(rule, 'a container rule on the wrapper');
+check('P2: both wrappers (block grid and classic loop) are one named inline-size container that stretches across the card', () => {
+  const rule = /:is\(\.wp-block-button\.tack-card-quote, \.tack-card-quote-classic\) \{([^}]*)\}/.exec(css);
+  assert.ok(rule, 'the shared container rule');
   assert.match(rule[1], /container:\s*tack-card-quote\s*\/\s*inline-size;/);
-  assert.match(rule[1], /align-self:\s*stretch;/);
+  assert.match(rule[1], /align-self:\s*stretch;/, 'the classic wrapper stretches too (li.product as a flex column, Twenty Twenty-Three)');
 });
 
-check('P2: directly in a core flex layout (Row or Stack) the wrapper is no container and follows the layout', () => {
-  const rule = /:where\(\.is-layout-flex\) > \.wp-block-button\.tack-card-quote \{([^}]*)\}/.exec(css);
+check('P2: directly in a core flex layout (Row or Stack) neither wrapper is a container; it follows the layout', () => {
+  const rule = /:where\(\.is-layout-flex\) > :is\(\.wp-block-button\.tack-card-quote, \.tack-card-quote-classic\) \{([^}]*)\}/.exec(css);
   assert.ok(rule, 'the flex opt-out rule');
   assert.match(rule[1], /container-type:\s*normal;/);
   assert.match(rule[1], /align-self:\s*auto;/);
@@ -50,11 +50,6 @@ check('P2: in a narrow card only the side padding changes (one line, theme butto
   assert.match(inner, /:is\(\.wp-block-button\.tack-card-quote, \.tack-card-quote-classic\) > :is\(\.tack-card-quote-btn, \.tack-card-quote-link\)\s*\{[^}]*padding-inline:\s*1em;/);
   assert.doesNotMatch(inner, /(?:^|[^-])width\s*:/, 'no width is set on the control');
   assert.doesNotMatch(inner, /white-space|text-overflow|font-size|padding-block/, 'nothing else of the theme button changes');
-});
-
-check('P2 (classic loop): the [products]/classic-template wrapper is the same container, with the flex opt-out', () => {
-  assert.match(css, /\.tack-card-quote-classic \{\s*container:\s*tack-card-quote\s*\/\s*inline-size;\s*\}/);
-  assert.match(css, /:where\(\.is-layout-flex\) > \.tack-card-quote-classic \{\s*container-type:\s*normal;\s*\}/);
 });
 
 check('P2: the label still wraps rather than being cut if a card is narrower still', () => {
