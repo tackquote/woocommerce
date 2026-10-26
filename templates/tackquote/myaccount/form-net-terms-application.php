@@ -12,7 +12,7 @@
  * allowed-HTML list (Tack_Storefront_Forms::allowed_html()).
  *
  * @package TackQuote\Templates
- * @version 1.10.0
+ * @version 1.12.0
  *
  * @var string $notices      Notices to show above the form (escaped markup).
  * @var string $description  Introductory text.
