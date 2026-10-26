@@ -177,6 +177,11 @@ class Tack_Storefront_Forms {
 	 * @return string
 	 */
 	public static function default_slug() {
+		// 1.13.0: the form chosen in TackQuote when it decides (no slug typed by hand).
+		$server = Tack_Store_Settings::server_wholesale_form_slug();
+		if ( '' !== $server ) {
+			return $server;
+		}
 		$slug = sanitize_key( (string) get_option( self::OPTION_FORM_SLUG, self::DEFAULT_SLUG ) );
 		return '' === $slug ? self::DEFAULT_SLUG : $slug;
 	}
@@ -2235,6 +2240,18 @@ class Tack_Storefront_Forms {
 			return '';
 		}
 		$settings = class_exists( 'Tack_Settings' ) ? Tack_Settings::tab_url( 'forms' ) : admin_url( 'admin.php' );
+		// 1.13.0: on a server that decides the form, it is chosen in TackQuote, not typed here.
+		if ( class_exists( 'Tack_Store_Settings' ) && Tack_Store_Settings::is_server_driven() ) {
+			return '<p class="tackquote-admin-hint">'
+				. esc_html(
+					sprintf(
+						/* translators: %s: the wholesale form slug chosen in TackQuote. */
+						__( 'Only administrators see this: no TackQuote wholesale form has the slug "%s". Choose a wholesale form for this store in TackQuote.', 'tackquote' ),
+						$slug
+					)
+				)
+				. ' <a href="' . esc_url( $settings ) . '">' . esc_html__( 'Open the Forms tab', 'tackquote' ) . '</a></p>';
+		}
 		return '<p class="tackquote-admin-hint">'
 			. esc_html(
 				sprintf(

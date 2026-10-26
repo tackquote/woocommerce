@@ -14,7 +14,8 @@ Add a **Request a Quote** button to your WooCommerce store and sync orders with 
 - 📦 **Order limits** — minimum/maximum order quantities shown on the product page and enforced at the cart and checkout
 - 🏷️ **Buyer group badge** — tells a customer which pricing group they are on, so a discounted price does not read as an error
 - 👥 **Per buyer group** (each off by default) — hide product categories (loops, search, blocks, Store API, related/up-sells; direct URL 404; not purchasable; removed from carts), free or percentage-off shipping applied after the group restrictions, and an optional `tackquote_<code>` WordPress role (read only, never drives pricing)
-- 🧭 **Tabbed settings page** — Overview dashboard plus Connection, Storefront, B2B pricing, Buyer groups, Forms and Order sync tabs; each tab saves only its own settings
+- 🧭 **One menu entry** — WooCommerce → TackQuote holds the TackQuote dashboard and the settings (Overview, Connection, Storefront, B2B pricing, Buyer groups, Forms, Order sync) under one tab bar; each tab saves only its own settings
+- 🎛️ **One place for each setting** (since 1.13.0, servers listing `store_settings`) — order sync and the four B2B switches are set in TackQuote, buyer groups and the wholesale form come from TackQuote; the store can still turn any switch off locally
 - 🧾 **Net terms at checkout** (off by default) — payment method "Net terms (TackQuote)" (`tackquote_net_terms`, classic checkout and Checkout block) for buyers TackQuote has approved; the order goes on hold, never marked paid, and fails closed when TackQuote cannot confirm the buyer. Optional checkout PO number sent with the order
 - 🔁 Optional one-way order sync to TackQuote (on creation and status change), queued through Action Scheduler so it never runs inside checkout
 - 🔑 Simple setup: press **Connect with TackQuote**, sign in and approve (no key to copy), or paste your TackQuote API key
@@ -75,9 +76,10 @@ The plugin talks to your TackQuote account over HTTPS using your API key (Bearer
 | Purpose | Method & path |
 |---|---|
 | Connection test | `GET /integrations/woocommerce/ping` (`/health` only when ping answers 404: reachable, key not verified; 401/403 = key rejected). Also read at most daily from the storefront for the `attachments` capability |
-| Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` (target prices as `lineItems[].targetPrice` when the ping lists `attachments`, else in the note; the seller-designed form's `answers` + `formVersionId` when the ping lists `quote-form`) |
+| Quote request from product/cart | `POST /integrations/woocommerce/quote-requests` (target prices as `lineItems[].targetPrice` when the ping lists `attachments`, else in the note; the seller-designed form's `answers` + `formVersionId` when the ping lists `quote-form`); since 1.13.0 `customFields`, the answers to the seller's own registration questions from `registration-config`, only the keys that policy lists |
 | Seller-designed quote request form (1.12.0, only when the ping lists `quote-form`) | `GET /storefront/v1/quote-form?locale=` (`X-Api-Key` only, scope `storefront:read`; cached five minutes per language). Without a designed form (`versionId` null) the built-in form is used |
 | Order sync | `POST /integrations/woocommerce/order-sync` |
+| Store settings decided in TackQuote (since 1.13.0, only when the ping lists `store_settings`) | `GET /integrations/woocommerce/store-settings` (background, at most every five minutes, never on a shopper's request; answers `orderSync.push`, `features.{prices, orderLimits, buyerGroupBadge, taxExempt}`, `buyerGroups[{code,name}]`, `wholesaleForms[{slug,name,isDefault}]`, `defaultWholesaleFormSlug`, `updatedAt`); `POST /integrations/woocommerce/store-settings/seed` (`orderSync`, `features` from the plugin's own options, only while `updatedAt` is null) |
 | B2B pricing (per buyer, per quantity) | `POST /storefront-pricing/resolve` |
 | Product-page price (the page's own product) | `GET /storefront/v1/wholesale-price` |
 | Quantity breaks | `GET /storefront/v1/quantity-breaks` (falls back to probing `/storefront-pricing/resolve`) |

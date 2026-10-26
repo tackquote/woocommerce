@@ -48,6 +48,9 @@
             "Cancel": [
                 "キャンセル"
             ],
+            "Choose an option": [
+                "選択してください"
+            ],
             "City": [
                 "市区町村"
             ],
@@ -101,6 +104,9 @@
             ],
             "Phone": [
                 "電話番号"
+            ],
+            "Please answer: %s": [
+                "次の質問に回答してください: %s"
             ],
             "Please choose the quantity of each product you want quoted.": [
                 "見積りを希望する各商品の数量を選択してください。"

@@ -50,10 +50,10 @@ TackQuote, to send quote requests that shoppers submit on your store and — onl
 switch it on — to send data about orders placed in your store.
 
 The service is required for the plugin to work. Until the store is connected, quote requests
-cannot be sent: the shopper is told so and the Connection tab shows why. Nothing is sent anywhere
+cannot be sent. Nothing is sent anywhere
 until you enter an API key or press **Connect with TackQuote**.
 
-All requests go to the API base URL set under **TackQuote → TackQuote API URL**, which is
+All requests go to the API base URL set under **WooCommerce → TackQuote → Connection → Advanced**, which is
 `https://api.tackquote.com/v1` unless your TackQuote support contact gave you a different
 one. Every request (except the two Connect with TackQuote calls in item 12, made before the
 store has a key) carries your TackQuote API key so the service can identify your account,
@@ -74,7 +74,8 @@ Sent when a shopper submits the quote form. Sends what that shopper typed
 into the form, plus the products being quoted: email address, first and last name, phone
 number if given, company name and any company details the seller's registration policy
 requires (legal name, tax/VAT ID, registration number, website, address, city, state, postal
-code, country, company phone, industry, employee count), the free-text note if written, and
+code, country, company phone, industry, employee count), answers to the seller's registration
+questions, the free-text note if written, and
 for each requested product its name, SKU, quantity, unit price excluding tax, WooCommerce
 product ID (since 1.12.0, a variation as `<product ID>_<variation ID>` on a server that supports it) and any target price, together with the store's currency code. Since 1.12.0, when
 the quote modal shows the form you designed in TackQuote, it sends that form's answers instead
@@ -83,19 +84,17 @@ the form version shown, and the same products.
 
 4. **Order sync** — `POST /integrations/woocommerce/order-sync`. **Off by default.**
 Sent when an order is created and each time its status changes, but only if the merchant has
-switched on "Sync orders to TackQuote". Sends the whole order: the customer's billing and
+switched on "Sync orders to TackQuote" (since 1.13.0 in TackQuote; the store can still turn it off). Sends the whole order: the customer's billing and
 shipping addresses, email address and phone numbers, WooCommerce customer ID, their order
 note, the order ID, number and status, currency and totals, coupon codes, timestamps, the
 payment method ID and title, the payment gateway's transaction ID, and every line item with
 its name, SKU, product and variation IDs, quantities, totals, taxes and item meta. No card
-numbers, no card details and no gateway credentials are ever sent. The **Privacy** section
-below lists every field individually.
+numbers, no card details and no gateway credentials are ever sent. The FAQ lists every field.
 
 5. **B2B pricing, order limits and buyer group** — `POST /storefront-pricing/resolve` (cart
 prices), `GET /storefront/v1/wholesale-price`, `GET /storefront/v1/quantity-breaks`,
-`GET /storefront/v1/order-limits` and `GET /storefront/v1/buyer-group`, falling back to the
-older `GET /storefront-b2b/order-limits` and `GET /storefront-b2b/buyer-group` on a TackQuote
-server without the `/storefront/v1` routes. Only when the merchant has switched on B2B pricing,
+`GET /storefront/v1/order-limits` and `GET /storefront/v1/buyer-group`, falling back to
+`/storefront-b2b/order-limits` and `/storefront-b2b/buyer-group` on older servers. Only when the merchant has switched on B2B pricing,
 order limits, the buyer-group badge, any buyer-group rule or tax-exempt buyers. Sent while
 customers browse (order limits also for guests). Sends the product SKU and quantity and, for
 a signed-in customer, their email address and WordPress user ID (digits only).
@@ -120,7 +119,7 @@ terms, up to three trade references (company, contact name, email, phone) and no
 8. **Wholesale price gate and Wholesale account tab** — `GET /storefront/v1/price-access`. **Off by default.**
 Sent only when the merchant chose the quote-only scope "Everyone except approved wholesale
 accounts", or (since 1.11.0) when a signed-in customer opens the "Wholesale account" My Account
-tab or a page with the `[tackquote_wholesale_application]` shortcode, and only for a signed-in customer, at most once every five minutes per customer
+tab or a page with the `[tackquote_wholesale_application]` shortcode, at most once every five minutes per customer
 (one minute after a failure). Sends that customer's account email address and their
 WordPress user ID (`buyerEmail`, `buyerExternalId`). TackQuote answers whether that buyer's
 wholesale application is approved. Nothing is sent for a signed-out visitor.
@@ -128,8 +127,7 @@ wholesale application is approved. Nothing is sent for a signed-out visitor.
 9. **Net terms** — `GET /storefront/v1/net-terms`. Sent for a signed-in customer at checkout
 while the "Net terms (TackQuote)" payment method is enabled (off by default), and when a
 signed-in customer views the "Net terms" My Account tab or the `[tackquote_net_terms_application]`
-shortcode (the tab is off by default), to show their terms or a pending application instead of
-the form. Sends the account email and WordPress user ID. One answer per customer is reused for
+shortcode (the tab is off by default). Sends the account email and WordPress user ID. One answer per customer is reused for
 up to a minute. Fails closed: without an answer, checkout hides the method and the tab shows
 the application form.
 
@@ -204,6 +202,10 @@ WooCommerce → TackQuote or presses its buttons. Sends that user's WordPress us
 kept in their user meta and, to open, `purpose` (`frame` in the page or `tab` for a new tab); linking
 also sends the one-time code they typed and their login name. No customer or order data.
 
+19. **Store settings** (since 1.13.0) — `GET /integrations/woocommerce/store-settings`, in the
+background at most every five minutes and when the settings are opened; headers only. While TackQuote
+holds none, `POST …/store-settings/seed` sends which of order sync and the four B2B switches are on.
+
 This plugin sends data to no other external service.
 
 The TackQuote service is provided by TackQuote. By using this plugin you agree to their
@@ -222,7 +224,7 @@ WooCommerce must be installed and active first, and you need a TackQuote account
 1. In WP Admin go to **Plugins → Add New**, search for **TackQuote**, and click **Install Now**.
 2. Activate **TackQuote: Request a Quote & B2B Wholesale for WooCommerce**.
 3. Open **TackQuote** in the admin menu.
-4. On the **Connection** tab press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; you come back to the Connection tab connected. Or paste your **TackQuote API Key** (TackQuote → Settings → Developer → API Keys) and save. Leave the API URL as the default unless support gives you another base URL.
+4. Under **WooCommerce → TackQuote**, on the **Connection** tab, press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; you come back to the Connection tab connected. Or open **Advanced**, paste a TackQuote API key and save. Leave the API URL as the default unless support gives you another base URL.
 5. Work down the numbered sections in order — they are arranged as a setup sequence, and each one only depends on the ones above it. Then click **Save TackQuote settings**.
 6. Click **Test TackQuote connection** to verify (Connect with TackQuote runs this test for you).
 
@@ -242,7 +244,7 @@ This plugin sends data to TackQuote, a third-party service, over HTTPS. It sends
 
 = Where data is sent =
 
-To the TackQuote API base URL set under **TackQuote → TackQuote API URL**: `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. **External services** above lists every endpoint the plugin calls, when it calls it and exactly what it sends, and the headers every request carries. The B2B features call TackQuote only when you switch them on, and order sync is off by default.
+To the TackQuote API base URL set under **WooCommerce → TackQuote → Connection → Advanced**: `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. **External services** above lists every call, when it is made and what it sends. The B2B features and order sync call TackQuote only when switched on.
 
 = The full lists =
 
@@ -298,7 +300,7 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 
 = Can shoppers start a quote from the shop page or the cart? =
 
-Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists and (since 1.12.0) in product grids built with blocks, such as a Product Collection on your home page or related products; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart, and (since 1.12.0) inside the Cart block, below the totals and above Proceed to checkout. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+Yes, since 1.10.0, and both are off until you switch them on under **WooCommerce → TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists and (since 1.12.0) in product grids built with blocks, such as a Product Collection on your home page or related products; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart, and (since 1.12.0) inside the Cart block, below the totals and above Proceed to checkout. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
 
 = Is there a quick order form? =
 
@@ -326,7 +328,7 @@ To the quote line, where the seller sees "Buyer asked for …" beside your store
 
 = Can I change how it looks? =
 
-It takes your theme's look by default: every button is your theme's button (so Site Editor > Styles > Blocks/Elements > Button restyles them), fields and tables use WooCommerce's classes, and the drawer and quote form use your theme's colours and fonts. Under **TackQuote → Storefront → Styling** you can pick an accent colour for the quote buttons and launcher, or tick "Use the theme's styles only" to load layout rules alone. For finer changes, set CSS variables in Appearance > Customize > Additional CSS or the Site Editor's custom CSS, for example `:root { --tackquote-radius: 0; --tackquote-drawer-width: 26rem; }` (also `--tackquote-accent`, `--tackquote-surface`, `--tackquote-text`, `--tackquote-border`, `--tackquote-shadow`, `--tackquote-z-index`, `--tackquote-launcher-offset-x` / `-y`). Developers can copy any file from the plugin's `templates/tackquote/` folder (quote page, quote list drawer, volume table, wholesale and net-terms forms) into `yourtheme/woocommerce/tackquote/` and edit it there, as with WooCommerce's own templates, and use the filters `tackquote_button_label`, `tackquote_button_classes`, `tackquote_theme_styles_only`, `tackquote_quote_page_args`, `tackquote_quote_list_drawer_args`, `tackquote_quantity_breaks_args` and `tackquote_storefront_form_args`. The full list is in `docs/CUSTOMISATION.md` in the plugin's GitHub repository. A theme that overrides WooCommerce's grouped product template (`single-product/add-to-cart/grouped.php`) must keep its hidden `add-to-cart` input and the `quantity[<product ID>]` fields: the quote buttons find a grouped product's form and quantities through them.
+It takes your theme's look by default: every button is your theme's button (so Site Editor > Styles > Blocks/Elements > Button restyles them), fields and tables use WooCommerce's classes, and the drawer and quote form use your theme's colours and fonts. Under **WooCommerce → TackQuote → Storefront → Styling** you can pick an accent colour for the quote buttons and launcher, or tick "Use the theme's styles only" to load layout rules alone. For finer changes, set CSS variables in Appearance > Customize > Additional CSS or the Site Editor's custom CSS, for example `:root { --tackquote-radius: 0; --tackquote-drawer-width: 26rem; }` (also `--tackquote-accent`, `--tackquote-surface`, `--tackquote-text`, `--tackquote-border`, `--tackquote-shadow`, `--tackquote-z-index`, `--tackquote-launcher-offset-x` / `-y`). Developers can copy any file from the plugin's `templates/tackquote/` folder (quote page, quote list drawer, volume table, wholesale and net-terms forms) into `yourtheme/woocommerce/tackquote/` and edit it there, as with WooCommerce's own templates, and use the filters `tackquote_button_label`, `tackquote_button_classes`, `tackquote_theme_styles_only`, `tackquote_quote_page_args`, `tackquote_quote_list_drawer_args`, `tackquote_quantity_breaks_args` and `tackquote_storefront_form_args`. The full list is in `docs/CUSTOMISATION.md` in the plugin's GitHub repository. A theme that overrides WooCommerce's grouped product template (`single-product/add-to-cart/grouped.php`) must keep its hidden `add-to-cart` input and the `quantity[<product ID>]` fields: the quote buttons find a grouped product's form and quantities through them.
 
 = Which languages does it ship in? =
 
@@ -437,6 +439,13 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= Unreleased (1.13.0) =
+Full notes are in `changelog.txt`.
+
+* **One place for each setting.** On a TackQuote server that offers it, order sync, TackQuote prices, order limits, the buyer group badge and tax exemption are switched on in TackQuote; the plugin can still turn each off for this store. Buyer groups and the wholesale form come from TackQuote: nothing to copy by hand.
+* **One menu entry**: WooCommerce → TackQuote holds the dashboard and the settings; shop managers can open both. The pasted key moved under Advanced on the Connection tab.
+* Fixed: the quote form asks the seller's own registration questions, so a seller with a required question no longer gets every request refused. The order-sync box no longer shows ticked before it was ever saved.
 
 = 1.12.0 =
 Released 2026-10-26. Full notes for this and earlier releases are in `changelog.txt` in the plugin folder.

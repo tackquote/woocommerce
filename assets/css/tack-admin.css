@@ -244,6 +244,31 @@
 	border-radius: 2px;
 }
 
+/* 1.13.0: the pasted key and API URL, folded under the Connect card. */
+.tack-advanced.tack-advanced-connection {
+	display: block;
+	max-width: none;
+	margin: 16px 0;
+	padding: 12px 16px;
+}
+
+.tack-advanced.tack-advanced-connection > summary {
+	font-weight: 600;
+}
+
+/* 1.13.0: values TackQuote decides, shown read-only. */
+.tack-server-value {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 0;
+}
+
+.tack-server-list {
+	margin: 0 0 8px;
+}
+
 .tack-more p {
 	margin: 6px 0;
 	padding-inline-start: 12px;

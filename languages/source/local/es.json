@@ -162,5 +162,6 @@
   "woo.widget.no_products": "No hay productos para presupuestar.",
   "woo.widget.rate_limited": "Demasiadas solicitudes de presupuesto desde esta conexión. Espere unos minutos e inténtelo de nuevo.",
   "woo.widget.stale_page": "Esta página lleva demasiado tiempo abierta o se sirvió desde una caché. Vuelva a cargarla e inténtelo de nuevo.",
-  "woo.widget.target_prices": "Precios objetivo:"
+  "woo.widget.target_prices": "Precios objetivo:",
+  "woo.quote.question_required": "Responda a: {question}"
 }

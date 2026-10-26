@@ -199,6 +199,25 @@
   font-size: 1em;
 }
 
+/* 1.13.0: the seller's own registration questions. A question that does not apply to
+ * this request (company or individual) is hidden; a theme's .form-row display rule must
+ * not bring it back. */
+.tack-quote-question[hidden] {
+  display: none;
+}
+
+.tack-quote-question-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tack-quote-question-help {
+  display: block;
+  margin-block-start: 0.25em;
+  font-size: 0.875em;
+}
+
 /* Messages: the text keeps the surface's colour (always readable); the status is
  * the edge, in WooCommerce's own notice colours when its stylesheet is loaded. */
 .tack-quote-modal-error,

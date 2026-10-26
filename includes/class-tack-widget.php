@@ -689,6 +689,59 @@ class Tack_Widget {
 	}
 
 	/**
+	 * The answers to the seller's registration questions, checked against the policy
+	 * TackQuote answered (`registration-config` `customFields`).
+	 *
+	 * Only questions the policy lists, with a key TackQuote itself accepts
+	 * (`/^[a-zA-Z][a-zA-Z0-9_]{0,48}$/`, registration-policy.ts), and only those that
+	 * apply to this kind of request (`appliesTo` company, buyer or both, the server's own
+	 * rule: a company request is one with a company name, unless the policy takes
+	 * individuals only). A checkbox answers 'true' or ''. TackQuote stays the authority
+	 * and checks everything again; this only spares the shopper a round trip and keeps
+	 * unknown keys off the wire.
+	 *
+	 * @since 1.13.0
+	 *
+	 * @param array      $raw        Posted `customFields`, sanitised.
+	 * @param array|null $config     The registration config, or null when unavailable.
+	 * @param bool       $is_company Whether the request names a company.
+	 * @return array{values: array<string,string>, missing: string}
+	 */
+	public static function registration_answers( array $raw, $config, $is_company ) {
+		$result = array(
+			'values'  => array(),
+			'missing' => '',
+		);
+		if ( ! is_array( $config ) || ! isset( $config['customFields'] ) || ! is_array( $config['customFields'] ) ) {
+			return $result;
+		}
+		$company = $is_company && ! empty( $config['allowCompany'] );
+		foreach ( $config['customFields'] as $question ) {
+			if ( ! is_array( $question ) || ! isset( $question['key'] ) || ! is_string( $question['key'] )
+				|| ! preg_match( '/^[a-zA-Z][a-zA-Z0-9_]{0,48}$/', $question['key'] ) ) {
+				continue;
+			}
+			$applies = isset( $question['appliesTo'] ) ? (string) $question['appliesTo'] : 'both';
+			if ( ( 'company' === $applies && ! $company ) || ( 'buyer' === $applies && $company ) ) {
+				continue;
+			}
+			$key   = $question['key'];
+			$type  = isset( $question['type'] ) ? (string) $question['type'] : 'text';
+			$value = isset( $raw[ $key ] ) && is_scalar( $raw[ $key ] ) ? trim( (string) $raw[ $key ] ) : '';
+			if ( 'checkbox' === $type ) {
+				$value = in_array( strtolower( $value ), array( 'true', 'on', '1', 'yes' ), true ) ? 'true' : '';
+			} else {
+				$value = mb_substr( $value, 0, 'textarea' === $type ? 5000 : 500 );
+			}
+			if ( '' === $value && ! empty( $question['required'] ) && '' === $result['missing'] ) {
+				$result['missing'] = isset( $question['label'] ) && is_string( $question['label'] ) ? sanitize_text_field( $question['label'] ) : $key;
+			}
+			$result['values'][ $key ] = $value;
+		}
+		return $result;
+	}
+
+	/**
 	 * Product-page buttons — merchant-configurable: "Add to Quote" (adds the
 	 * product to the browser-side quote list — never the WooCommerce cart),
 	 * "Request a Quote" (submits a quote for just this product immediately),
@@ -1844,6 +1897,31 @@ class Tack_Widget {
 		if ( ! empty( $company ) ) {
 			$payload['company'] = $company;
 		}
+
+		/*
+		 * 1.13.0: the seller's own registration questions (`customFields`). TackQuote
+		 * refuses a request that leaves a required one empty, and the plugin never sent
+		 * them, so every quote request to such a seller failed with a 400. Only the
+		 * questions the seller's policy lists, for this kind of request, are sent.
+		 */
+		$questions = self::registration_answers(
+			isset( $_POST['customFields'] ) && is_array( $_POST['customFields'] ) ? map_deep( wp_unslash( (array) $_POST['customFields'] ), 'sanitize_textarea_field' ) : array(),
+			$this->registration_config(),
+			'' !== $company_name
+		);
+		if ( '' !== $questions['missing'] ) {
+			wp_send_json_error(
+				array(
+					/* translators: %s: the seller's question, e.g. "How did you hear about us?". */
+					'message' => sprintf( __( 'Please answer: %s', 'tackquote' ), $questions['missing'] ),
+				),
+				400
+			);
+		}
+		if ( ! empty( $questions['values'] ) ) {
+			$payload['customFields'] = $questions['values'];
+		}
+
 		if ( null !== $form_answers ) {
 			$payload = array_merge( $payload, $form_answers );
 		}

@@ -46,6 +46,9 @@
 		buyingAsCompany: __( 'A company', 'tackquote' ),
 		optional: __( '(optional)', 'tackquote' ),
 		firstNameRequired: __( 'Please enter your first name.', 'tackquote' ),
+		// translators: %s: the seller's question, e.g. "How did you hear about us?".
+		questionRequired: __( 'Please answer: %s', 'tackquote' ),
+		questionChoose: __( 'Choose an option', 'tackquote' ),
 		companyRequired: __(
 			'Please complete the required company details.',
 			'tackquote'
@@ -809,6 +812,197 @@
 		);
 	}
 
+	// ─── 1.13.0: the seller's own registration questions ──────────────────────
+	//
+	// `TackQuotes.registration.customFields` is the policy's list of questions
+	// ({key, label, type, required, options, helpText, appliesTo}). TackQuote refuses a
+	// request that leaves a REQUIRED one empty (validateRegistrationFields), and before
+	// 1.13.0 the plugin never asked them: every quote request to such a seller failed.
+	// Each question applies to company requests, individual ones, or both; the ones that
+	// do not apply right now are hidden AND disabled (see syncCompanySection), so neither
+	// the browser's validation nor the submit reads them.
+	//
+	// Keys are allowlisted with the server's own rule (registration-policy.ts
+	// parseCustomFields: /^[a-zA-Z][a-zA-Z0-9_]{0,48}$/), the PHP handler applies the
+	// same, and every value rendered into the markup is escaped.
+	const SAFE_QUESTION_KEY = /^[A-Za-z][A-Za-z0-9_]{0,48}$/;
+	const QUESTION_TYPES = [
+		'text',
+		'textarea',
+		'number',
+		'select',
+		'checkbox',
+		'date',
+	];
+
+	function questions() {
+		const r = reg();
+		const list = r && Array.isArray( r.customFields ) ? r.customFields : [];
+		return list.filter( function ( q ) {
+			return (
+				q &&
+				typeof q.key === 'string' &&
+				SAFE_QUESTION_KEY.test( q.key ) &&
+				typeof q.label === 'string'
+			);
+		} );
+	}
+
+	// Does a question apply to this request? `both`, or its own kind.
+	function questionApplies( appliesTo, isCompany ) {
+		if ( appliesTo === 'company' ) {
+			return !! isCompany;
+		}
+		if ( appliesTo === 'buyer' ) {
+			return ! isCompany;
+		}
+		return true;
+	}
+
+	function questionField( q ) {
+		const i18n = TackQuotes.i18n;
+		const type = QUESTION_TYPES.indexOf( q.type ) >= 0 ? q.type : 'text';
+		const required = q.required === true;
+		const applies =
+			q.appliesTo === 'company' || q.appliesTo === 'buyer'
+				? q.appliesTo
+				: 'both';
+		const id = 'tack-quote-q-' + q.key;
+		const attrs =
+			' id="' +
+			escapeHtml( id ) +
+			'" name="customFields[' +
+			escapeHtml( q.key ) +
+			']" data-tack-question="' +
+			escapeHtml( q.key ) +
+			'" data-tack-question-type="' +
+			escapeHtml( type ) +
+			'"' +
+			( required ? ' required' : '' );
+		const optional = required
+			? ''
+			: ' <span class="tack-quote-optional">' +
+			  escapeHtml( i18n.optional ) +
+			  '</span>';
+		const label =
+			'<label for="' +
+			escapeHtml( id ) +
+			'">' +
+			escapeHtml( q.label ) +
+			optional +
+			'</label>';
+		let control;
+		if ( type === 'checkbox' ) {
+			control =
+				'<label class="tack-quote-question-check"><input type="checkbox" value="true"' +
+				attrs +
+				' /> ' +
+				escapeHtml( q.label ) +
+				optional +
+				'</label>';
+		} else if ( type === 'textarea' ) {
+			control =
+				label +
+				'<textarea class="input-text" rows="3"' +
+				attrs +
+				'></textarea>';
+		} else if ( type === 'select' ) {
+			const options = Array.isArray( q.options ) ? q.options : [];
+			control =
+				label +
+				'<select' +
+				attrs +
+				'><option value="">' +
+				escapeHtml( i18n.questionChoose ) +
+				'</option>' +
+				options
+					.map( function ( o ) {
+						return (
+							'<option value="' +
+							escapeHtml( String( o ) ) +
+							'">' +
+							escapeHtml( String( o ) ) +
+							'</option>'
+						);
+					} )
+					.join( '' ) +
+				'</select>';
+		} else {
+			control =
+				label +
+				'<input type="' +
+				escapeHtml( type ) +
+				'" class="input-text"' +
+				attrs +
+				' />';
+		}
+		const help =
+			typeof q.helpText === 'string' && q.helpText
+				? '<small class="tack-quote-question-help">' +
+				  escapeHtml( q.helpText ) +
+				  '</small>'
+				: '';
+		return (
+			'<div class="form-row tack-quote-field tack-quote-question" data-tack-applies="' +
+			escapeHtml( applies ) +
+			'">' +
+			control +
+			help +
+			'</div>'
+		);
+	}
+
+	function buildQuestions() {
+		const list = questions();
+		if ( ! list.length ) {
+			return '';
+		}
+		return (
+			'<div class="tack-quote-questions">' +
+			list.map( questionField ).join( '' ) +
+			'</div>'
+		);
+	}
+
+	// The answers to send, from [{key, type, required, label, value, checked}] (enabled
+	// questions only). A checkbox is 'true' or ''. `missing` names the first required
+	// question left empty, for the inline message. Pure, so Node can test it.
+	function questionAnswers( entries ) {
+		const values = {};
+		let missing = '';
+		entries.forEach( function ( e ) {
+			let v;
+			if ( e.type === 'checkbox' ) {
+				v = e.checked ? 'true' : '';
+			} else {
+				v = String(
+					e.value === null || e.value === undefined ? '' : e.value
+				).trim();
+			}
+			if ( e.required && ! v && ! missing ) {
+				missing = e.label;
+			}
+			values[ e.key ] = v;
+		} );
+		return { values, missing };
+	}
+
+	function questionEntries( $overlay ) {
+		const entries = [];
+		$overlay.find( '[data-tack-question]:enabled' ).each( function () {
+			const $field = $( this ).closest( '.tack-quote-question' );
+			entries.push( {
+				key: this.getAttribute( 'data-tack-question' ),
+				type: this.getAttribute( 'data-tack-question-type' ),
+				required: !! this.required,
+				label: ( $field.find( 'label' ).first().text() || '' ).trim(),
+				value: this.value,
+				checked: !! this.checked,
+			} );
+		} );
+		return questionAnswers( entries );
+	}
+
 	// ─── 1.10.0: attachments ───────────────────────────────────────────────────
 	//
 	// Rendered only when the server-side config says so (the merchant's switch AND
@@ -1025,7 +1219,8 @@
 			buildBuyingAs() +
 			buildCompanyFields(
 				!! ( cfg && cfg.roles && cfg.roles.buyer_company )
-			)
+			) +
+			buildQuestions()
 		);
 	}
 
@@ -1035,6 +1230,7 @@
 		return (
 			buildIdentityFields() +
 			buildCompanyFields() +
+			buildQuestions() +
 			'<div class="form-row tack-quote-field">' +
 			'<label for="tack-quote-note">' +
 			escapeHtml( i18n.noteLabel ) +
@@ -1388,6 +1584,15 @@
 			$error.text( TackQuotes.i18n.companyRequired ).show();
 			return;
 		}
+		const answers = questionEntries( $overlay );
+		if ( answers.missing ) {
+			$error
+				.text(
+					sprintf( TackQuotes.i18n.questionRequired, answers.missing )
+				)
+				.show();
+			return;
+		}
 
 		const pairs = [
 			{ name: 'action', value: 'tack_request_quote' },
@@ -1409,6 +1614,12 @@
 				} );
 			} );
 		}
+		Object.keys( answers.values ).forEach( function ( k ) {
+			pairs.push( {
+				name: 'customFields[' + k + ']',
+				value: answers.values[ k ],
+			} );
+		} );
 		$form.serializeArray().forEach( function ( pair ) {
 			if ( pair.name.indexOf( 'tq_answers[' ) === 0 ) {
 				pairs.push( pair );
@@ -1615,6 +1826,15 @@
 		const $section = $overlay.find( '.tack-quote-company-section' );
 		$section.prop( 'hidden', ! isCompany );
 		$section.find( 'input' ).prop( 'disabled', ! isCompany );
+		// 1.13.0: the seller's questions follow the same choice.
+		$overlay.find( '.tack-quote-question' ).each( function () {
+			const show = questionApplies(
+				this.getAttribute( 'data-tack-applies' ),
+				isCompany
+			);
+			$( this ).prop( 'hidden', ! show );
+			$( this ).find( '[data-tack-question]' ).prop( 'disabled', ! show );
+		} );
 		const $role = roleInput( $overlay, 'buyer_company' );
 		if ( $role.length ) {
 			if ( $role.attr( 'data-tack-required' ) === undefined ) {
@@ -1723,6 +1943,16 @@
 			}
 		}
 
+		const answers = questionEntries( $overlay );
+		if ( answers.missing ) {
+			$error
+				.text(
+					sprintf( TackQuotes.i18n.questionRequired, answers.missing )
+				)
+				.show();
+			return;
+		}
+
 		const note = val( '#tack-quote-note' );
 		const payload = {
 			action: 'tack_request_quote',
@@ -1740,6 +1970,11 @@
 			// company[taxId]=... which PHP parses back into an array, matching the API's
 			// CompanyDetailsInput shape without any manual encoding.
 			payload.company = company;
+		}
+
+		if ( Object.keys( answers.values ).length ) {
+			// Serialised by jQuery as customFields[key]=value, an array in PHP.
+			payload.customFields = answers.values;
 		}
 
 		$.extend( payload, contextFields( context ) );
@@ -2528,6 +2763,9 @@
 			sellerPolicyFields,
 			roleInput,
 			companyChosen,
+			buildQuestions,
+			questionApplies,
+			questionAnswers,
 		};
 	}
 } )( jQuery );

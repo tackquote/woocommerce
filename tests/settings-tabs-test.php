@@ -182,7 +182,9 @@ check( 'a known tab is selected', 'groups' === Tack_Settings::current_tab() );
 unset( $_GET['tab'] );
 check( 'no tab means the Overview', 'overview' === Tack_Settings::current_tab() );
 
-$GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
+// 1.13.0: the page is the shop-manager capability (WooCommerce → TackQuote), so a
+// customer-level user is refused and a shop manager is let in.
+$GLOBALS['TACK_CAPS'] = array( 'read' );
 $tabs_died            = false;
 ob_start();
 try {
@@ -191,7 +193,30 @@ try {
 	$tabs_died = true;
 }
 ob_end_clean();
-check( 'the page refuses anyone without manage_options', $tabs_died );
+check( 'the page refuses anyone without manage_woocommerce', $tabs_died );
+
+$GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
+$tabs_died            = false;
+$_GET['tab']          = 'connection';
+ob_start();
+try {
+	$tabs_settings->render_page();
+} catch ( Tack_Test_Wp_Die $e ) {
+	$tabs_died = true;
+}
+$tabs_sm_html = (string) ob_get_clean();
+unset( $_GET['tab'] );
+check( '1.13.0: a shop manager opens the settings', ! $tabs_died );
+check( '...but the Connection tab draws no API key form for them', false === strpos( $tabs_sm_html, 'name="tack_quotes_api_key"' ) && false !== strpos( $tabs_sm_html, 'Only an administrator can connect this store' ) );
+check( '...and no test or remove button', false === strpos( $tabs_sm_html, 'tack_quotes_remove_key_nonce' ) && false === strpos( $tabs_sm_html, 'tack_quotes_test_nonce' ) );
+$_GET['tab'] = 'sync';
+ob_start();
+$tabs_settings->render_page();
+$tabs_sm_html = (string) ob_get_clean();
+unset( $_GET['tab'] );
+check( '...the Order sync tab is read-only for them (fieldset disabled, no save button)', false !== strpos( $tabs_sm_html, '<fieldset disabled>' ) && false === strpos( $tabs_sm_html, 'tack-savebar' ) );
+check( 'options.php: the connection and sync groups stay with manage_options', 'manage_options' === Tack_Settings::tab_capability( 'connection' ) && 'manage_options' === Tack_Settings::tab_capability( 'sync' ) );
+check( 'options.php: the storefront, pricing, groups and forms groups take manage_woocommerce', array( 'manage_woocommerce' ) === array_values( array_unique( array_map( array( 'Tack_Settings', 'tab_capability' ), array( 'storefront', 'pricing', 'groups', 'forms' ) ) ) ) );
 
 $GLOBALS['TACK_CAPS'] = array( 'manage_options', 'manage_woocommerce' );
 
@@ -243,8 +268,7 @@ check( 'the Connection tab never prints the saved key', false === strpos( $tabs_
 check( '...and asks before removing it', false !== strpos( $tabs_html, 'data-tack-confirm=' ) );
 check( 'the header shows the TackQuote mark as a decorative image beside the visible name', (bool) preg_match( '#<img class="tack-logo" src="[^"]*assets/images/tackquote-mark\.svg" alt=""#', $tabs_html ) && false !== strpos( $tabs_html, '>TackQuote</h1>' ) );
 check( 'the shipped mark exists', is_readable( TACK_QUOTES_DIR . 'assets/images/tackquote-mark.svg' ) );
-$tabs_icon = base64_decode( substr( Tack_Settings::MENU_ICON, strlen( 'data:image/svg+xml;base64,' ) ), true );
-check( 'the menu icon is a single-colour (black) SVG data URI, so wp-admin can recolour it', 0 === strpos( Tack_Settings::MENU_ICON, 'data:image/svg+xml;base64,' ) && is_string( $tabs_icon ) && false !== strpos( $tabs_icon, '<svg' ) && 2 === substr_count( $tabs_icon, 'fill="black"' ) && false === strpos( $tabs_icon, '<rect' ) );
+check( '1.13.0: no top-level menu, so no menu icon constant is left behind', ! defined( 'Tack_Settings::MENU_ICON' ) );
 
 // Leave shared fixtures as later files expect them.
 unset( $GLOBALS['TACK_TRANSIENTS'][ Tack_Settings::CONNECTION_CHECK ] );

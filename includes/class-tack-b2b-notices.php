@@ -118,15 +118,33 @@ class Tack_B2B_Notices {
 	 * @return bool
 	 */
 	public static function is_enabled() {
-		return 'yes' === get_option( self::OPTION_ORDER_LIMITS, 'no' )
-			|| 'yes' === get_option( self::OPTION_BUYER_GROUP, 'no' );
+		return self::order_limits_enabled() || self::buyer_group_enabled();
+	}
+
+	/**
+	 * Is the order-limits half on? 1.13.0: TackQuote's switch when it decides; see
+	 * Tack_Store_Settings::enabled().
+	 *
+	 * @return bool
+	 */
+	public static function order_limits_enabled() {
+		return Tack_Store_Settings::enabled( Tack_Store_Settings::ORDER_LIMITS );
+	}
+
+	/**
+	 * Is the buyer-group badge on? Same rule.
+	 *
+	 * @return bool
+	 */
+	public static function buyer_group_enabled() {
+		return Tack_Store_Settings::enabled( Tack_Store_Settings::BUYER_GROUP );
 	}
 
 	/**
 	 * Register hooks.
 	 */
 	public function init() {
-		if ( 'yes' === get_option( self::OPTION_ORDER_LIMITS, 'no' ) ) {
+		if ( self::order_limits_enabled() ) {
 			// The courtesy.
 			add_action( 'woocommerce_single_product_summary', array( $this, 'render_order_limit_notice' ), 24 );
 			// Block themes: above the Add to Cart block (see Tack_Block_Product).
@@ -149,7 +167,7 @@ class Tack_B2B_Notices {
 			add_action( 'woocommerce_store_api_cart_errors', array( $this, 'add_store_api_cart_errors' ), 10, 2 );
 		}
 
-		if ( 'yes' === get_option( self::OPTION_BUYER_GROUP, 'no' ) ) {
+		if ( self::buyer_group_enabled() ) {
 			add_action( 'woocommerce_single_product_summary', array( $this, 'render_buyer_group_badge' ), 4 );
 		}
 	}

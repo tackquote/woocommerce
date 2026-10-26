@@ -69,7 +69,9 @@ class Tack_Order_Sync {
 	 * @return bool
 	 */
 	public static function is_enabled() {
-		return 'yes' === get_option( 'tack_quotes_enable_order_sync', 'no' );
+		// 1.13.0: TackQuote's switch when it decides (an administrator can still turn it off
+		// here); on an older server the plugin's own option, as before.
+		return Tack_Store_Settings::enabled( Tack_Store_Settings::ORDER_SYNC );
 	}
 
 	/**
