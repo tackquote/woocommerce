@@ -555,7 +555,8 @@ class Tack_Catalog_Mode {
 		if ( class_exists( 'Tack_Block_Product' ) && Tack_Block_Product::is_compat_hook() ) {
 			return;
 		}
-		if ( ! $this->is_active() ) {
+		// Only when this plugin withdrew the template (as for the variation form).
+		if ( ! $this->is_active() || ! $this->quotes_instead_of_cart( $product ) ) {
 			return;
 		}
 		// WooCommerce's own renderer (pluggable), the callback for this type.
@@ -569,11 +570,11 @@ class Tack_Catalog_Mode {
 	 * in WooCommerce's grouped form (`single-product/add-to-cart/grouped.php`, 11.2.1).
 	 *
 	 * WooCommerce prints `woocommerce_template_loop_add_to_cart()` ("Read more") there
-	 * for a child that is not purchasable, which is every child on quote, so the shopper
-	 * could not say how many to quote. For such a child (only when this plugin is why it
-	 * cannot be bought, and only one that can be a quote line on its own) the cell holds
-	 * a quote quantity instead: `tack_quantity[<child id>]`, a name WooCommerce's grouped
-	 * cart handler does not read, so a purchasable sibling's Add to cart is unaffected.
+	 * for a child that is not purchasable, which is every child on quote, or out of
+	 * stock, so the shopper could not say how many to quote. For such a child (see
+	 * `child_takes_quote_quantity()`) the cell holds a quote quantity instead:
+	 * `tack_quantity[<child id>]`, a name WooCommerce's grouped cart handler does not
+	 * read, so a purchasable sibling's Add to cart is unaffected.
 	 *
 	 * @since 1.12.0
 	 *
@@ -582,7 +583,7 @@ class Tack_Catalog_Mode {
 	 * @return string
 	 */
 	public function grouped_child_quote_quantity( $value, $child = null ) {
-		if ( ! $this->quotes_instead_of_cart( $child ) || ! Tack_Block_Product::groupable( $child ) ) {
+		if ( ! $this->child_takes_quote_quantity( $child ) ) {
 			return $value;
 		}
 		return self::child_quote_quantity_markup( $child );
@@ -603,10 +604,56 @@ class Tack_Catalog_Mode {
 	 */
 	public function grouped_item_selector_quote_quantity( $block_content, $parsed_block = array(), $instance = null ) {
 		$child = Tack_Block_Product::from_block( $instance );
-		if ( null === $child || ! $this->quotes_instead_of_cart( $child ) || ! Tack_Block_Product::groupable( $child ) ) {
+		if ( null === $child || ! $this->child_takes_quote_quantity( $child ) ) {
 			return $block_content;
 		}
 		return '<div class="wp-block-add-to-cart-with-options-grouped-product-item-selector wc-block-add-to-cart-with-options-grouped-product-item-selector">' . self::child_quote_quantity_markup( $child ) . '</div>';
+	}
+
+	/**
+	 * Does this child of a grouped product get a quote quantity where WooCommerce shows
+	 * "Read more"? Only a child that can be a quote line on its own
+	 * (`Tack_Block_Product::groupable()`), only while the product-page quote buttons are
+	 * shown (not stood down, at least one button on), and only when WooCommerce gives it
+	 * no quantity for one of two reasons:
+	 *
+	 * - this plugin is why it cannot be bought (quote only); or
+	 * - it is out of stock (1.12.0 follow-up). `grouped.php` and the block's item
+	 *   selector show "Read more" for `! is_in_stock()` too, while the same product on
+	 *   its own page can be quoted with a quantity (`Tack_Block_Product::form_omits_quantity()`).
+	 *
+	 * A child not purchasable for another reason (no price, say) is left to WooCommerce.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|mixed $child The child product.
+	 * @return bool
+	 */
+	public function child_takes_quote_quantity( $child ) {
+		if ( ! Tack_Block_Product::groupable( $child ) || ! self::quote_buttons_shown() ) {
+			return false;
+		}
+		if ( $this->quotes_instead_of_cart( $child ) ) {
+			return true;
+		}
+		return $child->is_purchasable() && ! $child->is_in_stock();
+	}
+
+	/**
+	 * Are the product-page quote buttons shown on this site? Not when the storefront is
+	 * stood down (`Tack_Standing`), nor when both buttons are switched off: a quote
+	 * quantity with no button to use it would only confuse.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return bool
+	 */
+	private static function quote_buttons_shown() {
+		if ( class_exists( 'Tack_Standing' ) && Tack_Standing::is_stood_down() ) {
+			return false;
+		}
+		return 'yes' === get_option( 'tack_quotes_show_add_to_quote', 'yes' )
+			|| 'yes' === get_option( 'tack_quotes_show_request_quote', 'yes' );
 	}
 
 	/**

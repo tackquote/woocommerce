@@ -62,6 +62,12 @@
   text-align: center;
 }
 
+/* A note at the top of the quote list (a grouped product removed, 1.12.0). */
+.tack-quote-list-notice {
+  margin: 0 0 0.5em;
+  font-size: 0.875em;
+}
+
 /* "Please choose the quantity …" under the buttons (grouped products, 1.12.0). */
 .tack-quote-buttons-notice {
   flex-basis: 100%;

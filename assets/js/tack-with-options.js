@@ -347,7 +347,61 @@
 		};
 	}
 
+	// Why a dropped row goes from the list: it cannot come back. A `hidden` row (a draft,
+	// a password-protected product, one hidden from the buyer's group for now) stays.
+	const DROP_REASONS = [ 'gone', 'grouped', 'no_variation' ];
+
+	/**
+	 * The quote list without the rows the server will quote no line for and that cannot
+	 * come back (1.12.0 follow-up): the re-price answer's `dropped`
+	 * (`[{ product_id, variation_id, reason }]`, reason `gone` | `grouped` |
+	 * `no_variation` | `hidden`). Only the first three are removed; an unknown reason is
+	 * kept. A row is matched by product and variation; its "Any …" choices do not matter.
+	 *
+	 * @param {Array} list    The quote-list rows.
+	 * @param {Array} dropped The server's `dropped`.
+	 * @return {Object} `{ kept, removed, allGrouped }`; `allGrouped` is true when at least
+	 *                  one row was removed and every removed row was a grouped product.
+	 */
+	function dropRows( list, dropped ) {
+		const rows = Array.isArray( list ) ? list : [];
+		const gone = Array.isArray( dropped ) ? dropped : [];
+		const kept = [];
+		const removed = [];
+		let allGrouped = true;
+		rows.forEach( function ( row ) {
+			let match = null;
+			for ( let i = 0; i < gone.length; i++ ) {
+				if (
+					gone[ i ] &&
+					DROP_REASONS.indexOf( gone[ i ].reason ) !== -1 &&
+					positiveInt( gone[ i ].product_id ) ===
+						positiveInt( row && row.productId ) &&
+					positiveInt( gone[ i ].variation_id ) ===
+						positiveInt( row && row.variationId )
+				) {
+					match = gone[ i ];
+					break;
+				}
+			}
+			if ( ! match ) {
+				kept.push( row );
+				return;
+			}
+			removed.push( row );
+			if ( match.reason !== 'grouped' ) {
+				allGrouped = false;
+			}
+		} );
+		return {
+			kept,
+			removed,
+			allGrouped: removed.length > 0 && allGrouped,
+		};
+	}
+
 	return {
+		dropRows,
 		parseStates,
 		resolve,
 		listRow,

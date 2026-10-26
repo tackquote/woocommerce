@@ -133,6 +133,8 @@
 
 	let modal = null;
 	const STORAGE_KEY = 'tack_quote_list';
+	// A note at the top of the quote list (1.12.0 follow-up), until the shopper changes it.
+	let listNotice = '';
 
 	// ─── Quote list (browser-side, separate from the WooCommerce cart) ───────
 
@@ -155,6 +157,7 @@
 	}
 
 	function addToList( item ) {
+		listNotice = '';
 		const list = getList();
 		let existing = null;
 		for ( let i = 0; i < list.length; i++ ) {
@@ -188,6 +191,7 @@
 	// Variation-aware for the same reason addToList's match is: two rows can share a
 	// productId and differ only by variation.
 	function removeFromList( line ) {
+		listNotice = '';
 		const list = getList().filter( function ( row ) {
 			return ! sameRow( row, line );
 		} );
@@ -195,6 +199,7 @@
 	}
 
 	function clearList() {
+		listNotice = '';
 		saveList( [] );
 	}
 
@@ -359,7 +364,17 @@
 			if ( ! Array.isArray( items ) ) {
 				return;
 			}
-			const fresh = getList();
+			// Rows the server will quote no line for (1.12.0 follow-up): a grouped product
+			// saved before grouped products were quoted as their children, a deleted or
+			// hidden product. Dropped, so the request does not silently leave them out.
+			const dropped = window.TackWithOptions.dropRows(
+				getList(),
+				res.data.dropped
+			);
+			if ( dropped.allGrouped ) {
+				listNotice = TackQuotes.i18n.chooseQuantities;
+			}
+			const fresh = dropped.kept;
 			items.forEach( function ( it ) {
 				for ( let i = 0; i < fresh.length; i++ ) {
 					if (
@@ -386,7 +401,19 @@
 			return;
 		}
 
-		$widget.prop( 'hidden', list.length === 0 );
+		// Shown even with an empty list, so the shopper learns why a row went away.
+		$widget.prop( 'hidden', list.length === 0 && ! listNotice );
+		let $notice = $( '#tack-quote-list-notice' );
+		if ( listNotice && ! $notice.length ) {
+			$notice = $(
+				'<p id="tack-quote-list-notice" class="tack-quote-list-notice" role="status"></p>'
+			).insertBefore( '#tack-quote-list-items' );
+		}
+		if ( listNotice ) {
+			$notice.text( listNotice );
+		} else {
+			$notice.remove();
+		}
 		$( '#tack-quote-list-count' ).text( list.length );
 
 		const $items = $( '#tack-quote-list-items' ).empty();
@@ -450,6 +477,18 @@
 
 		$empty.prop( 'hidden', list.length > 0 );
 		$table.prop( 'hidden', list.length === 0 );
+		// The same note as the drawer's (a grouped product removed, 1.12.0 follow-up).
+		let $note = $page.find( '.tack-quote-list-notice' );
+		if ( listNotice && ! $note.length ) {
+			$note = $(
+				'<p class="tack-quote-list-notice" role="status"></p>'
+			).prependTo( $page );
+		}
+		if ( listNotice ) {
+			$note.text( listNotice );
+		} else {
+			$note.remove();
+		}
 		$( '#tack-quote-page-submit' ).prop( 'disabled', list.length === 0 );
 
 		// `shop_table_responsive` (1.10.0): on a narrow screen WooCommerce's stylesheet
