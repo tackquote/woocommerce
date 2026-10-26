@@ -1088,7 +1088,7 @@ if ( ! function_exists( 'add_query_arg' ) ) {
 if ( ! function_exists( 'get_current_user_id' ) ) {
 	/** @return int */
 	function get_current_user_id() {
-		return is_user_logged_in() ? 1 : 0;
+		return $GLOBALS['TACK_CURRENT_USER_ID'] ?? ( is_user_logged_in() ? 1 : 0 );
 	}
 }
 if ( ! function_exists( 'wp_generate_password' ) ) {
