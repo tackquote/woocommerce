@@ -140,8 +140,13 @@ function do_settings_sections( $page ) {
 		echo '</table>';
 	}
 }
-function submit_button( $text = null, $type = 'primary', $name = 'submit', $wrap = true ) {
-	echo '<input type="submit" name="' . esc_attr( $name ) . '" class="button ' . esc_attr( $type ) . '" value="' . esc_attr( (string) $text ) . '" />';
+function submit_button( $text = null, $type = 'primary', $name = 'submit', $wrap = true, $other_attributes = null ) {
+	// WordPress's fifth argument: extra attributes (an array of name => value).
+	$attrs = '';
+	foreach ( (array) $other_attributes as $attr => $value ) {
+		$attrs .= ' ' . esc_attr( (string) $attr ) . '="' . esc_attr( (string) $value ) . '"';
+	}
+	echo '<input type="submit" name="' . esc_attr( $name ) . '" class="button ' . esc_attr( $type ) . '" value="' . esc_attr( (string) $text ) . '"' . $attrs . ' />';
 }
 function settings_errors() {
 	echo '<!-- settings_errors -->';

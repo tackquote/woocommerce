@@ -400,7 +400,69 @@
 		};
 	}
 
+	/**
+	 * Make a field required or optional, and say so where the shopper and a screen reader
+	 * look (live QA 2026-10-26: a seller-designed form's company field turned required for
+	 * a company request while its label still said "(optional)"):
+	 *
+	 * - the input's `required` and `aria-required`;
+	 * - its label's marker: `<span class="required" aria-hidden="true">*</span>` when
+	 *   required (the markup `Tack_Storefront_Forms` prints), the "(optional)" span
+	 *   (`.optional` or the built-in form's `.tack-quote-optional`) when not.
+	 *
+	 * Plain DOM, so `tests/js/` can run it on stand-in elements.
+	 *
+	 * @param {Object}  input        The field's input element.
+	 * @param {Object}  label        Its label element, or null.
+	 * @param {boolean} required     Whether it is required now.
+	 * @param {string}  optionalText The "(optional)" wording.
+	 */
+	function markRequired( input, label, required, optionalText ) {
+		if ( ! input ) {
+			return;
+		}
+		input.required = !! required;
+		if ( required ) {
+			input.setAttribute( 'aria-required', 'true' );
+		} else {
+			input.removeAttribute( 'aria-required' );
+		}
+		if ( ! label ) {
+			return;
+		}
+		const optional = label.querySelector(
+			'.optional, .tack-quote-optional'
+		);
+		const star = label.querySelector( '.required' );
+		const doc = label.ownerDocument;
+		if ( required ) {
+			if ( optional ) {
+				optional.parentNode.removeChild( optional );
+			}
+			if ( ! star ) {
+				const span = doc.createElement( 'span' );
+				span.className = 'required';
+				span.setAttribute( 'aria-hidden', 'true' );
+				span.textContent = '*';
+				label.appendChild( doc.createTextNode( ' ' ) );
+				label.appendChild( span );
+			}
+			return;
+		}
+		if ( star ) {
+			star.parentNode.removeChild( star );
+		}
+		if ( ! optional && optionalText ) {
+			const span = doc.createElement( 'span' );
+			span.className = 'optional tack-quote-optional';
+			span.textContent = String( optionalText );
+			label.appendChild( doc.createTextNode( ' ' ) );
+			label.appendChild( span );
+		}
+	}
+
 	return {
+		markRequired,
 		dropRows,
 		parseStates,
 		resolve,

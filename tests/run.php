@@ -216,5 +216,8 @@ require __DIR__ . '/standards-1120-test.php';
 echo "\n-- product types: grouped children, Any attributes, own quantity --\n";
 require __DIR__ . '/product-types-test.php';
 
+echo "\n-- live QA re-run fixes (address, embed claim, wording, sync on http) --\n";
+require __DIR__ . '/live-qa-2-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

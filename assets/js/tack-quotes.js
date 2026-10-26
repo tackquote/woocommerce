@@ -759,21 +759,14 @@
 			? r.requiredCompanyFields
 			: [];
 
-		let html =
-			'<div class="tack-quote-company-section"' +
-			( alwaysCompany ? '' : ' hidden' ) +
-			'>' +
-			'<h3 class="tack-quote-company-heading">' +
-			escapeHtml( i18n.companyHeading ) +
-			'</h3>' +
-			( skipName
-				? ''
-				: field(
-						'tack-quote-company-name',
-						'companyName',
-						i18n.companyNameLabel,
-						{ required: true }
-				  ) );
+		let fields = skipName
+			? ''
+			: field(
+					'tack-quote-company-name',
+					'companyName',
+					i18n.companyNameLabel,
+					{ required: true }
+			  );
 
 		for ( let i = 0; i < required.length; i++ ) {
 			const key = required[ i ];
@@ -788,7 +781,7 @@
 			if ( ! isSafeFieldKey( key ) ) {
 				continue;
 			}
-			html += field(
+			fields += field(
 				'tack-quote-company-' + key,
 				'company[' + key + ']',
 				companyFieldLabel( key ),
@@ -798,8 +791,22 @@
 			);
 		}
 
-		html += '</div>';
-		return html;
+		// The section always exists (it says whether the request is a company one), but
+		// its "Company details" heading only above fields: a seller form that asks the
+		// company name itself, under a policy with no required company fields, left a
+		// heading over nothing (live QA 2026-10-26).
+		return (
+			'<div class="tack-quote-company-section"' +
+			( alwaysCompany ? '' : ' hidden' ) +
+			'>' +
+			( fields
+				? '<h3 class="tack-quote-company-heading">' +
+				  escapeHtml( i18n.companyHeading ) +
+				  '</h3>' +
+				  fields
+				: '' ) +
+			'</div>'
+		);
 	}
 
 	// ─── 1.10.0: attachments ───────────────────────────────────────────────────
@@ -1616,10 +1623,19 @@
 					$role.prop( 'required' ) ? '1' : '0'
 				);
 			}
-			$role.prop(
-				'required',
-				$role.attr( 'data-tack-required' ) === '1' || isCompany
-			);
+			const required =
+				$role.attr( 'data-tack-required' ) === '1' || isCompany;
+			// The label's "(optional)" or "*" and aria-required follow (live QA 2026-10-26).
+			$role.each( function () {
+				window.TackWithOptions.markRequired(
+					this,
+					this.id
+						? $overlay.find( 'label[for="' + this.id + '"]' )[ 0 ]
+						: null,
+					required,
+					TackQuotes.i18n.optional
+				);
+			} );
 		}
 		return isCompany;
 	}

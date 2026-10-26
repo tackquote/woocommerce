@@ -70,7 +70,7 @@
   "woo.forms.reference_n": "Reference {n}",
   "woo.forms.reference_too_long": "A trade reference entry is too long.",
   "woo.forms.requested_terms": "Requested payment terms",
-  "woo.forms.seller_calendar": "Dates follow the seller's calendar ({city}). Today there is {day}.",
+  "woo.forms.seller_calendar": "Dates follow the seller's calendar ({city}), where today is {day}.",
   "woo.forms.session_expired": "Your session has expired. Please reload the page and try again.",
   "woo.forms.sign_in": "Sign in",
   "woo.forms.street_address": "Street address",

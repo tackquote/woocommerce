@@ -923,7 +923,11 @@ class Tack_Storefront_Forms {
 
 			$missing = null === $answer
 				|| ( is_string( $answer ) && '' === trim( $answer ) )
-				|| ( is_array( $answer ) && empty( $answer ) );
+				|| ( is_array( $answer ) && empty( $answer ) )
+				// An address holding only what the page prefilled (country, region) is not an
+				// answer (address_started()): optional, it is left out; required, the
+				// shopper is asked for it like any other unanswered field.
+				|| ( 'address' === $type && is_array( $answer ) && ! self::address_started( $answer ) );
 			if ( $missing ) {
 				if ( ! empty( $field['required'] ) && 'checkbox' !== $type ) {
 					return array(
@@ -1523,7 +1527,10 @@ class Tack_Storefront_Forms {
 			}
 		}
 		$refill['billingAddress'] = $address;
-		if ( ! empty( $address ) ) {
+		// The billing address is optional: only one the applicant started (street, city or
+		// postal code) is checked and sent. The country and region alone are prefilled
+		// from the WooCommerce account or the store's default, so they do not count.
+		if ( self::address_started( $address ) ) {
 			foreach ( self::ADDRESS_REQUIRED as $part ) {
 				if ( empty( $address[ $part ] ) ) {
 					return $this->credit_invalid(
@@ -1895,7 +1902,7 @@ class Tack_Storefront_Forms {
 		$city  = str_replace( '_', ' ', (string) end( $parts ) );
 		$text  = sprintf(
 			/* translators: 1: the city of the seller's time zone, for example "Kolkata". 2: the seller's date today, for example "Oct 17, 2026". */
-			__( 'Dates follow the seller\'s calendar (%1$s). Today there is %2$s.', 'tackquote' ),
+			__( 'Dates follow the seller\'s calendar (%1$s), where today is %2$s.', 'tackquote' ),
 			$city,
 			'%TACKDAY%'
 		);
@@ -1981,6 +1988,27 @@ class Tack_Storefront_Forms {
 		}
 		$countries = $wc->countries->get_allowed_countries();
 		return is_array( $countries ) ? $countries : array();
+	}
+
+	/**
+	 * Did the shopper start this address? Only a part they type counts: street (line 1
+	 * or 2), city or postal code. The country and region are prefilled (the customer's
+	 * WooCommerce billing country, or the store's default) and preselected in their
+	 * selects, so on their own they made every optional address look started and the
+	 * form demanded a street address nobody had begun (live QA 2026-10-26).
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param array $address Address parts keyed line1, line2, city, region, postalCode, country.
+	 * @return bool
+	 */
+	public static function address_started( array $address ) {
+		foreach ( array( 'line1', 'line2', 'city', 'postalCode' ) as $part ) {
+			if ( isset( $address[ $part ] ) && is_scalar( $address[ $part ] ) && '' !== trim( (string) $address[ $part ] ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
