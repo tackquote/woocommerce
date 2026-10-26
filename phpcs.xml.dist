@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<ruleset name="TackQuote for WooCommerce"
+<ruleset name="TackQuote: Request a Quote &amp; B2B Wholesale for WooCommerce"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/squizlabs/PHP_CodeSniffer/master/phpcs.xsd">
 

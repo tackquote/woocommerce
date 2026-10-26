@@ -186,7 +186,7 @@ validate_readme() { # <readme> <main-php> <listing-dir (holds screenshot-N.png)>
 		return 0
 	fi
 	if ! head -n 1 "$readme" | grep -qE '^===[[:space:]]*[^=[:space:]].*===[[:space:]]*$'; then
-		r_err "first line must be the plugin name header, e.g. '=== TackQuote for WooCommerce ==='."
+		r_err "first line must be the plugin name header, e.g. '=== TackQuote: Request a Quote & B2B Wholesale for WooCommerce ==='."
 	fi
 
 	local version stable tested requires requires_php contributors license tags

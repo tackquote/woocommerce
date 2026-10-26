@@ -2,7 +2,7 @@
 # change languages/source/ in the plugin repository and rebuild.
 msgid ""
 msgstr ""
-"Project-Id-Version: TackQuote for WooCommerce\n"
+"Project-Id-Version: TackQuote: Request a Quote & B2B Wholesale for WooCommerce\n"
 "Report-Msgid-Bugs-To: https://github.com/tackquote/woocommerce/issues\n"
 "Language: nl_NL\n"
 "MIME-Version: 1.0\n"

@@ -571,7 +571,9 @@ class Tack_Widget {
 		$sel     = function ( array $classes, $state ) {
 			$out = array();
 			foreach ( $classes as $c ) {
-				$out[] = 'html:root body .button.' . $c . '.' . $c . $state;
+				// `.wp-element-button` too: a card control in a block grid wears the Button
+				// block's classes without the classic `button` (1.12.0). Same specificity.
+				$out[] = 'html:root body :is(.button,.wp-element-button).' . $c . '.' . $c . $state;
 			}
 			return implode( ',', $out );
 		};
@@ -1231,6 +1233,24 @@ class Tack_Widget {
 		// classes, so the control is aligned and sized like the card's Add to cart,
 		// whatever the theme or the block settings chose (no size is set here).
 		$wrapper = self::card_wrapper_class( (string) $block_content );
+
+		/*
+		 * In a block grid the card's own Add to cart is a Button block link
+		 * (`wp-block-button__link wp-element-button`) with no classic `button` class,
+		 * which themes and WooCommerce's classic stylesheet pad differently: the
+		 * control drops it too, so it takes exactly the padding and font of the button
+		 * beside it (it was 13px wider on Twenty Twenty-Five at 390px, browser check of
+		 * 1.12.0). Only the first class attribute (this class's own markup) is touched.
+		 */
+		$html = (string) preg_replace_callback(
+			'/class="([^"]*)"/',
+			static function ( $m ) {
+				$kept = array_diff( preg_split( '/\s+/', trim( $m[1] ) ), array( 'button' ) );
+				return 'class="' . esc_attr( implode( ' ', $kept ) ) . '"';
+			},
+			$html,
+			1
+		);
 		// The block puts its preset font-size class on the button too (a theme's button
 		// element style would otherwise win over the inherited size): so does the control.
 		if ( preg_match_all( '/\bhas-[a-z0-9-]+-font-size\b/', $wrapper, $sizes ) > 0 ) {

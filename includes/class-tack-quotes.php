@@ -491,7 +491,7 @@ final class Tack_Quotes {
 
 		$content =
 			'<p class="privacy-policy-tutorial">'
-			. esc_html__( 'Suggested text for stores using TackQuote for WooCommerce. Edit it to match how your store actually uses the plugin.', 'tackquote' )
+			. esc_html__( 'Suggested text for stores using TackQuote: Request a Quote & B2B Wholesale for WooCommerce. Edit it to match how your store actually uses the plugin.', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Quote requests', 'tackquote' ) . '</strong><br />'
 			. esc_html__( 'When you request a quote, we send the details you enter in the quote form to our quoting provider, TackQuote: your email address, first and last name, phone number, and — if you are buying on behalf of a company — your company name and any company details the form asks for, together with any note you write. We also send the products, quantities, prices and currency you are asking to be quoted.', 'tackquote' )
 			. '</p><p><strong>' . esc_html__( 'Files you attach (only if the store owner has switched attachments on)', 'tackquote' ) . '</strong><br />'
@@ -508,7 +508,7 @@ final class Tack_Quotes {
 			)
 			. '</p>';
 
-		wp_add_privacy_policy_content( __( 'TackQuote for WooCommerce', 'tackquote' ), $content );
+		wp_add_privacy_policy_content( __( 'TackQuote: Request a Quote & B2B Wholesale for WooCommerce', 'tackquote' ), $content );
 	}
 
 	/**
@@ -540,7 +540,7 @@ final class Tack_Quotes {
 	public static function register_privacy_exporter( $exporters ) {
 		$exporters              = is_array( $exporters ) ? $exporters : array();
 		$exporters['tackquote'] = array(
-			'exporter_friendly_name' => __( 'TackQuote for WooCommerce', 'tackquote' ),
+			'exporter_friendly_name' => __( 'TackQuote: Request a Quote & B2B Wholesale for WooCommerce', 'tackquote' ),
 			'callback'               => array( __CLASS__, 'export_personal_data' ),
 		);
 		return $exporters;
@@ -555,7 +555,7 @@ final class Tack_Quotes {
 	public static function register_privacy_eraser( $erasers ) {
 		$erasers              = is_array( $erasers ) ? $erasers : array();
 		$erasers['tackquote'] = array(
-			'eraser_friendly_name' => __( 'TackQuote for WooCommerce', 'tackquote' ),
+			'eraser_friendly_name' => __( 'TackQuote: Request a Quote & B2B Wholesale for WooCommerce', 'tackquote' ),
 			'callback'             => array( __CLASS__, 'erase_personal_data' ),
 		);
 		return $erasers;

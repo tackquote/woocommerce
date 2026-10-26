@@ -93,7 +93,7 @@ class Tack_Update_Notice {
 		}
 		$text = sprintf(
 			/* translators: 1: newest version, 2: installed version. */
-			__( 'Update available: TackQuote for WooCommerce %1$s is out (this store runs %2$s).', 'tackquote' ),
+			__( 'Update available: TackQuote: Request a Quote & B2B Wholesale for WooCommerce %1$s is out (this store runs %2$s).', 'tackquote' ),
 			$update['version'],
 			TACK_QUOTES_VERSION
 		);

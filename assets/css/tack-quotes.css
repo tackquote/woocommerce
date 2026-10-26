@@ -185,6 +185,15 @@
   border-block-start: 1px solid var(--tackquote-border, color-mix(in srgb, currentColor 15%, transparent));
 }
 
+/* No company fields to show (a seller form that asks the company name itself, a policy
+ * with no other required company field): the section stays in the form, because it
+ * records whether the request is a company one, but without its divider and spacing. */
+.tack-quote-company-section:empty {
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
 .tack-quote-company-heading {
   margin: 0 0 0.5rem;
   font-size: 1em;

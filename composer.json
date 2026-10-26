@@ -1,6 +1,6 @@
 {
     "name": "tackquote/woocommerce",
-    "description": "Development tooling for the TackQuote for WooCommerce plugin: WordPress + WooCommerce coding standards (PHPCS) and PHPStan with WordPress + WooCommerce stubs. The plugin itself has no Composer runtime dependencies; this file and vendor/ never ship in tackquote.zip.",
+    "description": "Development tooling for the TackQuote: Request a Quote & B2B Wholesale for WooCommerce plugin: WordPress + WooCommerce coding standards (PHPCS) and PHPStan with WordPress + WooCommerce stubs. The plugin itself has no Composer runtime dependencies; this file and vendor/ never ship in tackquote.zip.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
     "homepage": "https://tackquote.com/integrations/woocommerce",

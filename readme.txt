@@ -50,7 +50,7 @@ TackQuote, to send quote requests that shoppers submit on your store and — onl
 switch it on — to send data about orders placed in your store.
 
 The service is required for the plugin to work. Until the store is connected, quote requests
-cannot be sent: the shopper is told so and WP Admin shows why. Nothing is sent anywhere
+cannot be sent: the shopper is told so and the Connection tab shows why. Nothing is sent anywhere
 until you enter an API key or press **Connect with TackQuote**.
 
 All requests go to the API base URL set under **TackQuote → TackQuote API URL**, which is
@@ -62,8 +62,9 @@ store's address (`X-TackQuote-Site-Url`), so TackQuote can tell which build and 
 the two application forms below; the read-only storefront lookups need no extra scope.
 
 1. **Connection test** — `GET /integrations/woocommerce/ping`; on 404, `GET /health` (key unverified).
-Sent when an administrator clicks "Test TackQuote connection", and at most daily from the
-storefront for item 11. Sends your API key and the store's address; since 1.12.0, to a TackQuote server that asks for them, also the site name, the WordPress time zone, the WooCommerce currency and the store base address (WooCommerce → Settings → General). No order or customer data.
+Sent when an administrator clicks "Test TackQuote connection", at most daily from the storefront
+for item 11, and since 1.12.0 at most every ten minutes in the background (never during a
+shopper's request), once more to confirm a refused key, and once on deactivation. Sends your API key and the store's address; since 1.12.0, to a TackQuote server that asks for them, also the site name, the WordPress time zone, the WooCommerce currency and the store base address (WooCommerce → Settings → General). No order or customer data.
 
 2. **Quote form field policy** — `GET /integrations/woocommerce/registration-config`.
 Sent on storefront page views while quote buttons are on, at most every 15 minutes. Your API key and the store's address.
@@ -157,9 +158,8 @@ TackQuote" on the Connection tab, and carry no API key. The first sends your sto
 (`wp-admin/admin-post.php?action=tackquote_connect_return`), the site name, the plugin,
 WordPress and WooCommerce versions, the site language, a random value signed by your site,
 and a one-way code challenge (SHA-256 of a secret that stays on your site). No customer,
-order or product data. TackQuote answers with an address on its own web app, and your browser
-is sent there to sign in (or create an account) and approve or cancel; TackQuote then sends
-your browser back to your site's return address with a one-time code. The second call sends
+order or product data. Your browser then signs in to TackQuote (or creates an account),
+approves or cancels, and returns to your site with a one-time code. The second call sends
 that code, the secret behind the code challenge, and your store's address, and TackQuote
 answers once with an API key, which is stored exactly like a pasted one.
 
@@ -175,30 +175,29 @@ visitor's language only: no customer data.
 
 Quick order (since 1.12.0) sends nothing to TackQuote: SKUs are matched in your own catalogue.
 
-15. **Catalogue and order sync** (unreleased, needs a TackQuote server that offers it) —
+15. **Catalogue and order sync** (since 1.12.0, needs a TackQuote server that offers it) —
 `POST /integrations/woocommerce/rest-keys/authorize` and `GET /integrations/woocommerce/rest-keys/status`.
-Sent when an administrator presses "Allow catalogue and order sync", or right after Connect with
-TackQuote. The first call sends your site's `wp-admin/admin-post.php` address; TackQuote answers
-with WooCommerce's own approval address on your site, and your browser goes there. If you
-approve, **WooCommerce itself** creates a Read/Write REST API key and sends it to TackQuote
-directly (WooCommerce's "Application Authentication Endpoint"); this plugin never sees it. The
+Sent on "Allow catalogue and order sync", or right after Connect with TackQuote. The first call sends your site's `wp-admin/admin-post.php` address, and your browser
+opens WooCommerce's own approval screen. If you approve, **WooCommerce itself** creates a
+Read/Write REST API key and sends it to TackQuote directly; this plugin never sees it. The
 status call sends nothing but the headers above. TackQuote then uses that key to read your
 products, stock and categories, register store webhooks and write orders back; you can revoke it
-under WooCommerce → Settings → Advanced → REST API at any time, and deleting this plugin deletes it.
+under WooCommerce → Settings → Advanced → REST API at any time; deleting this plugin deletes it once
+TackQuote confirms it let go of it.
 
-16. **Plugin deactivated or deleted** (unreleased) — `POST /integrations/woocommerce/plugin-lifecycle`.
+16. **Plugin deactivated or deleted** (since 1.12.0) — `POST /integrations/woocommerce/plugin-lifecycle`.
 Sent once when the plugin is deactivated or deleted (not when WordPress updates it), so TackQuote
 pauses a connection that runs through the plugin only. Sends `deactivated` or `uninstalled` and the
 headers above.
 
-17. **Update check of the zip from the TackQuote website** (unreleased; not in the WordPress.org
+17. **Update check of the zip from the TackQuote website** (since 1.12.0; not in the WordPress.org
 build) — `GET https://api.github.com/repos/tackquote/woocommerce/releases/latest`, at most every
-twelve hours, by WordPress's own update check. Sends no data about your store beyond what any web
-request carries (the plugin version in the User-Agent). The update itself downloads `tackquote.zip`
+twelve hours, by WordPress's own update check. Sends nothing about your store beyond the plugin
+version in the User-Agent. The update itself downloads `tackquote.zip`
 from the TackQuote GitHub release. GitHub privacy statement:
 https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 
-18. **TackQuote inside WooCommerce admin** (unreleased, needs a TackQuote server that offers it) —
+18. **TackQuote inside WooCommerce admin** (since 1.12.0, needs a TackQuote server that offers it) —
 `POST /integrations/woocommerce/embed/open`, `POST /integrations/woocommerce/embed/claim` and
 `POST /integrations/woocommerce/embed/unlink`. Sent only when a user who can manage WooCommerce opens
 WooCommerce → TackQuote or presses its buttons. Sends that user's WordPress user ID, a random secret
@@ -410,10 +409,13 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Net terms: `tack_nt_<user id>` (TackQuote's answer, one minute), order meta `_tackquote_net_terms` and `_tackquote_po_number`, option `woocommerce_tackquote_net_terms_settings`.
 * Quote checkout: session value `tackquote_quote_checkout`, order meta `_tackquote_quote_ref` and `_tackquote_quote_number`.
 * `_tack_quotes_sync_key` — order meta recording which order state was last accepted by TackQuote, so the same state is not sent twice.
+* Since 1.12.0: `tack_quotes_standing` — an option recording whether TackQuote still accepts this store's key (state, reason, a 16-character SHA-256 prefix of the key, never the key, and when it was checked), refreshed by the WP-Cron hook `tackquote_refresh_standing`; `tack_quotes_wc_rest_key_id` — WooCommerce's own id of the REST API key approved for TackQuote's catalogue and order sync (never the key).
+* Since 1.12.0, transients: `tack_quotes_quote_form_cache` (your quote request form, five minutes, served up to 30 minutes longer while one request refreshes it, one minute after a failure); `tack_quotes_qf_refresh_*` (a 30-second lock so only one request refreshes it); `tack_quotes_quote_form_file_fallback` (one day, so the log notes once that the built-in form was shown); `tack_quotes_rest_keys_status` (the catalogue and order sync status, five minutes); the site transient `tack_quotes_github_release` (the latest GitHub release of the plugin, twelve hours, one hour after a failure; only in the zip from the TackQuote website); `tack_qo_*` and `tack_qa_*` (quick-order rate limits per visitor, five minutes, keyed on a salted hash of the IP address, never the address).
+* Since 1.12.0: user meta `_tackquote_embed_secret` — a random per-user secret for TackQuote inside WooCommerce admin, sent only to TackQuote, server to server.
 
 * User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`, `_tack_wholesale_applied` (when a wholesale application sent from the store was answered "pending"); product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
 
-Deleting the plugin removes every option above, the fixed-name transients, the user meta, the product meta and queued order-sync jobs, on every site of a multisite network. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
+Deleting the plugin removes every option above, the fixed-name transients (and the site transient), the user meta, the product meta, queued order-sync jobs and the `tackquote_refresh_standing` schedule, on every site of a multisite network. It also deletes the WooCommerce REST API key approved for TackQuote, but only when TackQuote confirms it let go of that key and the key still has the name WooCommerce gave it; otherwise the key stays under WooCommerce → Settings → Advanced → REST API for you to revoke. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
 
 == Screenshots ==
 
