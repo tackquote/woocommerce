@@ -1246,6 +1246,11 @@ class Tack_Widget {
 			'/class="([^"]*)"/',
 			static function ( $m ) {
 				$kept = array_diff( preg_split( '/\s+/', trim( $m[1] ) ), array( 'button' ) );
+				// The Button block classes the card's Add to cart always wears, on every
+				// theme (WooCommerce's ProductButton.php, 11.2.1, adds both itself). On a
+				// classic theme button_class() adds neither, so without them the control
+				// would be a bare browser-default button the accent CSS also misses.
+				$kept = array_unique( array_merge( array( 'wp-block-button__link', 'wp-element-button' ), $kept ) );
 				return 'class="' . esc_attr( implode( ' ', $kept ) ) . '"';
 			},
 			$html,
