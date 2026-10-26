@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.13.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -441,8 +441,8 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 
 == Changelog ==
 
-= Unreleased (1.13.0) =
-Full notes are in `changelog.txt`.
+= 1.13.0 =
+Released 2026-10-26. Full notes are in `changelog.txt`.
 
 * **One source for each setting.** On a TackQuote server that offers it, order sync, TackQuote prices, order limits, the buyer group badge, tax exemption and the wholesale form are saved in TackQuote, whether you change them in TackQuote or on the plugin's own tabs, which keep every 1.12.0 setting. Buyer groups and wholesale forms are picked from TackQuote's lists: nothing to copy by hand. Each switch can also be turned off for this store only.
 * **Link your TackQuote account in one click** from WooCommerce → TackQuote (sign in and confirm); the link code stays as a fallback.
