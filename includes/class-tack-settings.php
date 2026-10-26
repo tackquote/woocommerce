@@ -2182,7 +2182,11 @@ class Tack_Settings {
 			);
 			return $saved;
 		}
-		return array_merge( $saved, $changed );
+		// Saved locally as TackQuote now stores it (its answer), not as posted.
+		foreach ( array_keys( $changed ) as $feature ) {
+			$saved[ $feature ] = true === Tack_Store_Settings::server_value( $feature ) ? 'yes' : 'no';
+		}
+		return $saved;
 	}
 
 	/**

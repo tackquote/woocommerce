@@ -403,6 +403,13 @@ tack_ss_save( 'sync', array( 'tack_quotes_enable_order_sync' => array( 'on' => '
 $ss_puts = $ss_put();
 check( 'order sync ON with the statement: acknowledgePersonalData true is sent', 1 === count( $ss_puts ) && array( 'orderSync' => array( 'push' => true, 'acknowledgePersonalData' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ) && Tack_Order_Sync::is_enabled() );
 
+// Fable 3: after a save, the local option is what TackQuote stored, not what was posted.
+$ss_before = get_option( Tack_Store_Settings::OPTION );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => false, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => true ) ) ) ) ) );
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+check( 'mirror: TackQuote answered order limits off, so the local option says off too', 1 === count( $ss_put() ) && 'no' === get_option( 'tack_quotes_enable_order_limits' ) && ! Tack_B2B_Notices::order_limits_enabled() );
+update_option( Tack_Store_Settings::OPTION, $ss_before );
+
 // Fable 1: register_settings() (admin_init) starts each request with an empty write cache.
 $_POST = $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'no' ) ) + array( 'option_page' => Tack_Settings::option_group( 'pricing' ) );
 Tack_Settings::reset_write_batch();
