@@ -539,6 +539,12 @@ msgstr "Teléfono"
 msgid "Place this order on your approved payment terms. We will send an invoice."
 msgstr "Realice este pedido con sus condiciones de pago aprobadas. Le enviaremos una factura."
 
+#. catalogue: woo.quote.question_required
+#. plugin catalogue (languages/source/local), pending native review
+#, php-format
+msgid "Please answer: %s"
+msgstr "Responda a: %s"
+
 #. catalogue: woo.forms.choose_terms
 #. plugin catalogue (languages/source/local), pending native review
 msgid "Please choose one of the offered payment terms."

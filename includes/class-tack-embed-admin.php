@@ -286,6 +286,8 @@ class Tack_Embed_Admin {
 		}
 		echo '<div class="wrap tackquote-embed">';
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'TackQuote', 'tackquote' ) . '</h1>';
+		// 1.13.0: one menu entry, one tab bar: Dashboard, then the plugin's settings tabs.
+		Tack_Settings::render_nav( 'dashboard' );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: selects one of a fixed set of messages after a redirect; there is no form to carry a nonce.
 		$flag         = isset( $_GET['tq_embed'] ) ? sanitize_key( wp_unslash( $_GET['tq_embed'] ) ) : '';

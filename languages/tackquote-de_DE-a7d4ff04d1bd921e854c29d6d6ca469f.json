@@ -48,6 +48,9 @@
             "Cancel": [
                 "Abbrechen"
             ],
+            "Choose an option": [
+                "Option auswählen"
+            ],
             "City": [
                 "Ort"
             ],
@@ -101,6 +104,9 @@
             ],
             "Phone": [
                 "Telefon"
+            ],
+            "Please answer: %s": [
+                "Bitte beantworten Sie: %s"
             ],
             "Please choose the quantity of each product you want quoted.": [
                 "Bitte wählen Sie die Menge für jedes Produkt, für das Sie ein Angebot möchten."

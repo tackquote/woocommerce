@@ -162,5 +162,6 @@
   "woo.widget.no_products": "Nenhum produto para orçar.",
   "woo.widget.rate_limited": "Muitas solicitações de orçamento a partir desta conexão. Aguarde alguns minutos e tente novamente.",
   "woo.widget.stale_page": "Esta página ficou aberta por muito tempo ou veio de um cache. Recarregue-a e tente novamente.",
-  "woo.widget.target_prices": "Preços-alvo:"
+  "woo.widget.target_prices": "Preços-alvo:",
+  "woo.quote.question_required": "Responda: {question}"
 }

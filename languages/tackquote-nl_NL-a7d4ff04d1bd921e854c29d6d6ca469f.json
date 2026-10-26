@@ -48,6 +48,9 @@
             "Cancel": [
                 "Annuleren"
             ],
+            "Choose an option": [
+                "Kies een optie"
+            ],
             "City": [
                 "Plaats"
             ],
@@ -101,6 +104,9 @@
             ],
             "Phone": [
                 "Telefoon"
+            ],
+            "Please answer: %s": [
+                "Beantwoord: %s"
             ],
             "Please choose the quantity of each product you want quoted.": [
                 "Kies het aantal van elk product waarvoor u een offerte wilt."

@@ -162,5 +162,6 @@
   "woo.widget.no_products": "Aucun produit à chiffrer.",
   "woo.widget.rate_limited": "Trop de demandes de devis depuis cette connexion. Veuillez patienter quelques minutes, puis réessayer.",
   "woo.widget.stale_page": "Cette page est ouverte depuis trop longtemps ou provient d’un cache. Rechargez-la et réessayez.",
-  "woo.widget.target_prices": "Prix cibles :"
+  "woo.widget.target_prices": "Prix cibles :",
+  "woo.quote.question_required": "Veuillez répondre à : {question}"
 }

@@ -202,6 +202,7 @@ function add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $call
 
 function add_submenu_page( $parent, $page_title, $menu_title, $capability, $menu_slug, $callback = null ) {
 	$GLOBALS['TACK_REGISTERED_PAGES'][ $menu_slug ] = $capability;
+	$GLOBALS['TACK_SUBMENU_PARENTS'][ $menu_slug ]  = $parent;
 	return $parent . '_page_' . $menu_slug;
 }
 

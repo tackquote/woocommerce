@@ -172,11 +172,32 @@ class Tack_Storefront_Forms {
 	}
 
 	/**
+	 * A wholesale form slug from a shortcode or a form post.
+	 *
+	 * @since 1.13.0
+	 *
+	 * @param mixed $raw Raw value.
+	 * @return string
+	 */
+	public static function clean_slug( $raw ) {
+		$raw = trim( (string) $raw );
+		// 1.13.0: a slug in TackQuote's own form is kept verbatim (it may carry capitals,
+		// which sanitize_key() would lower, and the lookup would then match no form);
+		// anything else is cleaned as before.
+		return class_exists( 'Tack_Store_Settings' ) && Tack_Store_Settings::is_slug( $raw ) ? $raw : sanitize_key( $raw );
+	}
+
+	/**
 	 * The wholesale form slug the merchant configured, or the default.
 	 *
 	 * @return string
 	 */
 	public static function default_slug() {
+		// 1.13.0: the form chosen in TackQuote when it decides (no slug typed by hand).
+		$server = Tack_Store_Settings::server_wholesale_form_slug();
+		if ( '' !== $server ) {
+			return $server;
+		}
 		$slug = sanitize_key( (string) get_option( self::OPTION_FORM_SLUG, self::DEFAULT_SLUG ) );
 		return '' === $slug ? self::DEFAULT_SLUG : $slug;
 	}
@@ -384,7 +405,7 @@ class Tack_Storefront_Forms {
 	 */
 	public function shortcode_wholesale( $atts ) {
 		$atts = shortcode_atts( array( 'slug' => '' ), $atts, 'tackquote_wholesale_application' );
-		$slug = sanitize_key( (string) $atts['slug'] );
+		$slug = self::clean_slug( $atts['slug'] );
 		return $this->render_wholesale_form( '' === $slug ? self::default_slug() : $slug, $this->current_url() );
 	}
 
@@ -679,7 +700,7 @@ class Tack_Storefront_Forms {
 			return $outcome + $this->failure( self::rate_limit_message() );
 		}
 
-		$slug = isset( $post['tack_slug'] ) ? sanitize_key( (string) $post['tack_slug'] ) : '';
+		$slug = isset( $post['tack_slug'] ) ? self::clean_slug( $post['tack_slug'] ) : '';
 		if ( '' === $slug ) {
 			$slug = self::default_slug();
 		}
@@ -2235,6 +2256,18 @@ class Tack_Storefront_Forms {
 			return '';
 		}
 		$settings = class_exists( 'Tack_Settings' ) ? Tack_Settings::tab_url( 'forms' ) : admin_url( 'admin.php' );
+		// 1.13.0: on a server that decides the form, it is chosen in TackQuote, not typed here.
+		if ( class_exists( 'Tack_Store_Settings' ) && Tack_Store_Settings::is_server_driven() ) {
+			return '<p class="tackquote-admin-hint">'
+				. esc_html(
+					sprintf(
+						/* translators: %s: the wholesale form slug chosen in TackQuote. */
+						__( 'Only administrators see this: no TackQuote wholesale form has the slug "%s". Choose a wholesale form for this store in TackQuote.', 'tackquote' ),
+						$slug
+					)
+				)
+				. ' <a href="' . esc_url( $settings ) . '">' . esc_html__( 'Open the Forms tab', 'tackquote' ) . '</a></p>';
+		}
 		return '<p class="tackquote-admin-hint">'
 			. esc_html(
 				sprintf(
