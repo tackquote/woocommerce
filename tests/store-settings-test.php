@@ -510,7 +510,7 @@ tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE
 // "Change in TackQuote": the embedded dashboard when the server offers it, else a new tab.
 check( 'change link: TackQuote\'s WooCommerce page in a new tab without the embedded dashboard', array( 'url' => 'https://app.tackquote.com/settings/integrations/woocommerce', 'new_tab' => true ) === Tack_Store_Settings::change_link() );
 tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, 'embedded_dashboard' ) );
-check( 'change link: WooCommerce → TackQuote when the server offers the dashboard', false === Tack_Store_Settings::change_link()['new_tab'] && false !== strpos( Tack_Store_Settings::change_link()['url'], 'page=' . Tack_Embed_Admin::PAGE_SLUG ) );
+check( 'change link: TackQuote → Dashboard when the server offers it', false === Tack_Store_Settings::change_link()['new_tab'] && false !== strpos( Tack_Store_Settings::change_link()['url'], 'page=' . Tack_Embed_Admin::PAGE_SLUG ) );
 
 // ── Old server: the 1.12.0 screen, with the order-sync default fixed ────────
 tack_ss_reset();
@@ -530,14 +530,7 @@ Tack_Settings::render_nav( 'dashboard' );
 $ss_nav = (string) ob_get_clean();
 check( 'nav: Dashboard first and current, then every settings tab', (bool) preg_match( '/page=tackquote-dashboard" class="nav-tab nav-tab-active" aria-current="page">Dashboard<.*tab=connection.*tab=sync/s', $ss_nav ) );
 check( 'the dashboard page prints the shared tab bar', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php' ), "Tack_Settings::render_nav( 'dashboard' );" ) );
-check( 'menu: the settings page highlights WooCommerce → TackQuote', ( function () use ( $ss_settings ) {
-	$_GET['page'] = Tack_Settings::PAGE_SLUG;
-	$GLOBALS['TACK_IS_ADMIN'] = true;
-	$ok = 'woocommerce' === $ss_settings->menu_parent( 'x' ) && Tack_Embed_Admin::PAGE_SLUG === $ss_settings->menu_submenu( null );
-	unset( $_GET['page'] );
-	$GLOBALS['TACK_IS_ADMIN'] = false;
-	return $ok && 'x' === $ss_settings->menu_parent( 'x' );
-} )() );
+check( 'menu: no WooCommerce highlight filters remain (the TackQuote menu is its own)', ! method_exists( 'Tack_Settings', 'menu_parent' ) && ! method_exists( 'Tack_Settings', 'menu_submenu' ) && ! method_exists( 'Tack_Settings', 'hide_menu_entry' ) );
 
 // ── Registration questions (customFields) ───────────────────────────────────
 $ss_config = array(

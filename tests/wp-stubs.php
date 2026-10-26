@@ -215,6 +215,7 @@ function current_user_can( $cap ) { return in_array( $cap, (array) $GLOBALS['TAC
 
 function add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $callback = null, $icon = null, $position = null ) {
 	$GLOBALS['TACK_REGISTERED_PAGES'][ $menu_slug ] = $capability;
+	$GLOBALS['TACK_MENUS'][ $menu_slug ]            = array( 'page_title' => $page_title, 'menu_title' => $menu_title, 'cap' => $capability, 'icon' => $icon, 'position' => $position );
 	return 'toplevel_page_' . $menu_slug;
 }
 
@@ -230,6 +231,7 @@ function add_submenu_page( $parent, $page_title, $menu_title, $capability, $menu
 	$GLOBALS['TACK_REGISTERED_PAGES'][ $menu_slug ] = $capability;
 	$GLOBALS['TACK_SUBMENU_PARENTS'][ $menu_slug ]  = $parent;
 	$GLOBALS['TACK_SUBMENU_TITLES'][ $menu_slug ]   = $page_title;
+	$GLOBALS['TACK_SUBMENUS'][]                     = array( 'parent' => $parent, 'page_title' => $page_title, 'menu_title' => $menu_title, 'cap' => $capability, 'slug' => $menu_slug, 'position' => func_num_args() > 6 ? func_get_arg( 6 ) : null );
 	return $parent . '_page_' . $menu_slug;
 }
 

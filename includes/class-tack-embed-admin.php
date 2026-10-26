@@ -1,6 +1,6 @@
 <?php
 /**
- * The TackQuote dashboard inside WooCommerce admin (WooCommerce → TackQuote).
+ * The TackQuote dashboard inside WordPress admin (TackQuote → Dashboard).
  *
  * @package TackQuotes
  * @since   1.12.0
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * WooCommerce → TackQuote: the seller's TackQuote workspace in a frame, signed in as the
+ * TackQuote → Dashboard: the seller's TackQuote workspace in a frame, signed in as the
  * WordPress user's OWN linked TackQuote account.
  *
  * How it signs in (TackQuote API, `POST /integrations/woocommerce/embed/open`):
@@ -145,7 +145,7 @@ class Tack_Embed_Admin {
 	 * Hook registration.
 	 */
 	public function init() {
-		// After WooCommerce registers its own menu (priority 9 and 50), so the parent exists.
+		// After Tack_Settings::add_menu() (priority 10) registered the TackQuote menu.
 		add_action( 'admin_menu', array( $this, 'add_menu' ), 60 );
 		add_action( 'admin_post_' . self::TAB_ACTION, array( $this, 'handle_tab' ) );
 		add_action( 'admin_post_' . self::CLAIM_ACTION, array( $this, 'handle_claim' ) );
@@ -170,16 +170,19 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * WooCommerce → TackQuote.
+	 * TackQuote → Dashboard: the first item of the top-level TackQuote menu (1.13.0;
+	 * 1.12.0 had it under WooCommerce). Added after Tack_Settings::add_menu() registered
+	 * the menu, and placed first (position 0).
 	 */
 	public function add_menu() {
 		add_submenu_page(
-			'woocommerce',
-			__( 'TackQuote', 'tackquote' ),
-			__( 'TackQuote', 'tackquote' ),
+			Tack_Settings::PAGE_SLUG,
+			__( 'TackQuote dashboard', 'tackquote' ),
+			__( 'Dashboard', 'tackquote' ),
 			self::CAPABILITY,
 			self::PAGE_SLUG,
-			array( $this, 'render_page' )
+			array( $this, 'render_page' ),
+			0
 		);
 	}
 
@@ -347,7 +350,7 @@ class Tack_Embed_Admin {
 	}
 
 	/**
-	 * Render WooCommerce → TackQuote.
+	 * Render TackQuote → Dashboard.
 	 */
 	public function render_page() {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -412,7 +415,7 @@ class Tack_Embed_Admin {
 			} else {
 				self::notice(
 					'warning',
-					__( 'Your TackQuote server does not offer the dashboard inside WooCommerce yet. Open TackQuote instead:', 'tackquote' ),
+					__( 'Your TackQuote server does not offer the dashboard inside WordPress yet. Open TackQuote instead:', 'tackquote' ),
 					'https://' . self::DEFAULT_APP_HOST . '/',
 					self::DEFAULT_APP_HOST
 				);

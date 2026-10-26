@@ -79,6 +79,15 @@ class Tack_Settings {
 	const DEFAULT_API_URL = 'https://api.tackquote.com/v1';
 
 	/**
+	 * Admin menu icon: the TackQuote mark alone (no app-icon tile), `fill="black"`, as a
+	 * base64 SVG data URI. WordPress's svg-painter recolours a data-URI menu icon to the
+	 * current admin colour scheme, which it can only do for a single-colour SVG.
+	 * Source: the two paths of the TackQuote brand mark, viewBox cropped to
+	 * the mark. Same paths as `assets/images/tackquote-mark.svg`.
+	 */
+	const MENU_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ijk1IDg3IDMyMiAzMjIiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHBhdGggZmlsbD0iYmxhY2siIGQ9Ik0gMzA1LjMgODkuMCBMIDMwNy4zIDg5LjAgTCAzMDYuMyA5My4wIEwgMzAyLjQgOTYuMCBMIDMwMC40IDEwMC45IEwgMjk2LjQgMTAzLjkgTCAyOTYuNCAxMDUuOSBMIDI5NC40IDEwNi45IEwgMjk0LjQgMTA4LjggTCAyODguNSAxMTUuOCBMIDI4Ny41IDExOS44IEwgMjgzLjUgMTIzLjcgTCAyODMuNSAxMjYuNiBMIDI3OC42IDEzMi42IEwgMjc3LjYgMTM3LjYgTCAyNjguNyAxNTQuNSBMIDI2OC43IDE1OC40IEwgMjY2LjcgMTYwLjQgTCAyNjUuNyAxNjcuNCBMIDI2My43IDE2OS4zIEwgMjU5LjcgMTg3LjIgTCAyNTguNyAxODcuMiBMIDI1OC43IDE5My4xIEwgMjU3LjcgMTkzLjEgTCAyNTYuOCAyMDMuMSBMIDI1NS44IDIwMy4xIEwgMjU0LjggMjE5LjAgTCAyNTMuOCAyMTkuMCBMIDI1NC44IDI1Ni43IEwgMjU1LjggMjU2LjcgTCAyNTYuOCAyNjkuNiBMIDI1Ny43IDI2OS42IEwgMjU4LjcgMjc5LjUgTCAyNjAuNyAyODIuNCBMIDI2Mi44IDI5My40IEwgMjY1LjcgMjk4LjMgTCAyNjguNyAzMDkuMiBMIDI3OC42IDMyOS4xIEwgMjgwLjYgMzMwLjEgTCAyODEuNSAzMzQuMCBMIDI4My41IDMzNS4xIEwgMjgzLjUgMzM3LjAgTCAyODUuNiAzMzguMCBMIDI4NS42IDM0MC4wIEwgMjg3LjUgMzQxLjAgTCAyODcuNSAzNDIuOSBMIDI5MC41IDM0NC45IEwgMjkwLjUgMzQ3LjAgTCAyOTMuNCAzNDguOSBMIDI5NS40IDM1Mi45IEwgMjkyLjUgMzUzLjkgTCAyOTIuNSAzNTIuOSBMIDI3Mi42IDM1MC45IEwgMjcyLjYgMzQ5LjkgTCAyMzguOCAzNDguOSBMIDIzOC44IDM0OS45IEwgMjE2LjEgMzUwLjkgTCAyMTYuMSAzNTEuOSBMIDIwOS4yIDM1MS45IEwgMjA5LjIgMzUyLjkgTCAxOTUuMyAzNTQuOCBMIDE5Mi4yIDM1Ni44IEwgMTg4LjMgMzU2LjggTCAxODguMyAzNTcuOSBMIDE3MC41IDM2Mi44IEwgMTY4LjQgMzY0LjggTCAxNjUuNSAzNjQuOCBMIDE2MS42IDM2Ny43IEwgMTU0LjYgMzY5LjggTCAxNTMuNiAzNzEuOCBMIDE0Ni42IDM3My43IEwgMTQ1LjYgMzc1LjcgTCAxNDEuNyAzNzYuNyBMIDE0MC43IDM3OC42IEwgMTMwLjggMzgzLjcgTCAxMjguOCAzODYuNiBMIDEyNC45IDM4Ny42IEwgMTIxLjggMzkxLjUgTCAxMTkuOCAzOTEuNSBMIDExNi45IDM5NS42IEwgMTE0LjkgMzk1LjYgTCAxMDcuOSA0MDMuNSBMIDEwNi4wIDQwMy41IEwgMTA1LjAgNDA2LjUgTCAxMDMuMCA0MDYuNSBMIDEwMi4wIDQwMy41IEwgMTAzLjAgNDAzLjUgTCAxMDUuMCAzODMuNyBMIDEwNi4wIDM4My43IEwgMTA3LjAgMzczLjcgTCAxMDcuOSAzNzMuNyBMIDEwNy45IDM2OC44IEwgMTA4LjkgMzY4LjggTCAxMDguOSAzNjMuOCBMIDEwOS45IDM2My44IEwgMTA5LjkgMzU3LjkgTCAxMTEuOSAzNTQuOCBMIDExNC45IDMzOS4wIEwgMTE2LjkgMzM2LjEgTCAxMTYuOSAzMzIuMCBMIDExOC45IDMyOS4xIEwgMTE4LjkgMzI1LjEgTCAxMTkuOCAzMjUuMSBMIDEyNC45IDMwNy4yIEwgMTI2LjggMzA1LjMgTCAxMjkuOCAyOTMuNCBMIDEzMi43IDI4OS40IEwgMTMyLjcgMjg2LjQgTCAxMzcuNyAyNzcuNSBMIDEzNy43IDI3NC41IEwgMTQ0LjYgMjYyLjYgTCAxNDQuNiAyNTkuNiBMIDE1Mi42IDI0My44IEwgMTU3LjUgMjM3LjggTCAxNTkuNiAyMzEuOSBMIDE2NC41IDIyNS45IEwgMTY1LjUgMjIyLjAgTCAxNjcuNCAyMjEuMCBMIDE2Ny40IDIxOS4wIEwgMTY5LjQgMjE3LjkgTCAxNjkuNCAyMTYuMCBMIDE3MS41IDIxNS4wIEwgMTcxLjUgMjEzLjAgTCAxNzMuNSAyMTIuMCBMIDE3NC40IDIwOC4xIEwgMTc3LjQgMjA2LjAgTCAxNzkuMyAyMDEuMSBMIDE4Mi40IDE5OS4xIEwgMTg0LjQgMTk0LjEgTCAxODkuMyAxOTAuMiBMIDE5Mi4yIDE4NC4yIEwgMTk2LjMgMTgxLjIgTCAxOTYuMyAxNzkuMyBMIDIwMi4yIDE3NC40IEwgMjAyLjIgMTcyLjMgTCAyMDkuMiAxNjYuNCBMIDIwOS4yIDE2NC40IEwgMjMzLjkgMTM5LjYgTCAyMzUuOSAxMzkuNiBMIDI0MS45IDEzMi42IEwgMjQzLjkgMTMyLjYgTCAyNDcuOCAxMjcuNyBMIDI0OS44IDEyNy43IEwgMjU3LjcgMTE5LjggTCAyNjIuOCAxMTcuOCBMIDI2NS43IDExMy44IEwgMjY3LjcgMTEzLjggTCAyNjguNyAxMTEuOCBMIDI3Ni42IDEwNy45IEwgMjgxLjUgMTAyLjggTCAyODUuNiAxMDEuOSBMIDI4OS41IDk3LjkgTCAzMDIuNCA5MS45IFoiLz48cGF0aCBmaWxsPSJibGFjayIgZD0iTSAzNDkuMCAyMDUuMCBMIDM2Ny45IDIwNi4wIEwgMzY3LjkgMjA3LjAgTCAzNzQuOCAyMDguMSBMIDM3OC44IDIxMS4wIEwgMzgxLjggMjExLjAgTCAzODMuNyAyMTQuMCBMIDM4OC44IDIxNi4wIEwgNDAwLjcgMjI5LjggTCA0MDEuNiAyMzMuOSBMIDQwMy42IDIzNC44IEwgNDA2LjYgMjQ3LjcgTCA0MDcuNSAyNDcuNyBMIDQwNy41IDI1MS43IEwgNDA4LjUgMjUxLjcgTCA0MDguNSAyNTYuNyBMIDQwOS41IDI1Ni43IEwgNDEwLjUgMjc3LjUgTCA0MDkuNSAyNzcuNSBMIDQwOC41IDI5Ni4zIEwgNDA3LjUgMjk2LjMgTCA0MDQuNiAzMTMuMiBMIDQwMy42IDMxMy4yIEwgNDAxLjYgMzIyLjEgTCAzOTguNiAzMjYuMSBMIDM5OC42IDMyOS4xIEwgMzkzLjcgMzM5LjAgTCAzODkuNyAzNDIuOSBMIDM4OC44IDM0Ny4wIEwgMzgyLjggMzUyLjkgTCAzODIuOCAzNTQuOCBMIDM3OC44IDM1Ny45IEwgMzc4LjggMzU5LjkgTCAzNzYuNyAzNTkuOSBMIDM3Ni43IDM2MS44IEwgMzY0LjggMzczLjcgTCAzNjIuOSAzNzMuNyBMIDM1OS45IDM3Ny43IEwgMzU4LjAgMzc3LjcgTCAzNTIuMCAzODMuNyBMIDM0OC4wIDM4NC42IEwgMzQ0LjEgMzg4LjYgTCAzNDAuMSAzODkuNiBMIDMzOS4xIDM5MS41IEwgMzIzLjMgMzk5LjUgTCAzMTAuNCA0MDMuNSBMIDMwMi40IDM4Ny42IEwgMzAwLjQgMzg2LjYgTCAzMDAuNCAzODMuNyBMIDMwOC40IDM3OS42IEwgMzA5LjQgMzc3LjcgTCAzMTMuMyAzNzYuNyBMIDMxNy4yIDM3Mi43IEwgMzE5LjIgMzcyLjcgTCAzMzkuMSAzNTQuOCBMIDMzOS4xIDM1Mi45IEwgMzQ1LjEgMzQ3LjAgTCAzNDUuMSAzNDQuOSBMIDM0OS4wIDM0MS4wIEwgMzQ5LjAgMzM4LjAgTCAzNTIuMCAzMzUuMSBMIDM1Mi4wIDMzMi4wIEwgMzUzLjkgMzMwLjEgTCAzNTYuMCAzMjAuMSBMIDM1Ny4wIDMyMC4xIEwgMzU4LjAgMzA5LjIgTCAzNTcuMCAzMDguMiBMIDM0NS4xIDMwOC4yIEwgMzQ1LjEgMzA3LjIgTCAzMzkuMSAzMDcuMiBMIDMzNi4xIDMwNS4zIEwgMzMyLjIgMzA1LjMgTCAzMjIuMyAzMDAuNCBMIDMxOC4yIDI5NS4zIEwgMzE1LjMgMjk0LjMgTCAzMTUuMyAyOTIuNCBMIDMwOC40IDI4NS40IEwgMzAzLjQgMjc1LjUgTCAzMDIuNCAyNjUuNiBMIDMwMS40IDI2NS42IEwgMzAyLjQgMjQ0LjggTCAzMDMuNCAyNDQuOCBMIDMwMy40IDI0MC43IEwgMzEwLjQgMjI2LjkgTCAzMjMuMyAyMTQuMCBMIDMyNy4yIDIxMy4wIEwgMzI4LjIgMjExLjAgTCAzMzEuMiAyMTEuMCBMIDMzMi4yIDIwOS4xIEwgMzQyLjAgMjA3LjAgTCAzNDIuMCAyMDYuMCBMIDM0OS4wIDIwNi4wIFoiLz48L3N2Zz4=';
+
+	/**
 	 * Public setup guide.
 	 */
 	const DOCS_URL = 'https://tackquote.com/docs/integrations/woocommerce';
@@ -96,10 +105,9 @@ class Tack_Settings {
 	private $action_result = null;
 
 	/**
-	 * Who may open the settings page: the shop-manager capability, the same as the
-	 * WooCommerce → TackQuote dashboard it now shares a menu entry with (1.13.0). The
-	 * connection (the API key) and the order-sync switch keep `manage_options`; see
-	 * tab_capability().
+	 * Who may open the TackQuote menu and its settings: the shop-manager capability, the
+	 * same as the TackQuote dashboard (1.13.0). The connection (the API key) and the
+	 * order-sync switch keep `manage_options`; see tab_capability().
 	 */
 	const CAPABILITY = 'manage_woocommerce';
 
@@ -117,10 +125,6 @@ class Tack_Settings {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		// 1.13.0: the page lives under WooCommerce → TackQuote; keep that entry highlighted.
-		add_filter( 'parent_file', array( $this, 'menu_parent' ) );
-		add_filter( 'submenu_file', array( $this, 'menu_submenu' ) );
-		add_action( 'admin_head', array( $this, 'hide_menu_entry' ) );
 		// The untranslated tab slugs: init() runs on plugins_loaded, and translating here
 		// (tabs() builds the labels with __()) loads the text domain before
 		// `after_setup_theme`, which WordPress 6.7+ reports as a notice on every request
@@ -134,47 +138,42 @@ class Tack_Settings {
 	}
 
 	/**
-	 * Register the settings page, without a menu entry of its own (1.13.0).
+	 * The top-level TackQuote menu (as in 1.12.0) with two items: Dashboard (the embedded
+	 * TackQuote workspace, Tack_Embed_Admin, added first at `admin_menu` 60) and Settings
+	 * (this page, its tabs inside). Both have a page title, so admin-header.php always
+	 * gets one, and WordPress opens the menu and marks the current item on its own.
 	 *
-	 * One menu entry, WooCommerce → TackQuote, holds both the TackQuote dashboard and these
-	 * settings: the two share a tab bar (render_nav()). The page keeps its slug, so every
-	 * old link (`admin.php?page=tackquote&tab=…`, notices, bookmarks, the Plugins screen's
-	 * Settings link) still opens it; no redirect is needed.
+	 * The slug stays `tackquote`, so every link (`admin.php?page=tackquote&tab=…`, notices,
+	 * bookmarks, the Plugins screen's Settings link) still opens it.
 	 *
-	 * The capability is `manage_woocommerce`, the one the dashboard and WooCommerce's own
-	 * menu use, so a shop manager who can open the dashboard can also see the settings.
-	 * `options.php` asks for `manage_options` unless `option_page_capability_{$group}` says
-	 * otherwise ("required to change the capability required for a certain options page"),
-	 * so every tab's group is lowered to the shop-manager capability EXCEPT the two that
-	 * stay with administrators (tab_capability()): the connection, whose API key
-	 * authenticates the whole store to TackQuote, and order sync, which sends personal data
-	 * to TackQuote.
+	 * The capability is `manage_woocommerce`, the one the dashboard uses, so a shop manager
+	 * reaches the menu, the dashboard and the settings. `options.php` asks for
+	 * `manage_options` unless `option_page_capability_{$group}` says otherwise ("required to
+	 * change the capability required for a certain options page"), so every tab's group is
+	 * lowered to the shop-manager capability EXCEPT the two that stay with administrators
+	 * (tab_capability()): the connection, whose API key authenticates the whole store to
+	 * TackQuote, and order sync, which sends personal data to TackQuote.
 	 */
 	public function add_menu() {
-		// Registered UNDER WooCommerce, then hidden from the menu at `admin_head`
-		// (hide_menu_entry()): until then WordPress resolves the page's title
-		// (get_admin_page_title(), read by admin-header.php before `admin_head`) and its
-		// parent from this entry, so the screen has a title and WooCommerce's menu opens
-		// on it, like any WooCommerce page. A page registered with no parent has neither:
-		// a null title (strip_tags() notice in admin-header.php) and a closed menu.
-		$hook              = add_submenu_page(
-			'woocommerce',
+		$hook = add_menu_page(
+			__( 'TackQuote', 'tackquote' ),
+			__( 'TackQuote', 'tackquote' ),
+			self::CAPABILITY,
+			self::PAGE_SLUG,
+			array( $this, 'render_page' ),
+			self::MENU_ICON,
+			56
+		);
+		// The menu's own item is named "Settings" (same slug as the menu: no second page).
+		add_submenu_page(
+			self::PAGE_SLUG,
 			__( 'TackQuote settings', 'tackquote' ),
-			__( 'TackQuote settings', 'tackquote' ),
+			__( 'Settings', 'tackquote' ),
 			self::CAPABILITY,
 			self::PAGE_SLUG,
 			array( $this, 'render_page' )
 		);
 		$this->hook_suffix = is_string( $hook ) ? $hook : '';
-	}
-
-	/**
-	 * `admin_head`: take the settings entry out of the WooCommerce menu (the menu is drawn
-	 * after `admin_head`, by menu-header.php), so WooCommerce → TackQuote stays the one
-	 * entry. The page itself stays registered and reachable.
-	 */
-	public function hide_menu_entry() {
-		remove_submenu_page( 'woocommerce', self::PAGE_SLUG );
 	}
 
 	/**
@@ -204,26 +203,6 @@ class Tack_Settings {
 	private static function is_settings_page() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- navigation only: compared with a constant.
 		return is_admin() && isset( $_GET['page'] ) && self::PAGE_SLUG === sanitize_key( wp_unslash( $_GET['page'] ) );
-	}
-
-	/**
-	 * `parent_file`: WooCommerce, while the settings page is open.
-	 *
-	 * @param string $parent_file Parent menu file.
-	 * @return string
-	 */
-	public function menu_parent( $parent_file ) {
-		return self::is_settings_page() ? 'woocommerce' : $parent_file;
-	}
-
-	/**
-	 * `submenu_file`: WooCommerce → TackQuote, while the settings page is open.
-	 *
-	 * @param string|null $submenu_file Submenu file.
-	 * @return string|null
-	 */
-	public function menu_submenu( $submenu_file ) {
-		return self::is_settings_page() && class_exists( 'Tack_Embed_Admin', false ) ? Tack_Embed_Admin::PAGE_SLUG : $submenu_file;
 	}
 
 	/**
@@ -2523,7 +2502,7 @@ class Tack_Settings {
 	}
 
 	/**
-	 * The one tab bar of WooCommerce → TackQuote (1.13.0): the TackQuote dashboard first,
+	 * The one tab bar of the TackQuote menu (1.13.0): the TackQuote dashboard first,
 	 * then the settings tabs. Also printed by the dashboard page, so the seller moves
 	 * between the two without a second menu entry.
 	 *

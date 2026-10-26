@@ -79,7 +79,7 @@ final class Tack_Quotes {
 		$this->settings = new Tack_Settings();
 		$this->settings->init();
 
-		// 1.12.0: WooCommerce → TackQuote, the TackQuote dashboard inside WooCommerce admin.
+		// TackQuote → Dashboard (1.12.0 under WooCommerce; 1.13.0 in the TackQuote menu).
 		if ( is_admin() ) {
 			( new Tack_Embed_Admin() )->init();
 		}

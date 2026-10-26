@@ -114,10 +114,16 @@ $GLOBALS['TACK_USER_META'] = array();
 
 // ── Menu ──────────────────────────────────────────────────────────────────
 $GLOBALS['TACK_REGISTERED_PAGES'] = array();
+$GLOBALS['TACK_SUBMENUS']         = array();
 ( new Tack_Embed_Admin() )->add_menu();
 check(
-	'WooCommerce → TackQuote is registered for manage_woocommerce (E1)',
+	'TackQuote → Dashboard is registered for manage_woocommerce (E1)',
 	'manage_woocommerce' === ( $GLOBALS['TACK_REGISTERED_PAGES'][ Tack_Embed_Admin::PAGE_SLUG ] ?? null )
+);
+$embed_item = $GLOBALS['TACK_SUBMENUS'][0] ?? array();
+check(
+	'1.13.0: it is the FIRST item of the top-level TackQuote menu ("Dashboard", position 0), with a page title',
+	Tack_Settings::PAGE_SLUG === ( $embed_item['parent'] ?? null ) && 'Dashboard' === ( $embed_item['menu_title'] ?? null ) && 0 === ( $embed_item['position'] ?? null ) && '' !== trim( (string) ( $embed_item['page_title'] ?? '' ) )
 );
 
 // ── Linked: one frame, src from the ticket + code, the code in the FRAGMENT ──

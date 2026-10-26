@@ -68,30 +68,21 @@ check(
 	"link '$linked' vs constant '" . Tack_Settings::PAGE_SLUG . "'"
 );
 
-// 1.13.0: one menu entry (WooCommerce → TackQuote), so the settings page has no menu
-// entry of its own and the shop-manager capability; the API key itself stays behind
-// manage_options (Tack_Settings::tab_capability(), settings-tabs-test.php).
-check(
-	'the settings page requires manage_woocommerce',
-	'manage_woocommerce' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null )
-);
-check(
-	'...registered under WooCommerce with a title (Studio QA D2/D3: a page with no parent has a null title and a closed menu)',
-	'woocommerce' === ( $GLOBALS['TACK_SUBMENU_PARENTS'][ Tack_Settings::PAGE_SLUG ] ?? null )
-		&& '' !== trim( (string) ( $GLOBALS['TACK_SUBMENU_TITLES'][ Tack_Settings::PAGE_SLUG ] ?? '' ) )
-);
+// 1.13.0 (owner decision): TackQuote is its own top-level menu again, as in 1.12.0, with
+// Dashboard first and Settings (the tabs inside). Everything needs manage_woocommerce; the
+// API key itself stays behind manage_options (Tack_Settings::tab_capability()).
+$tack_menu = $GLOBALS['TACK_MENUS'][ Tack_Settings::PAGE_SLUG ] ?? array();
+check( 'top-level TackQuote menu, for manage_woocommerce', 'manage_woocommerce' === ( $tack_menu['cap'] ?? null ) && 'manage_woocommerce' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null ) );
+check( '...with the 1.12.0 icon and position, and a page title (D2: admin-header.php never gets null)', Tack_Settings::MENU_ICON === ( $tack_menu['icon'] ?? null ) && 56 === ( $tack_menu['position'] ?? null ) && '' !== trim( (string) ( $tack_menu['page_title'] ?? '' ) ) );
+$tack_sub = array();
+foreach ( $GLOBALS['TACK_SUBMENUS'] as $tack_item ) {
+	$tack_sub[ $tack_item['slug'] ] = $tack_item;
+}
+check( '...its own item is "Settings" (same slug, the tabs inside), with a page title', Tack_Settings::PAGE_SLUG === ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['parent'] ?? null ) && 'Settings' === ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['menu_title'] ?? null ) && '' !== trim( (string) ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['page_title'] ?? '' ) ) && 'manage_woocommerce' === ( $tack_sub[ Tack_Settings::PAGE_SLUG ]['cap'] ?? null ) );
+check( '...and nothing under WooCommerce any more', ! in_array( 'woocommerce', array_column( $GLOBALS['TACK_SUBMENUS'], 'parent' ), true ) );
 $GLOBALS['TACK_HOOKS'] = array();
 $settings->init();
-$GLOBALS['TACK_REMOVED_SUBMENUS'] = array();
-$settings->hide_menu_entry();
-check(
-	'...and taken out of the WooCommerce menu only at admin_head, after WordPress resolved its title and parent',
-	in_array( array( 'hook' => 'admin_head', 'priority' => 10, 'args' => 1 ), $GLOBALS['TACK_HOOKS'], true )
-		&& array( array( 'woocommerce', Tack_Settings::PAGE_SLUG ) ) === $GLOBALS['TACK_REMOVED_SUBMENUS']
-);
-$GLOBALS['TACK_REMOVED_SUBMENUS'] = array();
-$settings->add_menu();
-check( '...never at admin_menu (the title would be lost again)', array() === $GLOBALS['TACK_REMOVED_SUBMENUS'] );
+check( 'D3: no parent_file/submenu_file override and no admin_head removal (WordPress opens the TackQuote menu and marks the item itself)', array() === array_values( array_intersect( array( 'parent_file', 'submenu_file', 'admin_head' ), array_column( $GLOBALS['TACK_HOOKS'], 'hook' ) ) ) );
 
 echo "\n-- quote-only (B2B catalog) mode --\n";
 require __DIR__ . '/catalog-mode-test.php';
@@ -215,12 +206,12 @@ require __DIR__ . '/storefront-1120-test.php';
 echo "\n-- catalogue and order sync, stand-down, lifecycle, updates --\n";
 require __DIR__ . '/rest-keys-test.php';
 
-// 1.12.0 WooCommerce → TackQuote: the dashboard inside WooCommerce admin.
-echo "\n-- embedded dashboard (WooCommerce → TackQuote) --\n";
+// 1.12.0 TackQuote dashboard (WooCommerce → TackQuote in 1.12.0, TackQuote → Dashboard since 1.13.0).
+echo "\n-- embedded dashboard (TackQuote → Dashboard) --\n";
 require __DIR__ . '/embed-admin-test.php';
 
 // 1.13.0 "Link my TackQuote account" in one place, started in WordPress (one-click link).
-echo "\n-- one-click link (WooCommerce → TackQuote, started in WordPress) --\n";
+echo "\n-- one-click link (TackQuote → Dashboard, started in WordPress) --\n";
 require __DIR__ . '/oneclick-link-test.php';
 
 // 1.12.0 live QA fixes (D1, D2, D4, D7, D8, D10; D3 is in rest-keys-test.php).

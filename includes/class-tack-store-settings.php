@@ -543,7 +543,7 @@ class Tack_Store_Settings {
 	// ── Where to change them ──────────────────────────────────────────────────
 
 	/**
-	 * Where "Change in TackQuote" goes: the dashboard inside WooCommerce when this server
+	 * Where "Change in TackQuote" goes: TackQuote → Dashboard when this server
 	 * offers it, else TackQuote's WooCommerce page in a new tab.
 	 *
 	 * @return array{url:string, new_tab:bool}
