@@ -10,6 +10,7 @@ The latest releases are listed in readme.txt.
 * Fixed: the quote form now asks the seller's own registration questions (Settings in TackQuote: text, long text, number, choice, checkbox or date; for companies, individuals or both) and sends the answers. A seller with a required question used to get every quote request from the store refused. Answers are checked in the browser and on the store before they are sent, and only questions the seller's policy lists are sent.
 * Fixed: on the Order sync tab the box showed ticked before the setting was ever saved, while no order was being sent; it now shows off, as it is.
 * New storefront text translated in the seven bundled languages (machine-assisted, pending native review).
+* **Link your TackQuote account in one place.** On WooCommerce → TackQuote, "Link my TackQuote account" now opens TackQuote in a new tab: sign in as yourself, confirm "Link WordPress login … on … to …", and WordPress opens the dashboard. No code to copy between the two. It needs a TackQuote server that offers it; otherwise, and as a fallback ("Have a link code?"), the one-time code from Integrations → WooCommerce → Link a WordPress login works as before. The link is bound to the WordPress login that pressed the button (a one-time PKCE verifier and state kept in that user's meta for ten minutes), so an approval made from a forwarded link by someone else links nothing.
 
 = 1.12.0 =
 Released 2026-10-26.

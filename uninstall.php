@@ -149,6 +149,8 @@ $tack_quotes_user_meta = array(
 	// 1.12.0: the per-user secret of the embedded TackQuote dashboard (Tack_Embed_Admin).
 	// Deleting it makes every WordPress user link their TackQuote login again after a reinstall.
 	'_tackquote_embed_secret',
+	// 1.13.0: a one-click link this user started and did not finish (Tack_Embed_Admin::PENDING_META).
+	'_tackquote_link_pending',
 );
 
 /**
