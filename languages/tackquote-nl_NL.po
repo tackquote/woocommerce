@@ -319,7 +319,7 @@ msgstr "Kredietlimiet: %s"
 
 #. catalogue: woo.forms.seller_calendar
 #. plugin catalogue (languages/source/local), pending native review
-msgid "Dates follow the seller's calendar (%1$s). Today there is %2$s."
+msgid "Dates follow the seller's calendar (%1$s), where today is %2$s."
 msgstr "Datums volgen de kalender van de verkoper (%1$s). Daar is het vandaag %2$s."
 
 #. catalogue: tackquote.quote.email

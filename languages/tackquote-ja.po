@@ -319,7 +319,7 @@ msgstr "与信限度額：%s"
 
 #. catalogue: woo.forms.seller_calendar
 #. plugin catalogue (languages/source/local), pending native review
-msgid "Dates follow the seller's calendar (%1$s). Today there is %2$s."
+msgid "Dates follow the seller's calendar (%1$s), where today is %2$s."
 msgstr "日付は販売者のカレンダー（%1$s）に基づきます。現地の今日の日付は%2$sです。"
 
 #. catalogue: tackquote.quote.email

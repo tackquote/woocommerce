@@ -140,7 +140,7 @@ class Tack_Rest_Keys {
 		if ( ! $this->is_offered() ) {
 			return self::notice( 'error', __( 'This TackQuote server cannot set up catalogue and order sync yet. Nothing was changed.', 'tackquote' ) );
 		}
-		if ( 'https' !== strtolower( (string) wp_parse_url( home_url(), PHP_URL_SCHEME ) ) ) {
+		if ( ! self::site_is_https() ) {
 			return self::notice( 'error', __( 'Catalogue and order sync needs your site to use https. Nothing was changed.', 'tackquote' ) );
 		}
 		$answer = $this->client()->request(
@@ -315,10 +315,20 @@ class Tack_Rest_Keys {
 			if ( 'failed' === $status['status'] ) {
 				echo '<p class="tack-field-error">' . esc_html__( 'The last attempt did not work:', 'tackquote' ) . ' ' . esc_html( '' !== $status['message'] ? $status['message'] : __( 'no reason was given.', 'tackquote' ) ) . '</p>';
 			}
+
+			/*
+			 * An http site can only be refused (start() checks the same), so it gets the
+			 * reason up front and a disabled, secondary button instead of a live primary
+			 * one that leads to an error (live QA 2026-10-26).
+			 */
+			$https = self::site_is_https();
+			if ( ! $https ) {
+				echo '<p class="tack-field-error">' . esc_html__( 'Catalogue and order sync needs your site to use https: WooCommerce sends the key only to an https site. Switch the site address to https (Settings → General), then come back here.', 'tackquote' ) . '</p>';
+			}
 			printf( '<form method="post" action="%s" class="tack-rest-keys__form">', esc_url( admin_url( 'admin-post.php' ) ) );
 			wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD );
 			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::START_ACTION ) );
-			submit_button( __( 'Allow catalogue and order sync', 'tackquote' ), 'primary', 'tack_rest_keys', false );
+			submit_button( __( 'Allow catalogue and order sync', 'tackquote' ), $https ? 'primary' : 'secondary', 'tack_rest_keys', false, $https ? null : array( 'disabled' => 'disabled' ) );
 			echo '</form>';
 			echo '<p class="description">' . esc_html__( 'Opens WooCommerce\'s own approval screen. WooCommerce creates a Read/Write REST API key and sends it to TackQuote directly; it is never shown here. Needs https.', 'tackquote' ) . '</p>';
 		}
@@ -326,6 +336,18 @@ class Tack_Rest_Keys {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	/**
+	 * Is the site's address https? WooCommerce's key approval sends the key only to one,
+	 * so the start refuses an http site and the card says so before the click.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @return bool
+	 */
+	public static function site_is_https() {
+		return 'https' === strtolower( (string) wp_parse_url( home_url(), PHP_URL_SCHEME ) );
+	}
 
 	/**
 	 * Remember an outcome for the current administrator's next settings page view (the

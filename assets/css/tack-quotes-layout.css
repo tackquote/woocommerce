@@ -416,8 +416,24 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   align-items: flex-end;
 }
 
+/* WooCommerce's own Product Button rules (product-button.css, 11.2.1), so the control
+ * sits and sizes like the card's Add to cart: centred text, the card's line height,
+ * no extra top margin inside the wrapper (inline-block rather than WooCommerce's
+ * inline-flex, which cannot end a cut label with an ellipsis). On one line: on a 390px two-column
+ * grid "Add to Quote" wrapped to two lines and stood taller than Add to cart (live QA
+ * 2026-10-26); a label too long for the card is cut with an ellipsis (the aria-label
+ * carries the full text). Colours, padding and font stay the theme's. */
 .wp-block-button.tack-card-quote > :is(.tack-card-quote-btn, .tack-card-quote-link) {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
   height: auto;
+  margin-block-start: 0;
+  overflow: hidden;
+  line-height: inherit;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Quick order on block themes: inputs take the theme's form styling ───────── */

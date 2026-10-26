@@ -211,7 +211,10 @@ check('R1b: the section is hidden AND disabled when not chosen; only enabled inp
   const sync = src.slice(src.indexOf('functionsyncCompanySection('), src.indexOf('functioncompanyAnswers('));
   assert.match(sync, /\$section\.prop\('hidden',!isCompany\);/);
   assert.match(sync, /\$section\.find\('input'\)\.prop\('disabled',!isCompany\);/);
-  assert.match(sync, /\$role\.prop\('required',\$role\.attr\('data-tack-required'\)==='1'\|\|isCompany\);/);
+  // Since the live QA re-run the required state goes through markRequired(), which also
+  // keeps the label's marker and aria-required in step (tests/js/live-qa-2.test.js).
+  assert.match(sync, /constrequired=\$role\.attr\('data-tack-required'\)==='1'\|\|isCompany;/);
+  assert.match(sync, /markRequired\(this,[^;]*,required,TackQuotes\.i18n\.optional\)/);
   assert.match(src, /\.tack-quote-company-sectioninput:enabled'\)\.each/);
 });
 check('roleInput: a server key outside the field-key shape never reaches a selector (P11)', () => {

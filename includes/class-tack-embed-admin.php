@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *      allows the frame only for the store address saved on its connection. The code is in
  *      the URL fragment, which no server receives. Two-factor sign-in is never skipped.
  *   3. A WordPress user who is NOT linked gets no session at all, only a field for the
- *      one-time code their own TackQuote user asks for under Connections → WooCommerce →
+ *      one-time code their own TackQuote user asks for under Integrations → WooCommerce →
  *      "Link a WordPress login" (10 minutes, works once). The plugin posts the code server to
  *      server with the key, this WordPress user's id, login and secret
  *      (`POST /integrations/woocommerce/embed/claim`); TackQuote links that TackQuote user to
@@ -268,7 +268,7 @@ class Tack_Embed_Admin {
 		return array(
 			'unlinked'    => array( 'success', __( 'Your WordPress login is no longer linked to TackQuote.', 'tackquote' ) ),
 			'linked'      => array( 'success', __( 'Your WordPress login is now linked to your TackQuote account.', 'tackquote' ) ),
-			'wrong_code'  => array( 'error', __( 'That code is not right, or it has expired. Check the code TackQuote shows under Connections → WooCommerce, or ask for a new one there.', 'tackquote' ) ),
+			'wrong_code'  => array( 'error', __( 'That code is not right, or it has expired. Check the code TackQuote shows under Integrations → WooCommerce, or ask for a new one there.', 'tackquote' ) ),
 			'throttled'   => array( 'error', __( 'Too many wrong codes from your WordPress login. Wait 15 minutes, then try again.', 'tackquote' ) ),
 			'refused'     => array( 'error', __( 'TackQuote could not link that account. Ask an admin of your TackQuote workspace for help.', 'tackquote' ) ),
 			'no_store'    => array( 'error', __( 'TackQuote cannot tell which of your connected stores this is. Use one API key per WordPress site.', 'tackquote' ) ),
@@ -288,13 +288,20 @@ class Tack_Embed_Admin {
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'TackQuote', 'tackquote' ) . '</h1>';
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only: selects one of a fixed set of messages after a redirect; there is no form to carry a nonce.
-		$flag    = isset( $_GET['tq_embed'] ) ? sanitize_key( wp_unslash( $_GET['tq_embed'] ) ) : '';
-		$results = self::results();
+		$flag         = isset( $_GET['tq_embed'] ) ? sanitize_key( wp_unslash( $_GET['tq_embed'] ) ) : '';
+		$results      = self::results();
+		$settings_url = Tack_Settings::tab_url( 'connection' );
+		// A claim TackQuote refused because of the store's key (live QA 2026-10-26): only
+		// that reason and the way out, not "did not answer" beside "no longer accepts".
+		if ( 'disconnected' === $flag ) {
+			self::disconnected_notice( $settings_url );
+			echo '</div>';
+			return;
+		}
 		if ( isset( $results[ $flag ] ) ) {
 			self::notice( $results[ $flag ][0], $results[ $flag ][1] );
 		}
 
-		$settings_url = Tack_Settings::tab_url( 'connection' );
 		if ( '' === (string) get_option( 'tack_quotes_api_key', '' ) ) {
 			self::notice(
 				'warning',
@@ -309,12 +316,7 @@ class Tack_Embed_Admin {
 		// revoked or the store is disconnected. Say so and link to reconnect; nothing is
 		// asked of TackQuote and no code is minted.
 		if ( class_exists( 'Tack_Standing' ) && Tack_Standing::is_stood_down() ) {
-			self::notice(
-				'error',
-				__( 'TackQuote no longer accepts this store’s connection (the store was disconnected or its API key was revoked). Reconnect it, then reopen this page.', 'tackquote' ),
-				$settings_url,
-				__( 'Reconnect to TackQuote', 'tackquote' )
-			);
+			self::disconnected_notice( $settings_url );
 			echo '</div>';
 			return;
 		}
@@ -352,12 +354,7 @@ class Tack_Embed_Admin {
 		if ( self::is_disconnected( $answer ) ) {
 			// The key was revoked or the store was disconnected: no code was minted.
 			$this->client()->forget_capabilities();
-			self::notice(
-				'error',
-				__( 'TackQuote no longer accepts this store’s connection (the store was disconnected or its API key was revoked). Reconnect it, then reopen this page.', 'tackquote' ),
-				$settings_url,
-				__( 'Reconnect to TackQuote', 'tackquote' )
-			);
+			self::disconnected_notice( $settings_url );
 			echo '</div>';
 			return;
 		}
@@ -380,6 +377,23 @@ class Tack_Embed_Admin {
 			self::notice( 'warning', $message );
 		}
 		echo '</div>';
+	}
+
+	/**
+	 * The store's key is refused (revoked, or the store disconnected): say so and link to
+	 * reconnect. One wording for every place the page learns it.
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param string $settings_url The Connection tab.
+	 */
+	private static function disconnected_notice( $settings_url ) {
+		self::notice(
+			'error',
+			__( 'TackQuote no longer accepts this store’s connection (the store was disconnected or its API key was revoked). Reconnect it, then reopen this page.', 'tackquote' ),
+			$settings_url,
+			__( 'Reconnect to TackQuote', 'tackquote' )
+		);
 	}
 
 	/**
@@ -446,7 +460,7 @@ class Tack_Embed_Admin {
 				: __( 'To use TackQuote here, link your WordPress login to your own TackQuote login. You do this once.', 'tackquote' )
 		) . '</p>';
 		echo '<ol>';
-		echo '<li>' . esc_html__( 'In TackQuote, open Connections → WooCommerce and choose “Link a WordPress login”.', 'tackquote' ) . '</li>';
+		echo '<li>' . esc_html__( 'In TackQuote, open Integrations → WooCommerce and choose “Link a WordPress login”.', 'tackquote' ) . '</li>';
 		echo '<li>' . esc_html__( 'Enter the code it shows here. It works once, for 10 minutes.', 'tackquote' ) . '</li>';
 		echo '</ol>';
 		echo '<p class="description">' . esc_html__( 'TackQuote then opens here as you, with your own role, and emails you about the new link. If you have no TackQuote login, ask an admin of your TackQuote workspace to invite you.', 'tackquote' ) . '</p>';
@@ -571,7 +585,13 @@ class Tack_Embed_Admin {
 			),
 			self::OPEN_TIMEOUT
 		);
-		$this->redirect( self::page_url( self::claim_result( $result ) ), '' );
+		$flag   = self::claim_result( $result );
+		if ( 'disconnected' === $flag ) {
+			// As on the page itself: the capabilities were answered for a key that no
+			// longer works.
+			$this->client()->forget_capabilities();
+		}
+		$this->redirect( self::page_url( $flag ), '' );
 	}
 
 	/**
@@ -586,6 +606,11 @@ class Tack_Embed_Admin {
 		}
 		$data   = $result->get_error_data();
 		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 0;
+		// The store's key is refused (401, the API key guard), or there is none: not the
+		// code, and not a TackQuote outage. A 403 stays the claim's own refusal.
+		if ( 401 === $status || 'tack_no_key' === $result->get_error_code() ) {
+			return 'disconnected';
+		}
 		if ( 400 === $status ) {
 			return 'wrong_code';
 		}
