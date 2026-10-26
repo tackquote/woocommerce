@@ -356,7 +356,7 @@ class Tack_Embed_Admin {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to open TackQuote.', 'tackquote' ), '', array( 'response' => 403 ) );
 		}
-		echo '<div class="wrap tackquote-embed">';
+		echo '<div class="wrap tackquote-embed tack-admin">';
 		echo '<h1 class="wp-heading-inline">' . esc_html__( 'TackQuote', 'tackquote' ) . '</h1>';
 		// 1.13.0: one menu entry, one tab bar: Dashboard, then the plugin's settings tabs.
 		Tack_Settings::render_nav( 'dashboard' );

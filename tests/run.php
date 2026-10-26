@@ -82,6 +82,17 @@ check( '...its own item is "Settings" (same slug, the tabs inside), with a page 
 check( '...and nothing under WooCommerce any more', ! in_array( 'woocommerce', array_column( $GLOBALS['TACK_SUBMENUS'], 'parent' ), true ) );
 $GLOBALS['TACK_HOOKS'] = array();
 $settings->init();
+// Fable 💭: the dashboard's tab bar is styled (tack-admin.css, stylesheet only) and the
+// settings page refuses with a real 403.
+$GLOBALS['TACK_ENQUEUED_STYLES'] = array();
+$settings->add_menu();
+$settings->enqueue_assets( Tack_Settings::DASHBOARD_HOOK );
+check( 'Dashboard: tack-admin.css is enqueued on tackquote_page_tackquote-dashboard', isset( $GLOBALS['TACK_ENQUEUED_STYLES']['tackquote-admin'] ) && ! isset( $GLOBALS['TACK_ENQUEUED_STYLES']['wp-color-picker'] ) );
+check( '...and the dashboard wrap carries the .tack-admin scope its tab rules need', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-embed-admin.php' ), '<div class="wrap tackquote-embed tack-admin">' ) );
+$GLOBALS['TACK_ENQUEUED_STYLES'] = array();
+$settings->enqueue_assets( 'edit.php' );
+check( '...and nothing on other screens', array() === $GLOBALS['TACK_ENQUEUED_STYLES'] );
+check( 'the settings page dies with response 403', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-settings.php' ), "wp_die( esc_html__( 'You do not have permission to access this page.', 'tackquote' ), '', array( 'response' => 403 ) );" ) );
 check( 'D3: no parent_file/submenu_file override and no admin_head removal (WordPress opens the TackQuote menu and marks the item itself)', array() === array_values( array_intersect( array( 'parent_file', 'submenu_file', 'admin_head' ), array_column( $GLOBALS['TACK_HOOKS'], 'hook' ) ) ) );
 
 echo "\n-- quote-only (B2B catalog) mode --\n";

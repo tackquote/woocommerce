@@ -111,6 +111,9 @@ class Tack_Settings {
 	 */
 	const CAPABILITY = 'manage_woocommerce';
 
+	/** The hook suffix of TackQuote → Dashboard (Tack_Embed_Admin), a submenu of this menu. */
+	const DASHBOARD_HOOK = 'tackquote_page_tackquote-dashboard';
+
 	/**
 	 * The hook suffix WordPress gave the page (for the asset check).
 	 *
@@ -211,6 +214,11 @@ class Tack_Settings {
 	 * @param string $hook_suffix Current admin page hook.
 	 */
 	public function enqueue_assets( $hook_suffix ) {
+		// TackQuote → Dashboard shares the settings' tab bar: the stylesheet only.
+		if ( self::DASHBOARD_HOOK === $hook_suffix ) {
+			wp_enqueue_style( 'tackquote-admin', TACK_QUOTES_URL . 'assets/css/tack-admin.css', array(), TACK_QUOTES_VERSION );
+			return;
+		}
 		if ( '' === $this->hook_suffix || $this->hook_suffix !== $hook_suffix ) {
 			return;
 		}
@@ -2440,7 +2448,7 @@ class Tack_Settings {
 	public function render_page() {
 		// Must match add_menu()'s capability; each tab's form then needs tab_capability().
 		if ( ! current_user_can( self::CAPABILITY ) ) {
-			wp_die( esc_html__( 'You do not have permission to access this page.', 'tackquote' ) );
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'tackquote' ), '', array( 'response' => 403 ) );
 		}
 		$tab = self::current_tab();
 		$this->maybe_handle_post_actions();
