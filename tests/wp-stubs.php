@@ -24,7 +24,7 @@ function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF
 // string really goes through gettext at render time; empty by default, so identity.
 $GLOBALS['TACK_TRANSLATIONS'] = array();
 function esc_html__( $text, $domain = null ) { return __( $text, $domain ); }
-function __( $text, $domain = null ) { return $GLOBALS['TACK_TRANSLATIONS'][ $text ] ?? $text; }
+function __( $text, $domain = null ) { $GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1; return $GLOBALS['TACK_TRANSLATIONS'][ $text ] ?? $text; }
 $GLOBALS['TACK_HOOKS']   = array();
 $GLOBALS['TACK_REMOVED'] = array();
 $GLOBALS['TACK_FILTERS'] = array();
@@ -89,7 +89,7 @@ function wp_get_current_user() {
 function checked( $a, $b = true, $echo = true ) { return (string) $a === (string) $b ? "checked='checked'" : ''; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 function sanitize_text_field( $t ) { return trim( (string) $t ); }
-function esc_attr__( $t, $d = null ) { return $t; }
+function esc_attr__( $t, $d = null ) { $GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1; return $t; }
 function wc_add_notice( $msg, $type = 'success' ) { $GLOBALS['TACK_NOTICES'][] = $msg; }
 
 class TackStubRoles {

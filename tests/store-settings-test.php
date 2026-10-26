@@ -589,6 +589,13 @@ foreach ( array_merge( array( Tack_Store_Settings::OPTION ), array_column( Tack_
 }
 check( 'uninstall.php deletes the store settings and every "turn off" box', array() === $ss_missing, implode( ', ', $ss_missing ) );
 
+// D1 (Studio QA): Tack_Settings::init() runs on plugins_loaded and must not translate
+// anything (WordPress 6.7+ notices a text domain loaded before `init`).
+$GLOBALS['TACK_I18N_CALLS'] = 0;
+( new Tack_Settings() )->init();
+check( 'D1: Tack_Settings::init() calls no translation function', 0 === $GLOBALS['TACK_I18N_CALLS'], (string) $GLOBALS['TACK_I18N_CALLS'] );
+check( 'D1: the untranslated tab slugs match the tabs, in order', Tack_Settings::TAB_SLUGS === array_keys( Tack_Settings::tabs() ) );
+
 // Clean up for later suites.
 tack_ss_reset();
 tack_ss_caps( null );

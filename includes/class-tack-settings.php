@@ -121,7 +121,10 @@ class Tack_Settings {
 		add_filter( 'parent_file', array( $this, 'menu_parent' ) );
 		add_filter( 'submenu_file', array( $this, 'menu_submenu' ) );
 		add_filter( 'admin_title', array( $this, 'admin_title' ), 10, 2 );
-		foreach ( array_keys( self::tabs() ) as $tab ) {
+		// The untranslated tab slugs: init() runs on plugins_loaded, and translating here
+		// (tabs() builds the labels with __()) loads the text domain before `init`, which
+		// WordPress 6.7+ reports as a notice on every request.
+		foreach ( self::TAB_SLUGS as $tab ) {
 			if ( 'manage_options' !== self::tab_capability( $tab ) ) {
 				add_filter( 'option_page_capability_' . self::option_group( $tab ), array( __CLASS__, 'shop_manager_capability' ) );
 			}
@@ -242,11 +245,17 @@ class Tack_Settings {
 	// ── Tabs ──────────────────────────────────────────────────────────────────
 
 	/**
+	 * Every tab slug, in reading order, untranslated (safe before `init`).
+	 */
+	const TAB_SLUGS = array( 'overview', 'connection', 'storefront', 'pricing', 'groups', 'forms', 'sync' );
+
+	/**
 	 * Every tab, in reading order: slug => label.
 	 *
 	 * @return array<string,string>
 	 */
 	public static function tabs() {
+		// Same order as TAB_SLUGS.
 		return array(
 			'overview'   => __( 'Overview', 'tackquote' ),
 			'connection' => __( 'Connection', 'tackquote' ),
