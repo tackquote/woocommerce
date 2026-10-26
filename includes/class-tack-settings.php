@@ -2004,16 +2004,22 @@ class Tack_Settings {
 				checked( $server, true, false ),
 				esc_html( $labels[ $feature ] )
 			);
-			// Always in the form (so ticking, unticking and ticking again on one page still
-			// carries it); tack-admin.js shows it only while the switch is ticked and push is
-			// off in TackQuote (with push on, TackQuote already holds the statement).
-			$this->open_when( $def['legacy'] . '[on]', $server ? 'never' : 'yes', 'tack-order-sync-ack' );
-			printf(
-				'<p><label><input type="checkbox" name="%1$s[ack]" value="yes" /> %2$s</label></p>',
-				esc_attr( $def['legacy'] ),
-				esc_html__( 'I understand that turning this on sends my customers\' personal data, as listed below, to TackQuote.', 'tackquote' )
-			);
-			echo '</div>';
+			// With push off in TackQuote the statement is always in the form (so ticking,
+			// unticking and ticking again on one page still carries it); tack-admin.js shows it
+			// only while the switch is ticked. With push on, a short hint replaces it.
+			if ( $server ) {
+				// Push is on in TackQuote: the statement is already recorded there, and
+				// keeping push on (or turning it off) needs none.
+				echo '<p class="description tack-order-sync-ack">' . esc_html__( 'Your statement about the personal data order sync sends is already recorded in TackQuote.', 'tackquote' ) . '</p>';
+			} else {
+				$this->open_when( $def['legacy'] . '[on]', 'yes', 'tack-order-sync-ack' );
+				printf(
+					'<p><label><input type="checkbox" name="%1$s[ack]" value="yes" /> %2$s</label></p>',
+					esc_attr( $def['legacy'] ),
+					esc_html__( 'I understand that turning this on sends my customers\' personal data, as listed below, to TackQuote.', 'tackquote' )
+				);
+				echo '</div>';
+			}
 		} else {
 			$this->toggle( $def['legacy'], $labels[ $feature ], $server );
 		}
@@ -2177,8 +2183,12 @@ class Tack_Settings {
 			add_settings_error(
 				self::option_group( $tab ),
 				'tack_store_settings_write',
-				/* translators: 1: features, e.g. "Order limits, Buyer group badge"; 2: TackQuote's reason. */
-				sprintf( __( '%1$s not changed: TackQuote did not save it (%2$s).', 'tackquote' ), implode( ', ', $names ), $result->get_error_message() )
+				sprintf(
+					/* translators: 1: one feature or a comma-separated list, e.g. "Order limits, Buyer group badge"; 2: TackQuote's reason. */
+					_n( '%1$s was not changed: TackQuote did not save it (%2$s).', '%1$s were not changed: TackQuote did not save them (%2$s).', count( $names ), 'tackquote' ),
+					implode( ', ', $names ),
+					$result->get_error_message()
+				)
 			);
 			return $saved;
 		}
@@ -2254,6 +2264,11 @@ class Tack_Settings {
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			return $stored;
 		}
+		// A second sanitize of the same save (first-time add_option) reuses the outcome,
+		// before anything is checked again: it receives the already-saved value.
+		if ( self::is_tab_save( 'forms' ) && isset( self::$write_batch['forms']['slug'] ) ) {
+			return self::$write_batch['forms']['slug'];
+		}
 		$slug   = is_string( $value ) ? trim( $value ) : '';
 		$listed = array();
 		foreach ( (array) Tack_Store_Settings::wholesale_forms() as $form ) {
@@ -2265,10 +2280,6 @@ class Tack_Settings {
 		}
 		if ( ! self::is_tab_save( 'forms' ) ) {
 			return '' === $slug ? $stored : $slug;
-		}
-		// A second sanitize of the same save (first-time add_option) reuses the outcome.
-		if ( isset( self::$write_batch['forms']['slug'] ) ) {
-			return self::$write_batch['forms']['slug'];
 		}
 		self::$write_batch['forms']['slug'] = $stored;
 		if ( Tack_Store_Settings::chosen_wholesale_form_slug() !== $slug ) {

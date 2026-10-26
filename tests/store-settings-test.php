@@ -356,6 +356,23 @@ tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
 check( 'first-time add_option replays the sanitizer: still one request and one error', 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
 check( 'write refused: the previous value stays (here and in force)', 'yes' === get_option( 'tack_quotes_enable_wholesale_pricing' ) && Tack_Wholesale_Pricing::is_enabled() );
 check( '...and the reason is shown, naming the switch', false !== strpos( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2], 'TackQuote did not save it' ) && false !== strpos( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2], 'TackQuote prices' ) );
+// Fable 4: a refused save with TWO changed switches rolls both back and names both.
+$ss_before_two = array( get_option( 'tack_quotes_enable_buyer_group' ), get_option( 'tack_quotes_apply_tax_exempt' ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_ss_save(
+	'pricing',
+	$ss_pricing(
+		array(
+			'tack_quotes_enable_wholesale_pricing' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::PRICES ) ? 'yes' : 'no',
+			'tack_quotes_enable_order_limits'      => true === Tack_Store_Settings::server_value( Tack_Store_Settings::ORDER_LIMITS ) ? 'yes' : 'no',
+			'tack_quotes_enable_buyer_group'       => true === Tack_Store_Settings::server_value( Tack_Store_Settings::BUYER_GROUP ) ? 'no' : 'yes',
+			'tack_quotes_apply_tax_exempt'         => true === Tack_Store_Settings::server_value( Tack_Store_Settings::TAX_EXEMPT ) ? 'no' : 'yes',
+		)
+	)
+);
+$ss_err = (string) ( $GLOBALS['TACK_SETTINGS_ERRORS'][0][2] ?? '' );
+check( 'two refused: both roll back to TackQuote\'s values', ( true === Tack_Store_Settings::server_value( Tack_Store_Settings::BUYER_GROUP ) ? 'yes' : 'no' ) === get_option( 'tack_quotes_enable_buyer_group' ) && ( true === Tack_Store_Settings::server_value( Tack_Store_Settings::TAX_EXEMPT ) ? 'yes' : 'no' ) === get_option( 'tack_quotes_apply_tax_exempt' ) );
+check( '...one error names both, plural', 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) && false !== strpos( $ss_err, 'Buyer group badge' ) && false !== strpos( $ss_err, 'Tax-exempt buyers' ) && false !== strpos( $ss_err, 'were not changed: TackQuote did not save them' ), $ss_err );
 
 // Follow-up 1: the acting WordPress user id, only to a server that lists store_settings_actor.
 tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) );
@@ -434,9 +451,10 @@ foreach ( array( true, false ) as $ss_push ) {
 	$ss_settings->field_server_feature( array( 'feature' => Tack_Store_Settings::ORDER_SYNC ) );
 	$ss_field = (string) ob_get_clean();
 	check(
-		'consent box rendered with push ' . ( $ss_push ? 'ON (kept hidden by tack-admin.js)' : 'OFF (shown while the switch is ticked)' ),
-		false !== strpos( $ss_field, 'name="tack_quotes_enable_order_sync[ack]"' )
-			&& false !== strpos( $ss_field, 'data-tack-when="tack_quotes_enable_order_sync[on]" data-tack-when-value="' . ( $ss_push ? 'never' : 'yes' ) . '"' )
+		'consent: push ' . ( $ss_push ? 'ON shows the "already recorded" hint, no unticked box' : 'OFF renders the box, shown while the switch is ticked' ),
+		$ss_push
+			? ( false === strpos( $ss_field, 'name="tack_quotes_enable_order_sync[ack]"' ) && false !== strpos( $ss_field, 'already recorded in TackQuote' ) )
+			: ( false !== strpos( $ss_field, 'name="tack_quotes_enable_order_sync[ack]"' ) && false !== strpos( $ss_field, 'data-tack-when="tack_quotes_enable_order_sync[on]" data-tack-when-value="yes"' ) )
 	);
 }
 
@@ -475,6 +493,13 @@ $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
 $ss_settings->sanitize_server_form_slug( 'distributor' );
 $ss_settings->sanitize_server_form_slug( 'distributor' );
 check( 'form: a replayed sanitize in the same save sends once and reports once', 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+Tack_Settings::reset_write_batch();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'distributor' ) ) ) ) );
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+$ss_first = $ss_settings->sanitize_server_form_slug( '' );
+$ss_settings->sanitize_server_form_slug( $ss_first );
+check( 'form: the replayed sanitize gets the saved (possibly unlisted) slug and reports nothing', 'old-typed-slug' === $ss_first && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
 $_POST = array();
 
 // A server with store_settings but without store_settings_write: exactly 1.12.0.
