@@ -383,6 +383,21 @@ tack_ss_save( 'sync', array( 'tack_quotes_enable_order_sync' => array( 'on' => '
 $ss_puts = $ss_put();
 check( 'order sync ON with the statement: acknowledgePersonalData true is sent', 1 === count( $ss_puts ) && array( 'orderSync' => array( 'push' => true, 'acknowledgePersonalData' => true ) ) === json_decode( (string) $ss_puts[0]['args']['body'], true ) && Tack_Order_Sync::is_enabled() );
 
+// Fable 1: register_settings() (admin_init) starts each request with an empty write cache.
+$_POST = $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'no' ) ) + array( 'option_page' => Tack_Settings::option_group( 'pricing' ) );
+Tack_Settings::reset_write_batch();
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
+$GLOBALS['TACK_HTTP_REQUESTS'] = array();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true ) ) ) ) ) );
+$_POST = $ss_pricing( array( 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_wholesale_pricing' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::PRICES ) ? 'yes' : 'no', 'tack_quotes_enable_buyer_group' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::BUYER_GROUP ) ? 'yes' : 'no', 'tack_quotes_apply_tax_exempt' => true === Tack_Store_Settings::server_value( Tack_Store_Settings::TAX_EXEMPT ) ? 'yes' : 'no' ) ) + array( 'option_page' => Tack_Settings::option_group( 'pricing' ) );
+$ss_settings->register_settings();
+tack_tabs_save( Tack_Settings::option_group( 'pricing' ), $_POST );
+check( 'a new request (admin_init) never reuses the previous request\'s write outcome', 1 === count( $ss_put() ) && 'yes' === get_option( 'tack_quotes_enable_order_limits' ) );
+$ss_st = get_option( Tack_Store_Settings::OPTION );
+$ss_st['settings']['features']['orderLimits'] = false;
+update_option( Tack_Store_Settings::OPTION, $ss_st );
+update_option( 'tack_quotes_enable_order_limits', 'no' );
+
 // Follow-up 3: the statement is always in the form; JS shows it only while it is needed.
 $ss_st                = get_option( Tack_Store_Settings::OPTION );
 foreach ( array( true, false ) as $ss_push ) {

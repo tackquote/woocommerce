@@ -358,6 +358,11 @@ class Tack_Settings {
 	public function register_settings() {
 		$checkbox = array( $this, 'sanitize_checkbox' );
 
+		// A request's write outcomes never outlive it, also on a persistent PHP worker
+		// that keeps static state between requests (admin_init runs before options.php
+		// sanitizes anything).
+		self::reset_write_batch();
+
 		// 1.13.0: an administrator opening this page reads TackQuote's store settings when
 		// the stored answer is older than five minutes, BEFORE the fields are chosen below,
 		// so the form drawn and the options it saves are the same set.
