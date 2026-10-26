@@ -53,7 +53,7 @@ The service is required for the plugin to work. Until the store is connected, qu
 cannot be sent. Nothing is sent anywhere
 until you enter an API key or press **Connect with TackQuote**.
 
-All requests go to the API base URL set under **WooCommerce → TackQuote → Connection → Advanced**, which is
+All requests go to the API base URL set under **TackQuote → Settings → Connection → Advanced**, which is
 `https://api.tackquote.com/v1` unless your TackQuote support contact gave you a different
 one. Every request (except the two Connect with TackQuote calls in item 12, made before the
 store has a key) carries your TackQuote API key so the service can identify your account,
@@ -195,10 +195,10 @@ version in the User-Agent. The update itself downloads `tackquote.zip`
 from the TackQuote GitHub release. GitHub privacy statement:
 https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 
-18. **TackQuote inside WooCommerce admin** (since 1.12.0, needs a TackQuote server that offers it) —
+18. **TackQuote inside WordPress admin** (since 1.12.0, needs a TackQuote server that offers it) —
 `POST /integrations/woocommerce/embed/open`, `POST /integrations/woocommerce/embed/claim` and
 `POST /integrations/woocommerce/embed/unlink`. Sent only when a user who can manage WooCommerce opens
-WooCommerce → TackQuote or presses its buttons. Sends that user's WordPress user ID, a random secret
+TackQuote → Dashboard or presses its buttons. Sends that user's WordPress user ID, a random secret
 kept in their user meta and, to open, `purpose` (`frame` or `tab`); linking also sends the one-time
 code typed and their login name (1.13.0: `…/embed/link-requests`, `…/link-exchange`). No customer or
 order data.
@@ -224,8 +224,8 @@ WooCommerce must be installed and active first, and you need a TackQuote account
 
 1. In WP Admin go to **Plugins → Add New**, search for **TackQuote**, and click **Install Now**.
 2. Activate **TackQuote: Request a Quote & B2B Wholesale for WooCommerce**.
-3. Open **WooCommerce → TackQuote** in the admin menu.
-4. Under **WooCommerce → TackQuote**, on the **Connection** tab, press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; you come back to the Connection tab connected. Or open **Advanced**, paste a TackQuote API key and save. Leave the API URL as the default unless support gives you another base URL.
+3. Open **TackQuote** in the admin menu.
+4. Under **TackQuote → Settings**, on the **Connection** tab, press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; you come back to the Connection tab connected. Or open **Advanced**, paste a TackQuote API key and save. Leave the API URL as the default unless support gives you another base URL.
 5. Work down the numbered sections in order — they are arranged as a setup sequence, and each one only depends on the ones above it. Then click **Save TackQuote settings**.
 6. Click **Test TackQuote connection** to verify (Connect with TackQuote runs this test for you).
 
@@ -245,7 +245,7 @@ This plugin sends data to TackQuote, a third-party service, over HTTPS. It sends
 
 = Where data is sent =
 
-To the TackQuote API base URL set under **WooCommerce → TackQuote → Connection → Advanced**: `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. **External services** above lists every call, when it is made and what it sends. The B2B features and order sync call TackQuote only when switched on.
+To the TackQuote API base URL set under **TackQuote → Settings → Connection → Advanced**: `https://api.tackquote.com/v1` unless your TackQuote support contact gave you another one. **External services** above lists every call, when it is made and what it sends. The B2B features and order sync call TackQuote only when switched on.
 
 = The full lists =
 
@@ -301,7 +301,7 @@ So shoppers can add multiple products before requesting one combined quote. Use 
 
 = Can shoppers start a quote from the shop page or the cart? =
 
-Yes, since 1.10.0, and both are off until you switch them on under **WooCommerce → TackQuote → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists and (since 1.12.0) in product grids built with blocks, such as a Product Collection on your home page or related products; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart, and (since 1.12.0) inside the Cart block, below the totals and above Proceed to checkout. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
+Yes, since 1.10.0, and both are off until you switch them on under **TackQuote → Settings → Storefront**. "Product cards" adds "Add to Quote" to every simple product in the shop, category and search lists and (since 1.12.0) in product grids built with blocks, such as a Product Collection on your home page or related products; variable, grouped and external products link to their page instead, because a card cannot say which variation is wanted. "Cart page" adds "Request a quote for your cart" under Proceed to checkout on the classic cart, and (since 1.12.0) inside the Cart block, below the totals and above Proceed to checkout. It copies the cart into the quote list and leaves the WooCommerce cart as it was.
 
 = Is there a quick order form? =
 
@@ -329,7 +329,7 @@ To the quote line, where the seller sees "Buyer asked for …" beside your store
 
 = Can I change how it looks? =
 
-It takes your theme's look by default: every button is your theme's button (so Site Editor > Styles > Blocks/Elements > Button restyles them), fields and tables use WooCommerce's classes, and the drawer and quote form use your theme's colours and fonts. Under **WooCommerce → TackQuote → Storefront → Styling** you can pick an accent colour for the quote buttons and launcher, or tick "Use the theme's styles only" to load layout rules alone. For finer changes, set CSS variables in Appearance > Customize > Additional CSS or the Site Editor's custom CSS, for example `:root { --tackquote-radius: 0; --tackquote-drawer-width: 26rem; }` (also `--tackquote-accent`, `--tackquote-surface`, `--tackquote-text`, `--tackquote-border`, `--tackquote-shadow`, `--tackquote-z-index`, `--tackquote-launcher-offset-x` / `-y`). Developers can copy any file from the plugin's `templates/tackquote/` folder (quote page, quote list drawer, volume table, wholesale and net-terms forms) into `yourtheme/woocommerce/tackquote/` and edit it there, as with WooCommerce's own templates, and use the filters `tackquote_button_label`, `tackquote_button_classes`, `tackquote_theme_styles_only`, `tackquote_quote_page_args`, `tackquote_quote_list_drawer_args`, `tackquote_quantity_breaks_args` and `tackquote_storefront_form_args`. The full list is in `docs/CUSTOMISATION.md` in the plugin's GitHub repository. A theme that overrides WooCommerce's grouped product template (`single-product/add-to-cart/grouped.php`) must keep its hidden `add-to-cart` input and the `quantity[<product ID>]` fields: the quote buttons find a grouped product's form and quantities through them.
+It takes your theme's look by default: every button is your theme's button (so Site Editor > Styles > Blocks/Elements > Button restyles them), fields and tables use WooCommerce's classes, and the drawer and quote form use your theme's colours and fonts. Under **TackQuote → Settings → Storefront → Styling** you can pick an accent colour for the quote buttons and launcher, or tick "Use the theme's styles only" to load layout rules alone. For finer changes, set CSS variables in Appearance > Customize > Additional CSS or the Site Editor's custom CSS, for example `:root { --tackquote-radius: 0; --tackquote-drawer-width: 26rem; }` (also `--tackquote-accent`, `--tackquote-surface`, `--tackquote-text`, `--tackquote-border`, `--tackquote-shadow`, `--tackquote-z-index`, `--tackquote-launcher-offset-x` / `-y`). Developers can copy any file from the plugin's `templates/tackquote/` folder (quote page, quote list drawer, volume table, wholesale and net-terms forms) into `yourtheme/woocommerce/tackquote/` and edit it there, as with WooCommerce's own templates, and use the filters `tackquote_button_label`, `tackquote_button_classes`, `tackquote_theme_styles_only`, `tackquote_quote_page_args`, `tackquote_quote_list_drawer_args`, `tackquote_quantity_breaks_args` and `tackquote_storefront_form_args`. The full list is in `docs/CUSTOMISATION.md` in the plugin's GitHub repository. A theme that overrides WooCommerce's grouped product template (`single-product/add-to-cart/grouped.php`) must keep its hidden `add-to-cart` input and the `quantity[<product ID>]` fields: the quote buttons find a grouped product's form and quantities through them.
 
 = Which languages does it ship in? =
 
@@ -445,8 +445,8 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 Released 2026-10-26. Full notes are in `changelog.txt`.
 
 * **One source for each setting.** On a TackQuote server that offers it, order sync, TackQuote prices, order limits, the buyer group badge, tax exemption and the wholesale form are saved in TackQuote, whether you change them in TackQuote or on the plugin's own tabs, which keep every 1.12.0 setting. Buyer groups and wholesale forms are picked from TackQuote's lists: nothing to copy by hand. Each switch can also be turned off for this store only.
-* **Link your TackQuote account in one click** from WooCommerce → TackQuote (sign in and confirm); the link code stays as a fallback.
-* **One menu entry**: WooCommerce → TackQuote holds the dashboard and the settings. Shop managers can now change the Storefront, B2B pricing, Buyer groups and Forms tabs (written to TackQuote where it keeps them); Connection and Order sync stay administrator-only. The pasted key moved under Advanced on the Connection tab.
+* **Link your TackQuote account in one click** from TackQuote → Dashboard (sign in and confirm); the link code stays as a fallback.
+* **TackQuote menu**: Dashboard and Settings (tabs inside). Shop managers can now change the Storefront, B2B pricing, Buyer groups and Forms tabs (written to TackQuote where it keeps them); Connection and Order sync stay administrator-only. The pasted key moved under Advanced on the Connection tab.
 * Fixed: "Add to Quote" stays on one line in narrow product cards (Twenty Twenty-Five on a phone), in block grids and the classic loop.
 * Fixed: the quote form asks the seller's own registration questions, so a seller with a required question no longer gets every request refused. The order-sync box no longer shows ticked before it was ever saved.
 
