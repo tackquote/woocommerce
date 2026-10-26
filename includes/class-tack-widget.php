@@ -1246,10 +1246,11 @@ class Tack_Widget {
 			--$this->block_cards[ $id ];
 			return;
 		}
-		$html = wp_kses( $this->card_button_html( $product ), self::card_button_allowed_html() );
+		$html = $this->card_button_html( $product );
 		if ( '' === $html ) {
 			return;
 		}
+
 		/*
 		 * On a block theme the control wears the theme's element button (wide side padding
 		 * on Twenty Twenty-Five), so in a narrow card the longer "Add to Quote" wrapped
@@ -1259,10 +1260,10 @@ class Tack_Widget {
 		 * the 1.12.0 markup.
 		 */
 		if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
-			echo '<div class="tack-card-quote-classic">' . $html . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $html went through wp_kses() just above; the wrapper is a literal.
+			echo '<div class="tack-card-quote-classic">' . wp_kses( $html, self::card_button_allowed_html() ) . '</div>';
 			return;
 		}
-		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- went through wp_kses() above.
+		echo wp_kses( $html, self::card_button_allowed_html() );
 	}
 
 	/**
