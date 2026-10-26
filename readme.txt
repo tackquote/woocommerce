@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.13.0
+Stable tag: 1.13.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -440,6 +440,11 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= 1.13.1 =
+Unreleased. Full notes are in `changelog.txt`.
+
+* Fixed: a signed-in customer whose WordPress account the seller linked to their TackQuote buyer is no longer shown to the seller as "Requester not verified" on their quote requests. On a TackQuote server that offers it, the request names the signed-in WordPress user; a guest's request is unchanged.
 
 = 1.13.0 =
 Released 2026-10-26. Full notes are in `changelog.txt`.

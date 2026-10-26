@@ -1952,6 +1952,12 @@ class Tack_Widget {
 		// to a server that advertises `variation_keys` (no stray row at the bare id).
 		$payload['lineItems'] = self::with_variation_keys( $payload['lineItems'], $client->supports( 'variation_keys' ) );
 
+		// 1.13.1: the signed-in shopper's WordPress user id, to a server that lists
+		// `requester_identity`. TackQuote treats the request as coming from the buyer
+		// only when the seller linked this user to the buyer the typed email names; a
+		// guest sends nothing, and an older server never sees the field.
+		$payload = self::with_requester_identity( $payload, $client->supports( 'requester_identity' ), get_current_user_id() );
+
 		/*
 		 * Target prices (1.10.0, quote page): `lineItems[].targetPrice`, which TackQuote
 		 * shows the seller as "Buyer asked for", on a server that
@@ -2500,6 +2506,30 @@ class Tack_Widget {
 			}
 		}
 		return $lines;
+	}
+
+	/**
+	 * Add `buyerExternalId`, the signed-in shopper's WordPress user id, to a quote
+	 * request for a server that lists `requester_identity` (1.13.1). TackQuote
+	 * compares it with the WordPress user the seller linked to the buyer the email
+	 * names, and only then treats the request as the buyer's own rather than as
+	 * "Requester not verified". A guest (user id 0), or an older server whose
+	 * whitelist would refuse an unknown field, gets the request unchanged.
+	 *
+	 * @since 1.13.1
+	 *
+	 * @param array      $payload   The quote request body.
+	 * @param bool       $supported The server lists `requester_identity`.
+	 * @param int|string $user_id   `get_current_user_id()`.
+	 * @return array
+	 */
+	public static function with_requester_identity( array $payload, $supported, $user_id ) {
+		$id = is_numeric( $user_id ) ? (int) $user_id : 0;
+		if ( ! $supported || $id <= 0 ) {
+			return $payload;
+		}
+		$payload['buyerExternalId'] = (string) $id;
+		return $payload;
 	}
 
 	/**
