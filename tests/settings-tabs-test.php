@@ -208,6 +208,7 @@ $tabs_sm_html = (string) ob_get_clean();
 unset( $_GET['tab'] );
 check( '1.13.0: a shop manager opens the settings', ! $tabs_died );
 check( '...but the Connection tab draws no API key form for them', false === strpos( $tabs_sm_html, 'name="tack_quotes_api_key"' ) && false !== strpos( $tabs_sm_html, 'Only an administrator can connect this store' ) );
+check( 'Studio QA P3: no Connect with TackQuote button for a shop manager', false === strpos( $tabs_sm_html, Tack_Connect::START_ACTION ) && false === strpos( $tabs_sm_html, 'name="tack_connect"' ) );
 check( '...and no test or remove button', false === strpos( $tabs_sm_html, 'tack_quotes_remove_key_nonce' ) && false === strpos( $tabs_sm_html, 'tack_quotes_test_nonce' ) );
 $_GET['tab'] = 'sync';
 ob_start();

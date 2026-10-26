@@ -2581,7 +2581,11 @@ class Tack_Settings {
 	 * into it); the pasted key and API URL folded under "Advanced"; then test and remove.
 	 */
 	private function render_connection_tab() {
-		Tack_Connect::render_card();
+		// The Connect card's button starts a flow only someone who may connect the store can
+		// finish (Tack_Connect::can_connect()); a shop manager gets the note below instead.
+		if ( Tack_Connect::can_connect() ) {
+			Tack_Connect::render_card();
+		}
 		// 1.12.0: catalogue and order sync (WooCommerce REST keys), when the server offers it.
 		( new Tack_Rest_Keys() )->render_card();
 
