@@ -209,6 +209,15 @@ unset( $_GET['tab'] );
 check( '1.13.0: a shop manager opens the settings', ! $tabs_died );
 check( '...but the Connection tab draws no API key form for them', false === strpos( $tabs_sm_html, 'name="tack_quotes_api_key"' ) && false !== strpos( $tabs_sm_html, 'Only an administrator can connect this store' ) );
 check( 'Studio QA P3: no Connect with TackQuote button for a shop manager', false === strpos( $tabs_sm_html, Tack_Connect::START_ACTION ) && false === strpos( $tabs_sm_html, 'name="tack_connect"' ) );
+// The page itself needs manage_woocommerce; the tab's own rule is pinned directly.
+$GLOBALS['TACK_CAPS'] = array( 'manage_options' );
+$tabs_conn            = new ReflectionMethod( 'Tack_Settings', 'render_connection_tab' );
+$tabs_conn->setAccessible( true );
+ob_start();
+$tabs_conn->invoke( $tabs_settings );
+$tabs_mo_html = (string) ob_get_clean();
+$GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
+check( 'a role with manage_options but not manage_woocommerce: no Connect card, and told why', false === strpos( $tabs_mo_html, Tack_Connect::START_ACTION ) && false !== strpos( $tabs_mo_html, 'Only an administrator can connect this store' ) );
 check( '...and no test or remove button', false === strpos( $tabs_sm_html, 'tack_quotes_remove_key_nonce' ) && false === strpos( $tabs_sm_html, 'tack_quotes_test_nonce' ) );
 $_GET['tab'] = 'sync';
 ob_start();

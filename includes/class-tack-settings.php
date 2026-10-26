@@ -2590,8 +2590,12 @@ class Tack_Settings {
 		// 1.12.0: catalogue and order sync (WooCommerce REST keys), when the server offers it.
 		( new Tack_Rest_Keys() )->render_card();
 
-		if ( ! current_user_can( self::tab_capability( 'connection' ) ) ) {
+		// Whoever gets no Connect card is told why, also a role with manage_options but
+		// not manage_woocommerce (it may still paste a key below).
+		if ( ! Tack_Connect::can_connect() ) {
 			echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Only an administrator can connect this store or change its API key.', 'tackquote' ) . '</p></div>';
+		}
+		if ( ! current_user_can( self::tab_capability( 'connection' ) ) ) {
 			return;
 		}
 
