@@ -436,7 +436,7 @@ body:has(.tack-quote-cart-fixed) .tack-quote-list-widget {
   word-break: normal;
 }
 
-/* 1.13.0 (Studio QA at 390px): in a narrow card, a theme with wide button padding
+/* 1.13.0: in a narrow card (a phone-width grid), a theme with wide button padding
  * (Twenty Twenty-Five: 2.25rem a side) leaves too little room for "Add to Quote", which
  * is longer than "Add to cart", so it wrapped to two lines and stood taller than the
  * card's own button. Only in a narrow card, the control keeps the theme's button
