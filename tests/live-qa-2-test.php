@@ -90,3 +90,30 @@ check(
 	false !== strpos( $qa2_rk, "submit_button(__('Allowcatalogueandordersync','tackquote'),\$https?'primary':'secondary','tack_rest_keys',false,\$https?null:array('disabled'=>'disabled'));" )
 	&& false !== strpos( $qa2_rk, "if(!\$https){echo'<pclass=\"tack-field-error\">'" )
 );
+
+// ── Browser check of 1.12.0: the block-grid card control is sized like Add to cart ──
+tack_test_set_option( Tack_Widget::OPT_CARD_BUTTONS, 'yes' );
+$GLOBALS['TACK_TEST_PRODUCTS'][233] = $pt_tshirt;
+$qa2_block          = new stdClass();
+$qa2_block->context = array( 'postId' => 233 );
+$qa2_grid           = ( new Tack_Widget() )->append_card_to_product_button( '<div class="wp-block-button has-small-font-size"><a class="wp-block-button__link wp-element-button">Add to cart</a></div>', array(), $qa2_block );
+preg_match( '/<button[^>]*class="([^"]*)"/', $qa2_grid, $qa2_cls );
+$qa2_tokens = isset( $qa2_cls[1] ) ? preg_split( '/\s+/', $qa2_cls[1] ) : array();
+check( 'card (block grid): no classic `button` class, so it takes the Button block\'s padding like Add to cart', ! in_array( 'button', $qa2_tokens, true ) && in_array( 'tack-card-quote-btn', $qa2_tokens, true ) && in_array( 'has-small-font-size', $qa2_tokens, true ), $qa2_grid );
+check( 'card (block grid): the full aria-label is kept', false !== strpos( $qa2_grid, 'aria-label="Add T-Shirt to quote"' ), $qa2_grid );
+// A classic theme that renders a block grid: button_class() adds no Button block class
+// there, so the block-grid path must add them itself (as WooCommerce's ProductButton does).
+$qa2_theme                   = $GLOBALS['TACK_BLOCK_THEME'] ?? false;
+$GLOBALS['TACK_BLOCK_THEME'] = false;
+$qa2_classic                 = ( new Tack_Widget() )->append_card_to_product_button( '<div class="wp-block-button"><a class="wp-block-button__link wp-element-button">Add to cart</a></div>', array(), $qa2_block );
+$GLOBALS['TACK_BLOCK_THEME'] = $qa2_theme;
+preg_match( '/<button[^>]*class="([^"]*)"/', $qa2_classic, $qa2_cls2 );
+$qa2_tokens2 = isset( $qa2_cls2[1] ) ? preg_split( '/\s+/', $qa2_cls2[1] ) : array();
+check( 'card (block grid, classic theme): wears wp-block-button__link and wp-element-button, never `button`', in_array( 'wp-block-button__link', $qa2_tokens2, true ) && in_array( 'wp-element-button', $qa2_tokens2, true ) && ! in_array( 'button', $qa2_tokens2, true ) && in_array( 'tack-card-quote-btn', $qa2_tokens2, true ), $qa2_classic );
+check( 'card (block grid, classic theme): each class once', count( $qa2_tokens2 ) === count( array_unique( $qa2_tokens2 ) ), $qa2_classic );
+$GLOBALS['product'] = $pt_tshirt;
+$qa2_loop           = tack_parity_capture( array( new Tack_Widget(), 'render_card_button' ) );
+$GLOBALS['product'] = null;
+check( 'card (classic loop): keeps WooCommerce\'s `button` class', 1 === preg_match( '/<button[^>]*class="[^"]*\bbutton\b[^"]*tack-card-quote-btn/', $qa2_loop ), $qa2_loop );
+check( 'accent: also paints a control that wears only the Button block classes', false !== strpos( Tack_Widget::accent_css( '#123456' ), 'html:root body :is(.button,.wp-element-button).tack-card-quote-btn.tack-card-quote-btn' ) );
+tack_test_set_option( Tack_Widget::OPT_CARD_BUTTONS, 'no' );

@@ -113,7 +113,7 @@ class Tack_Release_Updates {
 			return $result;
 		}
 		return (object) array(
-			'name'          => 'TackQuote for WooCommerce',
+			'name'          => 'TackQuote: Request a Quote & B2B Wholesale for WooCommerce',
 			'slug'          => self::SLUG,
 			'version'       => $release['version'],
 			'author'        => 'TackQuote',

@@ -138,7 +138,7 @@ tack_blend_reset_styles();
 Tack_Widget::enqueue_styles();
 $tack_inline = implode( '', $GLOBALS['TACK_INLINE_STYLES']['tackquote'] ?? array() );
 check( 'accent set: inlined once, on the appearance handle', 1 === count( $GLOBALS['TACK_INLINE_STYLES'] ) && false !== strpos( $tack_inline, ':root{--tackquote-accent:#0a7c55;--tackquote-accent-text:#fff}' ), wp_json_encode( $GLOBALS['TACK_INLINE_STYLES'] ) );
-check( 'accent set: the plugin\'s primary buttons are repainted with it', false !== strpos( $tack_inline, 'html:root body .button.tack-quote-btn.tack-quote-btn{' ) || false !== strpos( $tack_inline, 'html:root body .button.tack-quote-btn.tack-quote-btn,' ) );
+check( 'accent set: the plugin\'s primary buttons are repainted with it', false !== strpos( $tack_inline, 'html:root body :is(.button,.wp-element-button).tack-quote-btn.tack-quote-btn{' ) || false !== strpos( $tack_inline, 'html:root body :is(.button,.wp-element-button).tack-quote-btn.tack-quote-btn,' ) );
 
 foreach ( array( 'red;}body{display:none}', '#12345g', 'javascript:alert(1)', '#0a7c55;}x{', 'rgb(1,2,3)' ) as $tack_evil ) {
 	$GLOBALS['TACK_OPTIONS'][ Tack_Widget::OPT_ACCENT_COLOR ] = $tack_evil;

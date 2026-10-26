@@ -147,6 +147,26 @@ check('P2: seller form asks the company name, policy requires nothing else -> se
   assert.doesNotMatch(html, /tack-quote-company-heading/);
 });
 
+check('P2: that section is EMPTY markup (no whitespace), so the stylesheet\'s :empty rule drops its divider', () => {
+  const q = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: [] });
+  const html = q.sellerPolicyFields({ roles: { buyer_company: 'org' } });
+  assert.match(html, /<div class="tack-quote-company-section" hidden><\/div>/);
+  const css = read('../css/tack-quotes.css');
+  assert.match(css, /\.tack-quote-company-section:empty\s*\{[^}]*border-block-start:\s*0;[^}]*\}/);
+});
+
+check('build-time: the card control wraps like WooCommerce\'s Add to cart, never truncated', () => {
+  const css = read('../css/tack-quotes-layout.css');
+  const rule = /\.wp-block-button\.tack-card-quote > :is\(\.tack-card-quote-btn, \.tack-card-quote-link\) \{([^}]*)\}/.exec(css);
+  assert.ok(rule, 'the block-grid card rule exists');
+  assert.match(rule[1], /white-space:\s*normal;/);
+  assert.match(rule[1], /word-break:\s*normal;/);
+  assert.match(rule[1], /display:\s*inline-flex;/);
+  assert.match(rule[1], /max-width:\s*100%;/);
+  assert.doesNotMatch(rule[1], /text-overflow/);
+  assert.doesNotMatch(rule[1], /nowrap/);
+});
+
 check('P2: with company fields to show, the heading stays above them', () => {
   const q = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: ['taxId'] });
   const html = q.sellerPolicyFields({ roles: { buyer_company: 'org' } });

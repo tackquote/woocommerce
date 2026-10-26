@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       TackQuote for WooCommerce
+ * Plugin Name:       TackQuote: Request a Quote & B2B Wholesale for WooCommerce
  * Plugin URI:        https://tackquote.com/integrations/woocommerce
- * Description:       Add a "Request a Quote" button to your WooCommerce store and sync orders with your TackQuote B2B quoting account.
- * Version:           1.11.1
+ * Description:       Add Request a Quote and a quote list to WooCommerce, with B2B wholesale prices, net terms and checkout at the quoted price.
+ * Version:           1.12.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            TackQuote
@@ -37,7 +37,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * only earns a warning from WooCommerce, which is why the guards matter.
  */
 
-define( 'TACK_QUOTES_VERSION', '1.11.1' );
+define( 'TACK_QUOTES_VERSION', '1.12.0' );
 define( 'TACK_QUOTES_FILE', __FILE__ );
 define( 'TACK_QUOTES_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TACK_QUOTES_URL', plugin_dir_url( __FILE__ ) );

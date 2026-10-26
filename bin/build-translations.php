@@ -190,7 +190,7 @@ function tack_tr_is_local_key( $key ) {
  * @return string
  */
 function tack_tr_header( $locale, $plural, $sha ) {
-	return "Project-Id-Version: TackQuote for WooCommerce\n"
+	return "Project-Id-Version: TackQuote: Request a Quote & B2B Wholesale for WooCommerce\n"
 		. "Report-Msgid-Bugs-To: https://github.com/tackquote/woocommerce/issues\n"
 		. "Language: $locale\n"
 		. "MIME-Version: 1.0\n"

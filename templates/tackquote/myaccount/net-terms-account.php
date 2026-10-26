@@ -11,7 +11,7 @@
  * (Tack_Storefront_Forms::allowed_html()).
  *
  * @package TackQuote\Templates
- * @version 1.10.2
+ * @version 1.12.0
  *
  * @var string                $notices      Notices to show first (escaped markup).
  * @var string                $heading      Heading text.
