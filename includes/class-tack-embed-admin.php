@@ -502,12 +502,14 @@ class Tack_Embed_Admin {
 				$who = $account[ $field ];
 			}
 		}
+		// The bar states the link, never a sign-in: whether the frame is signed in
+		// (a second factor may still be pending) is only known inside the frame.
 		echo '<div class="tackquote-embed-bar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;">';
 		echo '<span>' . esc_html(
 			'' === $who
-				? __( 'Signed in to TackQuote through your linked login.', 'tackquote' )
+				? __( 'Your WordPress login is linked to a TackQuote account.', 'tackquote' )
 				/* translators: %s: the linked TackQuote account's name or email. */
-				: sprintf( __( 'Signed in to TackQuote as %s.', 'tackquote' ), $who )
+				: sprintf( __( 'Your WordPress login is linked to the TackQuote account %s.', 'tackquote' ), $who )
 		) . '</span>';
 		self::action_form( self::TAB_ACTION, __( 'Open in a new tab', 'tackquote' ), true, 'button-secondary' );
 		self::action_form( self::UNLINK_ACTION, __( 'Unlink my login', 'tackquote' ), false, 'button-link' );

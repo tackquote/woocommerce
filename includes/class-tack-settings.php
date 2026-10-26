@@ -2250,7 +2250,8 @@ class Tack_Settings {
 
 	/**
 	 * Sanitize the picked wholesale form (1.13.0): one of TackQuote's forms, or '' for
-	 * TackQuote's default; saved in TackQuote first, kept locally only when it took it.
+	 * TackQuote's default; saved in TackQuote first, and only when it took it is the form
+	 * TackQuote now uses mirrored locally.
 	 *
 	 * @param mixed $value Submitted value.
 	 * @return string
@@ -2290,7 +2291,15 @@ class Tack_Settings {
 				return $stored;
 			}
 		}
-		self::$write_batch['forms']['slug'] = '' === $slug ? $stored : $slug;
+		// The local option mirrors what TackQuote now uses, so a later moment when TackQuote
+		// is not deciding falls back to that form, not to one picked before. "TackQuote's
+		// default" is the form TackQuote names as default after the save, else the plugin's
+		// own default form (what 1.12.0 used).
+		$mirror = $slug;
+		if ( '' === $mirror ) {
+			$mirror = Tack_Store_Settings::server_wholesale_form_slug();
+		}
+		self::$write_batch['forms']['slug'] = '' === $mirror ? Tack_Storefront_Forms::DEFAULT_SLUG : $mirror;
 		return self::$write_batch['forms']['slug'];
 	}
 

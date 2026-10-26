@@ -493,13 +493,29 @@ $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
 $ss_settings->sanitize_server_form_slug( 'distributor' );
 $ss_settings->sanitize_server_form_slug( 'distributor' );
 check( 'form: a replayed sanitize in the same save sends once and reports once', 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+// "TackQuote's default" that TackQuote did NOT save: the local form stays what it was.
 Tack_Settings::reset_write_batch();
-tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => 'distributor' ) ) ) ) );
+$GLOBALS['TACK_HTTP_REQUESTS']   = array();
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+check( 'form: TackQuote\'s default refused by TackQuote keeps the previous local form and says so', '' !== Tack_Store_Settings::chosen_wholesale_form_slug() && 'old-typed-slug' === $ss_settings->sanitize_server_form_slug( '' ) && 1 === count( $ss_put() ) && 1 === count( $GLOBALS['TACK_SETTINGS_ERRORS'] ) );
+// "TackQuote's default" saved: the local option mirrors the form TackQuote now uses (its
+// default form), never the slug picked before, so a later fallback cannot revive it.
+Tack_Settings::reset_write_batch();
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => null ) ) ) ) );
 $GLOBALS['TACK_SETTINGS_ERRORS'] = array();
 update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
 $ss_first = $ss_settings->sanitize_server_form_slug( '' );
 $ss_settings->sanitize_server_form_slug( $ss_first );
-check( 'form: the replayed sanitize gets the saved (possibly unlisted) slug and reports nothing', 'old-typed-slug' === $ss_first && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+check( 'form: TackQuote\'s default saved mirrors TackQuote\'s default form locally (not the old slug); the replay gets it and reports nothing', 'trade-signup' === $ss_first && '' === Tack_Store_Settings::chosen_wholesale_form_slug() && 'trade-signup' === $ss_settings->sanitize_server_form_slug( $ss_first ) && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
+// TackQuote names no default form: the plugin's own default form (1.12.0's).
+Tack_Settings::reset_write_batch();
+$ss_st = get_option( Tack_Store_Settings::OPTION );
+$ss_st['settings']['defaultWholesaleFormSlug'] = 'distributor';
+update_option( Tack_Store_Settings::OPTION, $ss_st );
+tack_cx_routes( array( '/store-settings/from-plugin' => array( 200, tack_ss_answer( array( 'defaultWholesaleFormSlug' => null, 'wholesaleForms' => array( array( 'isDefault' => false ) ) ) ) ) ) );
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'old-typed-slug' );
+check( 'form: TackQuote\'s default saved with no default form named mirrors the plugin\'s own default form', Tack_Storefront_Forms::DEFAULT_SLUG === $ss_settings->sanitize_server_form_slug( '' ) && array() === $GLOBALS['TACK_SETTINGS_ERRORS'] );
 $_POST = array();
 
 // A server with store_settings but without store_settings_write: exactly 1.12.0.
