@@ -606,7 +606,11 @@ $GLOBALS['TACK_IS_ADMIN'] = false;
 $GLOBALS['TACK_I18N_CALLS'] = 0;
 _n( 'a', 'b', 2 );
 _x( 'a', 'ctx' );
-check( 'the i18n counter sees _n and _x too (positive control)', 2 === $GLOBALS['TACK_I18N_CALLS'] );
+ob_start();
+_e( 'a' );
+esc_attr_e( 'a' );
+ob_end_clean();
+check( 'the i18n counter sees _n, _x, _e and esc_attr_e (positive control)', 4 === $GLOBALS['TACK_I18N_CALLS'] );
 check( 'schema version: activation no longer writes it, uninstall still deletes old rows', false === strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quotes.php' ), "add_option( 'tack_quotes_schema_version'" ) && false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' ), "'tack_quotes_schema_version'" ) );
 
 // Clean up for later suites.
