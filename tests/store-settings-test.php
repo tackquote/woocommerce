@@ -595,6 +595,19 @@ $GLOBALS['TACK_I18N_CALLS'] = 0;
 ( new Tack_Settings() )->init();
 check( 'D1: Tack_Settings::init() calls no translation function', 0 === $GLOBALS['TACK_I18N_CALLS'], (string) $GLOBALS['TACK_I18N_CALLS'] );
 check( 'D1: the untranslated tab slugs match the tabs, in order', Tack_Settings::TAB_SLUGS === array_keys( Tack_Settings::tabs() ) );
+// Fable nit: the whole bootstrap, front end and admin, translates nothing either.
+foreach ( array( false, true ) as $ss_admin ) {
+	$GLOBALS['TACK_IS_ADMIN']   = $ss_admin;
+	$GLOBALS['TACK_I18N_CALLS'] = 0;
+	( new ReflectionClass( 'Tack_Quotes' ) )->newInstanceWithoutConstructor()->init();
+	check( 'D1: the whole Tack_Quotes::init() makes no translation call (' . ( $ss_admin ? 'admin' : 'front end' ) . ')', 0 === $GLOBALS['TACK_I18N_CALLS'], (string) $GLOBALS['TACK_I18N_CALLS'] );
+}
+$GLOBALS['TACK_IS_ADMIN'] = false;
+$GLOBALS['TACK_I18N_CALLS'] = 0;
+_n( 'a', 'b', 2 );
+_x( 'a', 'ctx' );
+check( 'the i18n counter sees _n and _x too (positive control)', 2 === $GLOBALS['TACK_I18N_CALLS'] );
+check( 'schema version: activation no longer writes it, uninstall still deletes old rows', false === strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-quotes.php' ), "add_option( 'tack_quotes_schema_version'" ) && false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' ), "'tack_quotes_schema_version'" ) );
 
 // Clean up for later suites.
 tack_ss_reset();

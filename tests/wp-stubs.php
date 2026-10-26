@@ -154,6 +154,23 @@ function settings_errors() {
 function esc_html_e( $text, $domain = null ) {
 	echo esc_html( __( $text, $domain ) );
 }
+// Every translation function counts (the D1 guard: nothing may translate before
+// after_setup_theme). esc_html_e() counts through __().
+if ( ! function_exists( '_e' ) ) {
+	function _e( $text, $domain = null ) {
+		echo __( $text, $domain ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- test stub.
+	}
+}
+if ( ! function_exists( '_x' ) ) {
+	function _x( $text, $context, $domain = null ) {
+		return __( $text, $domain );
+	}
+}
+if ( ! function_exists( 'esc_attr_e' ) ) {
+	function esc_attr_e( $text, $domain = null ) {
+		echo esc_attr( __( $text, $domain ) );
+	}
+}
 function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false ) {
 	$GLOBALS['TACK_ENQUEUED_STYLES'][ $handle ] = $src;
 }
@@ -177,6 +194,7 @@ if ( ! defined( 'DAY_IN_SECONDS' ) ) {
 
 /** Plural form. The stub ignores locale rules; only the branch matters. */
 function _n( $single, $plural, $number, $domain = null ) {
+	$GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1;
 	return 1 === (int) $number ? $single : $plural;
 }
 

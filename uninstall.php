@@ -27,6 +27,7 @@ $tack_quotes_options = array(
 	'tack_quotes_show_request_quote',
 	'tack_quotes_enable_widget',
 	'tack_quotes_enable_order_sync',
+	// Written by activation up to 1.12.0 and never read; removed so old rows go too.
 	'tack_quotes_schema_version',
 
 	/*

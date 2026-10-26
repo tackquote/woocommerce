@@ -122,8 +122,9 @@ class Tack_Settings {
 		add_filter( 'submenu_file', array( $this, 'menu_submenu' ) );
 		add_action( 'admin_head', array( $this, 'hide_menu_entry' ) );
 		// The untranslated tab slugs: init() runs on plugins_loaded, and translating here
-		// (tabs() builds the labels with __()) loads the text domain before `init`, which
-		// WordPress 6.7+ reports as a notice on every request.
+		// (tabs() builds the labels with __()) loads the text domain before
+		// `after_setup_theme`, which WordPress 6.7+ reports as a notice on every request
+		// (_load_textdomain_just_in_time() checks did_action( 'after_setup_theme' )).
 		foreach ( self::TAB_SLUGS as $tab ) {
 			if ( 'manage_options' !== self::tab_capability( $tab ) ) {
 				add_filter( 'option_page_capability_' . self::option_group( $tab ), array( __CLASS__, 'shop_manager_capability' ) );
