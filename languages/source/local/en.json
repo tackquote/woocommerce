@@ -162,5 +162,6 @@
   "woo.widget.no_products": "No products to quote.",
   "woo.widget.rate_limited": "Too many quote requests from this connection. Please wait a few minutes and try again.",
   "woo.widget.stale_page": "This page has been open too long, or was served from a cache. Reload it and try again.",
-  "woo.widget.target_prices": "Target prices:"
+  "woo.widget.target_prices": "Target prices:",
+  "woo.quote.question_required": "Please answer: {question}"
 }

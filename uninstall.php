@@ -120,6 +120,15 @@ $tack_quotes_options = array(
 	// id of the REST key TackQuote holds (Tack_Rest_Keys::OPTION_WC_KEY_ID).
 	'tack_quotes_standing',
 	'tack_quotes_wc_rest_key_id',
+
+	// 1.13.0: the store settings TackQuote decides (Tack_Store_Settings::OPTION) and the
+	// "turn off on this store" boxes (Tack_Store_Settings::features() `off`).
+	'tack_quotes_store_settings',
+	'tack_quotes_off_order_sync',
+	'tack_quotes_off_prices',
+	'tack_quotes_off_order_limits',
+	'tack_quotes_off_buyer_group',
+	'tack_quotes_off_tax_exempt',
 );
 
 /**

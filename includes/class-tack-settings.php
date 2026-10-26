@@ -65,6 +65,10 @@ class Tack_Settings {
 	 *
 	 * Seeded automatically from rules that already exist, so nobody upgrading
 	 * has to retype anything. See `known_group_codes()`.
+	 *
+	 * 1.13.0: a server that lists `store_settings` answers the store's buyer groups
+	 * (`GET /integrations/woocommerce/store-settings`, API key), and they replace this
+	 * option on that server. It is kept, and still typed, only for an older server.
 	 */
 	const OPTION_GROUP_CODES = 'tack_quotes_buyer_group_codes';
 
@@ -77,15 +81,6 @@ class Tack_Settings {
 	/**
 	 * Public setup guide.
 	 */
-	/**
-	 * Admin menu icon: the TackQuote mark alone (no app-icon tile), `fill="black"`, as a
-	 * base64 SVG data URI. WordPress's svg-painter recolours a data-URI menu icon to the
-	 * current admin colour scheme, which it can only do for a single-colour SVG.
-	 * Source: the two paths of the TackQuote brand mark, viewBox cropped to
-	 * the mark. Same paths as `assets/images/tackquote-mark.svg`.
-	 */
-	const MENU_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ijk1IDg3IDMyMiAzMjIiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PHBhdGggZmlsbD0iYmxhY2siIGQ9Ik0gMzA1LjMgODkuMCBMIDMwNy4zIDg5LjAgTCAzMDYuMyA5My4wIEwgMzAyLjQgOTYuMCBMIDMwMC40IDEwMC45IEwgMjk2LjQgMTAzLjkgTCAyOTYuNCAxMDUuOSBMIDI5NC40IDEwNi45IEwgMjk0LjQgMTA4LjggTCAyODguNSAxMTUuOCBMIDI4Ny41IDExOS44IEwgMjgzLjUgMTIzLjcgTCAyODMuNSAxMjYuNiBMIDI3OC42IDEzMi42IEwgMjc3LjYgMTM3LjYgTCAyNjguNyAxNTQuNSBMIDI2OC43IDE1OC40IEwgMjY2LjcgMTYwLjQgTCAyNjUuNyAxNjcuNCBMIDI2My43IDE2OS4zIEwgMjU5LjcgMTg3LjIgTCAyNTguNyAxODcuMiBMIDI1OC43IDE5My4xIEwgMjU3LjcgMTkzLjEgTCAyNTYuOCAyMDMuMSBMIDI1NS44IDIwMy4xIEwgMjU0LjggMjE5LjAgTCAyNTMuOCAyMTkuMCBMIDI1NC44IDI1Ni43IEwgMjU1LjggMjU2LjcgTCAyNTYuOCAyNjkuNiBMIDI1Ny43IDI2OS42IEwgMjU4LjcgMjc5LjUgTCAyNjAuNyAyODIuNCBMIDI2Mi44IDI5My40IEwgMjY1LjcgMjk4LjMgTCAyNjguNyAzMDkuMiBMIDI3OC42IDMyOS4xIEwgMjgwLjYgMzMwLjEgTCAyODEuNSAzMzQuMCBMIDI4My41IDMzNS4xIEwgMjgzLjUgMzM3LjAgTCAyODUuNiAzMzguMCBMIDI4NS42IDM0MC4wIEwgMjg3LjUgMzQxLjAgTCAyODcuNSAzNDIuOSBMIDI5MC41IDM0NC45IEwgMjkwLjUgMzQ3LjAgTCAyOTMuNCAzNDguOSBMIDI5NS40IDM1Mi45IEwgMjkyLjUgMzUzLjkgTCAyOTIuNSAzNTIuOSBMIDI3Mi42IDM1MC45IEwgMjcyLjYgMzQ5LjkgTCAyMzguOCAzNDguOSBMIDIzOC44IDM0OS45IEwgMjE2LjEgMzUwLjkgTCAyMTYuMSAzNTEuOSBMIDIwOS4yIDM1MS45IEwgMjA5LjIgMzUyLjkgTCAxOTUuMyAzNTQuOCBMIDE5Mi4yIDM1Ni44IEwgMTg4LjMgMzU2LjggTCAxODguMyAzNTcuOSBMIDE3MC41IDM2Mi44IEwgMTY4LjQgMzY0LjggTCAxNjUuNSAzNjQuOCBMIDE2MS42IDM2Ny43IEwgMTU0LjYgMzY5LjggTCAxNTMuNiAzNzEuOCBMIDE0Ni42IDM3My43IEwgMTQ1LjYgMzc1LjcgTCAxNDEuNyAzNzYuNyBMIDE0MC43IDM3OC42IEwgMTMwLjggMzgzLjcgTCAxMjguOCAzODYuNiBMIDEyNC45IDM4Ny42IEwgMTIxLjggMzkxLjUgTCAxMTkuOCAzOTEuNSBMIDExNi45IDM5NS42IEwgMTE0LjkgMzk1LjYgTCAxMDcuOSA0MDMuNSBMIDEwNi4wIDQwMy41IEwgMTA1LjAgNDA2LjUgTCAxMDMuMCA0MDYuNSBMIDEwMi4wIDQwMy41IEwgMTAzLjAgNDAzLjUgTCAxMDUuMCAzODMuNyBMIDEwNi4wIDM4My43IEwgMTA3LjAgMzczLjcgTCAxMDcuOSAzNzMuNyBMIDEwNy45IDM2OC44IEwgMTA4LjkgMzY4LjggTCAxMDguOSAzNjMuOCBMIDEwOS45IDM2My44IEwgMTA5LjkgMzU3LjkgTCAxMTEuOSAzNTQuOCBMIDExNC45IDMzOS4wIEwgMTE2LjkgMzM2LjEgTCAxMTYuOSAzMzIuMCBMIDExOC45IDMyOS4xIEwgMTE4LjkgMzI1LjEgTCAxMTkuOCAzMjUuMSBMIDEyNC45IDMwNy4yIEwgMTI2LjggMzA1LjMgTCAxMjkuOCAyOTMuNCBMIDEzMi43IDI4OS40IEwgMTMyLjcgMjg2LjQgTCAxMzcuNyAyNzcuNSBMIDEzNy43IDI3NC41IEwgMTQ0LjYgMjYyLjYgTCAxNDQuNiAyNTkuNiBMIDE1Mi42IDI0My44IEwgMTU3LjUgMjM3LjggTCAxNTkuNiAyMzEuOSBMIDE2NC41IDIyNS45IEwgMTY1LjUgMjIyLjAgTCAxNjcuNCAyMjEuMCBMIDE2Ny40IDIxOS4wIEwgMTY5LjQgMjE3LjkgTCAxNjkuNCAyMTYuMCBMIDE3MS41IDIxNS4wIEwgMTcxLjUgMjEzLjAgTCAxNzMuNSAyMTIuMCBMIDE3NC40IDIwOC4xIEwgMTc3LjQgMjA2LjAgTCAxNzkuMyAyMDEuMSBMIDE4Mi40IDE5OS4xIEwgMTg0LjQgMTk0LjEgTCAxODkuMyAxOTAuMiBMIDE5Mi4yIDE4NC4yIEwgMTk2LjMgMTgxLjIgTCAxOTYuMyAxNzkuMyBMIDIwMi4yIDE3NC40IEwgMjAyLjIgMTcyLjMgTCAyMDkuMiAxNjYuNCBMIDIwOS4yIDE2NC40IEwgMjMzLjkgMTM5LjYgTCAyMzUuOSAxMzkuNiBMIDI0MS45IDEzMi42IEwgMjQzLjkgMTMyLjYgTCAyNDcuOCAxMjcuNyBMIDI0OS44IDEyNy43IEwgMjU3LjcgMTE5LjggTCAyNjIuOCAxMTcuOCBMIDI2NS43IDExMy44IEwgMjY3LjcgMTEzLjggTCAyNjguNyAxMTEuOCBMIDI3Ni42IDEwNy45IEwgMjgxLjUgMTAyLjggTCAyODUuNiAxMDEuOSBMIDI4OS41IDk3LjkgTCAzMDIuNCA5MS45IFoiLz48cGF0aCBmaWxsPSJibGFjayIgZD0iTSAzNDkuMCAyMDUuMCBMIDM2Ny45IDIwNi4wIEwgMzY3LjkgMjA3LjAgTCAzNzQuOCAyMDguMSBMIDM3OC44IDIxMS4wIEwgMzgxLjggMjExLjAgTCAzODMuNyAyMTQuMCBMIDM4OC44IDIxNi4wIEwgNDAwLjcgMjI5LjggTCA0MDEuNiAyMzMuOSBMIDQwMy42IDIzNC44IEwgNDA2LjYgMjQ3LjcgTCA0MDcuNSAyNDcuNyBMIDQwNy41IDI1MS43IEwgNDA4LjUgMjUxLjcgTCA0MDguNSAyNTYuNyBMIDQwOS41IDI1Ni43IEwgNDEwLjUgMjc3LjUgTCA0MDkuNSAyNzcuNSBMIDQwOC41IDI5Ni4zIEwgNDA3LjUgMjk2LjMgTCA0MDQuNiAzMTMuMiBMIDQwMy42IDMxMy4yIEwgNDAxLjYgMzIyLjEgTCAzOTguNiAzMjYuMSBMIDM5OC42IDMyOS4xIEwgMzkzLjcgMzM5LjAgTCAzODkuNyAzNDIuOSBMIDM4OC44IDM0Ny4wIEwgMzgyLjggMzUyLjkgTCAzODIuOCAzNTQuOCBMIDM3OC44IDM1Ny45IEwgMzc4LjggMzU5LjkgTCAzNzYuNyAzNTkuOSBMIDM3Ni43IDM2MS44IEwgMzY0LjggMzczLjcgTCAzNjIuOSAzNzMuNyBMIDM1OS45IDM3Ny43IEwgMzU4LjAgMzc3LjcgTCAzNTIuMCAzODMuNyBMIDM0OC4wIDM4NC42IEwgMzQ0LjEgMzg4LjYgTCAzNDAuMSAzODkuNiBMIDMzOS4xIDM5MS41IEwgMzIzLjMgMzk5LjUgTCAzMTAuNCA0MDMuNSBMIDMwMi40IDM4Ny42IEwgMzAwLjQgMzg2LjYgTCAzMDAuNCAzODMuNyBMIDMwOC40IDM3OS42IEwgMzA5LjQgMzc3LjcgTCAzMTMuMyAzNzYuNyBMIDMxNy4yIDM3Mi43IEwgMzE5LjIgMzcyLjcgTCAzMzkuMSAzNTQuOCBMIDMzOS4xIDM1Mi45IEwgMzQ1LjEgMzQ3LjAgTCAzNDUuMSAzNDQuOSBMIDM0OS4wIDM0MS4wIEwgMzQ5LjAgMzM4LjAgTCAzNTIuMCAzMzUuMSBMIDM1Mi4wIDMzMi4wIEwgMzUzLjkgMzMwLjEgTCAzNTYuMCAzMjAuMSBMIDM1Ny4wIDMyMC4xIEwgMzU4LjAgMzA5LjIgTCAzNTcuMCAzMDguMiBMIDM0NS4xIDMwOC4yIEwgMzQ1LjEgMzA3LjIgTCAzMzkuMSAzMDcuMiBMIDMzNi4xIDMwNS4zIEwgMzMyLjIgMzA1LjMgTCAzMjIuMyAzMDAuNCBMIDMxOC4yIDI5NS4zIEwgMzE1LjMgMjk0LjMgTCAzMTUuMyAyOTIuNCBMIDMwOC40IDI4NS40IEwgMzAzLjQgMjc1LjUgTCAzMDIuNCAyNjUuNiBMIDMwMS40IDI2NS42IEwgMzAyLjQgMjQ0LjggTCAzMDMuNCAyNDQuOCBMIDMwMy40IDI0MC43IEwgMzEwLjQgMjI2LjkgTCAzMjMuMyAyMTQuMCBMIDMyNy4yIDIxMy4wIEwgMzI4LjIgMjExLjAgTCAzMzEuMiAyMTEuMCBMIDMzMi4yIDIwOS4xIEwgMzQyLjAgMjA3LjAgTCAzNDIuMCAyMDYuMCBMIDM0OS4wIDIwNi4wIFoiLz48L3N2Zz4=';
-
 	const DOCS_URL = 'https://tackquote.com/docs/integrations/woocommerce';
 
 	/**
@@ -101,43 +96,129 @@ class Tack_Settings {
 	private $action_result = null;
 
 	/**
+	 * Who may open the settings page: the shop-manager capability, the same as the
+	 * WooCommerce → TackQuote dashboard it now shares a menu entry with (1.13.0). The
+	 * connection (the API key) and the order-sync switch keep `manage_options`; see
+	 * tab_capability().
+	 */
+	const CAPABILITY = 'manage_woocommerce';
+
+	/**
+	 * The hook suffix WordPress gave the page (for the asset check).
+	 *
+	 * @var string
+	 */
+	private $hook_suffix = '';
+
+	/**
 	 * Hook registration.
 	 */
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		// 1.13.0: the page lives under WooCommerce → TackQuote; keep that entry highlighted.
+		add_filter( 'parent_file', array( $this, 'menu_parent' ) );
+		add_filter( 'submenu_file', array( $this, 'menu_submenu' ) );
+		add_filter( 'admin_title', array( $this, 'admin_title' ), 10, 2 );
+		foreach ( array_keys( self::tabs() ) as $tab ) {
+			if ( 'manage_options' !== self::tab_capability( $tab ) ) {
+				add_filter( 'option_page_capability_' . self::option_group( $tab ), array( __CLASS__, 'shop_manager_capability' ) );
+			}
+		}
 		( new Tack_Connect() )->init();
 	}
 
 	/**
-	 * Add the top-level admin menu page.
+	 * Register the settings page, without a menu entry of its own (1.13.0).
 	 *
-	 * `manage_options`, not the shop-manager capability, and deliberately so.
+	 * One menu entry, WooCommerce → TackQuote, holds both the TackQuote dashboard and these
+	 * settings: the two share a tab bar (render_nav()). The page keeps its slug, so every
+	 * old link (`admin.php?page=tackquote&tab=…`, notices, bookmarks, the Plugins screen's
+	 * Settings link) still opens it; no redirect is needed.
 	 *
-	 * The form on this page posts to `options.php`, and `options.php` requires
-	 * `manage_options` for every registered option group unless the
-	 * `option_page_capability_{$option_page}` filter says otherwise — WordPress documents
-	 * that filter as "required to change the capability required for a certain options page".
-	 * No such filter was registered here, so a shop_manager could see the page, fill it in,
-	 * press save, and be told "Sorry, you are not allowed to access this page."
-	 *
-	 * Of the two ways to close that gap — filter the requirement down to the shop-manager
-	 * capability, or raise the page to `manage_options` — this page holds the TackQuote API
-	 * key, which authenticates the whole store to TackQuote. A secret of that blast radius
-	 * belongs behind the administrator capability, so the page is raised rather than the
-	 * requirement lowered.
+	 * The capability is `manage_woocommerce`, the one the dashboard and WooCommerce's own
+	 * menu use, so a shop manager who can open the dashboard can also see the settings.
+	 * `options.php` asks for `manage_options` unless `option_page_capability_{$group}` says
+	 * otherwise ("required to change the capability required for a certain options page"),
+	 * so every tab's group is lowered to the shop-manager capability EXCEPT the two that
+	 * stay with administrators (tab_capability()): the connection, whose API key
+	 * authenticates the whole store to TackQuote, and order sync, which sends personal data
+	 * to TackQuote.
 	 */
 	public function add_menu() {
-		add_menu_page(
-			__( 'TackQuote', 'tackquote' ),
-			__( 'TackQuote', 'tackquote' ),
-			'manage_options',
+		$hook              = add_submenu_page(
+			'',
+			__( 'TackQuote settings', 'tackquote' ),
+			__( 'TackQuote settings', 'tackquote' ),
+			self::CAPABILITY,
 			self::PAGE_SLUG,
-			array( $this, 'render_page' ),
-			self::MENU_ICON,
-			56
+			array( $this, 'render_page' )
 		);
+		$this->hook_suffix = is_string( $hook ) ? $hook : '';
+	}
+
+	/**
+	 * The capability a tab's form needs to save.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return string
+	 */
+	public static function tab_capability( $tab ) {
+		return in_array( $tab, array( 'connection', 'sync' ), true ) ? 'manage_options' : self::CAPABILITY;
+	}
+
+	/**
+	 * `option_page_capability_{$group}`: the shop-manager capability.
+	 *
+	 * @return string
+	 */
+	public static function shop_manager_capability() {
+		return self::CAPABILITY;
+	}
+
+	/**
+	 * Is this request the settings page?
+	 *
+	 * @return bool
+	 */
+	private static function is_settings_page() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- navigation only: compared with a constant.
+		return is_admin() && isset( $_GET['page'] ) && self::PAGE_SLUG === sanitize_key( wp_unslash( $_GET['page'] ) );
+	}
+
+	/**
+	 * `parent_file`: WooCommerce, while the settings page is open.
+	 *
+	 * @param string $parent_file Parent menu file.
+	 * @return string
+	 */
+	public function menu_parent( $parent_file ) {
+		return self::is_settings_page() ? 'woocommerce' : $parent_file;
+	}
+
+	/**
+	 * `submenu_file`: WooCommerce → TackQuote, while the settings page is open.
+	 *
+	 * @param string|null $submenu_file Submenu file.
+	 * @return string|null
+	 */
+	public function menu_submenu( $submenu_file ) {
+		return self::is_settings_page() && class_exists( 'Tack_Embed_Admin', false ) ? Tack_Embed_Admin::PAGE_SLUG : $submenu_file;
+	}
+
+	/**
+	 * `admin_title`: a page with no menu entry has no title of its own.
+	 *
+	 * @param string $admin_title Full title.
+	 * @param string $title       Page title.
+	 * @return string
+	 */
+	public function admin_title( $admin_title, $title = '' ) {
+		if ( ! self::is_settings_page() || '' !== trim( (string) $title ) ) {
+			return $admin_title;
+		}
+		return __( 'TackQuote settings', 'tackquote' ) . $admin_title;
 	}
 
 	/**
@@ -146,7 +227,7 @@ class Tack_Settings {
 	 * @param string $hook_suffix Current admin page hook.
 	 */
 	public function enqueue_assets( $hook_suffix ) {
-		if ( 'toplevel_page_' . self::PAGE_SLUG !== $hook_suffix ) {
+		if ( '' === $this->hook_suffix || $this->hook_suffix !== $hook_suffix ) {
 			return;
 		}
 		wp_enqueue_style( 'tackquote-admin', TACK_QUOTES_URL . 'assets/css/tack-admin.css', array(), TACK_QUOTES_VERSION );
@@ -277,11 +358,19 @@ class Tack_Settings {
 	public function register_settings() {
 		$checkbox = array( $this, 'sanitize_checkbox' );
 
+		// 1.13.0: an administrator opening this page reads TackQuote's store settings when
+		// the stored answer is older than five minutes, BEFORE the fields are chosen below,
+		// so the form drawn and the options it saves are the same set.
+		if ( self::is_settings_page() ) {
+			Tack_Store_Settings::refresh_for_admin();
+		}
+		$server = Tack_Store_Settings::is_server_driven();
+
 		// ── Connection ──────────────────────────────────────────────────────────
 		$this->setting( 'connection', 'tack_quotes_api_key', array( $this, 'sanitize_api_key' ) );
 		$this->setting( 'connection', 'tack_quotes_api_url', array( $this, 'sanitize_url' ) );
 
-		$this->section( 'connection', 'tack_quotes_connection', __( 'Or paste an API key', 'tackquote' ), array( $this, 'section_connection' ) );
+		$this->section( 'connection', 'tack_quotes_connection', __( 'Paste an API key', 'tackquote' ), array( $this, 'section_connection' ) );
 		$this->field( 'connection', 'tack_quotes_connection', 'tack_quotes_api_key', __( 'API key', 'tackquote' ), array( $this, 'field_api_key' ), array( 'label_for' => 'tack_quotes_api_key' ) );
 		$this->field( 'connection', 'tack_quotes_connection', 'tack_quotes_api_url', __( 'API URL', 'tackquote' ), array( $this, 'field_api_url' ) );
 
@@ -315,21 +404,40 @@ class Tack_Settings {
 		$this->register_storefront_layout_settings();
 
 		// ── B2B pricing ─────────────────────────────────────────────────────────
-		$this->setting( 'pricing', Tack_Wholesale_Pricing::OPTION_ENABLED, $checkbox );
+		// 1.13.0: on a server that decides them (Tack_Store_Settings), the four switches are
+		// still edited here, as in 1.12.0, and each change is saved in TackQuote first
+		// (write_through()); the "turn off on this store" box sits beside each. On an older
+		// server, the 1.12.0 switches exactly as before.
 		$this->setting( 'pricing', Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, $checkbox );
-		$this->setting( 'pricing', Tack_B2B_Notices::OPTION_ORDER_LIMITS, $checkbox );
-		$this->setting( 'pricing', Tack_B2B_Notices::OPTION_BUYER_GROUP, $checkbox );
-		$this->setting( 'pricing', Tack_Tax_Exempt::OPTION_ENABLED, array( $this, 'sanitize_storefront_forms_checkbox' ) );
-
 		$this->section( 'pricing', 'tack_quotes_b2b_pricing', __( 'B2B pricing', 'tackquote' ), array( $this, 'section_b2b_pricing' ) );
-		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Wholesale_Pricing::OPTION_ENABLED, __( 'TackQuote prices', 'tackquote' ), array( $this, 'field_enable_wholesale_pricing' ) );
-		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, __( 'Volume pricing table', 'tackquote' ), array( $this, 'field_show_quantity_breaks' ) );
-		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_B2B_Notices::OPTION_ORDER_LIMITS, __( 'Order limits', 'tackquote' ), array( $this, 'field_enable_order_limits' ) );
-		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_B2B_Notices::OPTION_BUYER_GROUP, __( 'Buyer group badge', 'tackquote' ), array( $this, 'field_enable_buyer_group' ) );
-		$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ), array( $this, 'field_apply_tax_exempt' ) );
+		$pricing = array(
+			Tack_Store_Settings::PRICES       => array( Tack_Wholesale_Pricing::OPTION_ENABLED, __( 'TackQuote prices', 'tackquote' ), 'field_enable_wholesale_pricing', $checkbox ),
+			Tack_Store_Settings::ORDER_LIMITS => array( Tack_B2B_Notices::OPTION_ORDER_LIMITS, __( 'Order limits', 'tackquote' ), 'field_enable_order_limits', $checkbox ),
+			Tack_Store_Settings::BUYER_GROUP  => array( Tack_B2B_Notices::OPTION_BUYER_GROUP, __( 'Buyer group badge', 'tackquote' ), 'field_enable_buyer_group', $checkbox ),
+			Tack_Store_Settings::TAX_EXEMPT   => array( Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ), 'field_apply_tax_exempt', array( $this, 'sanitize_storefront_forms_checkbox' ) ),
+		);
+		$first   = true;
+		foreach ( $pricing as $feature => $row ) {
+			if ( $server ) {
+				$off = Tack_Store_Settings::features()[ $feature ]['off'];
+				$this->setting( 'pricing', $row[0], $this->write_through_callback( 'pricing', $feature ) );
+				$this->setting( 'pricing', $off, $row[3] );
+				$this->field( 'pricing', 'tack_quotes_b2b_pricing', $row[0], $row[1], array( $this, 'field_server_feature' ), array( 'feature' => $feature ) );
+			} else {
+				$this->setting( 'pricing', $row[0], $row[3] );
+				$this->field( 'pricing', 'tack_quotes_b2b_pricing', $row[0], $row[1], array( $this, $row[2] ) );
+			}
+			if ( $first ) {
+				// The volume table belongs right under the prices it explains.
+				$this->field( 'pricing', 'tack_quotes_b2b_pricing', Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS, __( 'Volume pricing table', 'tackquote' ), array( $this, 'field_show_quantity_breaks' ) );
+				$first = false;
+			}
+		}
 
 		// ── Buyer groups: codes and checkout restrictions ───────────────────────
-		$this->setting( 'groups', self::OPTION_GROUP_CODES, array( $this, 'sanitize_group_codes' ) );
+		// 1.13.0: on a server that lists them, the codes are PICKED from TackQuote's groups
+		// (sanitize_server_group_codes() keeps only those); typed on an older server.
+		$this->setting( 'groups', self::OPTION_GROUP_CODES, $server ? array( $this, 'sanitize_server_group_codes' ) : array( $this, 'sanitize_group_codes' ) );
 		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_ENABLED, $checkbox );
 
 		/*
@@ -343,7 +451,11 @@ class Tack_Settings {
 		$this->setting( 'groups', Tack_Group_Restrictions::OPTION_SHIPPING_MAP, array( $this, 'sanitize_shipping_group_map' ) );
 
 		$this->section( 'groups', 'tack_quotes_group_rules', __( 'Buyer groups and checkout restrictions', 'tackquote' ), array( $this, 'section_group_rules' ) );
-		$this->field( 'groups', 'tack_quotes_group_rules', self::OPTION_GROUP_CODES, __( 'Your buyer group codes', 'tackquote' ), array( $this, 'field_group_codes' ), array( 'label_for' => self::OPTION_GROUP_CODES ) );
+		if ( $server ) {
+			$this->field( 'groups', 'tack_quotes_group_rules', self::OPTION_GROUP_CODES, __( 'Your buyer groups', 'tackquote' ), array( $this, 'field_server_groups' ) );
+		} else {
+			$this->field( 'groups', 'tack_quotes_group_rules', self::OPTION_GROUP_CODES, __( 'Your buyer group codes', 'tackquote' ), array( $this, 'field_group_codes' ), array( 'label_for' => self::OPTION_GROUP_CODES ) );
+		}
 		$this->field( 'groups', 'tack_quotes_group_rules', Tack_Group_Restrictions::OPTION_ENABLED, __( 'Restrict methods by group', 'tackquote' ), array( $this, 'field_enable_group_restrictions' ) );
 		$this->field( 'groups', 'tack_quotes_group_rules', Tack_Group_Restrictions::OPTION_PAYMENT_MAP, __( 'Payment methods', 'tackquote' ), array( $this, 'field_payment_group_map' ) );
 		$this->field( 'groups', 'tack_quotes_group_rules', Tack_Group_Restrictions::OPTION_SHIPPING_MAP, __( 'Shipping methods', 'tackquote' ), array( $this, 'field_shipping_group_map' ) );
@@ -352,19 +464,32 @@ class Tack_Settings {
 		$this->register_group_catalog_settings();
 
 		// ── Forms ───────────────────────────────────────────────────────────────
-		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, array( $this, 'sanitize_form_slug' ) );
+		// 1.13.0: on a server that decides it, the form is picked from TackQuote's list and
+		// saved in TackQuote (sanitize_server_form_slug()); typed on an older server.
+		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, $server ? array( $this, 'sanitize_server_form_slug' ) : array( $this, 'sanitize_form_slug' ) );
 		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, array( $this, 'sanitize_storefront_forms_checkbox' ) );
 		$this->setting( 'forms', Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, array( $this, 'sanitize_storefront_forms_checkbox' ) );
 
 		$this->section( 'forms', 'tack_quotes_storefront_forms', __( 'Storefront forms', 'tackquote' ), array( $this, 'section_storefront_forms' ) );
-		$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, __( 'Wholesale form', 'tackquote' ), array( $this, 'field_wholesale_form_slug' ), array( 'label_for' => Tack_Storefront_Forms::OPTION_FORM_SLUG ) );
+		if ( $server ) {
+			$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, __( 'Wholesale form', 'tackquote' ), array( $this, 'field_server_wholesale_form' ) );
+		} else {
+			$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_FORM_SLUG, __( 'Wholesale form', 'tackquote' ), array( $this, 'field_wholesale_form_slug' ), array( 'label_for' => Tack_Storefront_Forms::OPTION_FORM_SLUG ) );
+		}
 		$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_WHOLESALE_TAB, __( '"Wholesale account" tab', 'tackquote' ), array( $this, 'field_enable_wholesale_tab' ) );
 		$this->field( 'forms', 'tack_quotes_storefront_forms', Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, __( '"Net terms" tab', 'tackquote' ), array( $this, 'field_enable_net_terms_tab' ) );
 
 		// ── Order sync ──────────────────────────────────────────────────────────
-		$this->setting( 'sync', 'tack_quotes_enable_order_sync', $checkbox );
 		$this->section( 'sync', 'tack_quotes_sync', __( 'Order sync', 'tackquote' ), array( $this, 'section_sync' ) );
-		$this->field( 'sync', 'tack_quotes_sync', 'tack_quotes_enable_order_sync', __( 'Sync orders to TackQuote', 'tackquote' ), array( $this, 'field_enable_order_sync' ) );
+		if ( $server ) {
+			$off = Tack_Store_Settings::features()[ Tack_Store_Settings::ORDER_SYNC ]['off'];
+			$this->setting( 'sync', 'tack_quotes_enable_order_sync', $this->write_through_callback( 'sync', Tack_Store_Settings::ORDER_SYNC ) );
+			$this->setting( 'sync', $off, $checkbox );
+			$this->field( 'sync', 'tack_quotes_sync', 'tack_quotes_enable_order_sync', __( 'Sync orders to TackQuote', 'tackquote' ), array( $this, 'field_server_feature' ), array( 'feature' => Tack_Store_Settings::ORDER_SYNC ) );
+		} else {
+			$this->setting( 'sync', 'tack_quotes_enable_order_sync', $checkbox );
+			$this->field( 'sync', 'tack_quotes_sync', 'tack_quotes_enable_order_sync', __( 'Sync orders to TackQuote', 'tackquote' ), array( $this, 'field_enable_order_sync' ) );
+		}
 	}
 
 	// ── Sanitizers ────────────────────────────────────────────────────────────
@@ -875,7 +1000,7 @@ class Tack_Settings {
 	 * Intro copy for the Connection section.
 	 */
 	public function section_connection() {
-		echo '<p>' . esc_html__( 'Prefer to do it by hand? Paste an API key from TackQuote (Settings → Developer → API Keys), save, then test the connection.', 'tackquote' ) . '</p>';
+		echo '<p>' . esc_html__( 'Prefer to do it by hand? Paste an API key made in TackQuote, save, then test the connection. Connect with TackQuote above needs no key.', 'tackquote' ) . '</p>';
 		$this->learn_more(
 			array(
 				__( 'Quote requests, order sync and everything on the B2B pricing and Buyer groups tabs need this key. The Storefront tab can be set up first, but a shopper who presses a quote button before the store is connected gets an error.', 'tackquote' ),
@@ -896,7 +1021,11 @@ class Tack_Settings {
 	 * Intro copy for the order-sync section, including what data leaves the store.
 	 */
 	public function section_sync() {
-		echo '<p>' . esc_html__( 'Off by default. When enabled, this plugin pushes order data one-way to TackQuote when an order is created or its status changes. It does not import orders, sync the product catalog, or update inventory.', 'tackquote' ) . '</p>';
+		if ( Tack_Store_Settings::is_server_driven() ) {
+			echo '<p>' . esc_html__( 'Saved in TackQuote, so it matches TackQuote\'s WooCommerce page whichever side you change it on. When on, this plugin pushes order data one-way to TackQuote when an order is created or its status changes. It does not import orders, sync the product catalog, or update inventory.', 'tackquote' ) . '</p>';
+		} else {
+			echo '<p>' . esc_html__( 'Off by default. When enabled, this plugin pushes order data one-way to TackQuote when an order is created or its status changes. It does not import orders, sync the product catalog, or update inventory.', 'tackquote' ) . '</p>';
+		}
 		echo '<p class="description">' . esc_html__( 'Personal data leaves your store when this is on.', 'tackquote' ) . '</p>';
 		$this->learn_more(
 			__( 'Personal data leaves your store when this is on. Each order sends the whole order: the buyer\'s full billing and shipping addresses, email address and phone numbers, their WooCommerce customer ID and order note, the order number and ID, status, currency, subtotal, discount, shipping, tax and total, coupon codes, the created/modified/paid/completed dates, the payment method and the payment gateway\'s transaction reference, and every line item with its name, SKU, product and variation IDs, quantity, subtotal, total, tax and item meta (for example “Size: Large”). No card numbers, card details or gateway credentials are ever sent.', 'tackquote' ),
@@ -1254,6 +1383,10 @@ class Tack_Settings {
 			)
 		);
 
+		if ( Tack_Store_Settings::is_server_driven() ) {
+			echo '<p class="description"><strong>' . esc_html__( 'These switches are saved in TackQuote,', 'tackquote' ) . '</strong> '
+				. esc_html__( 'so they match TackQuote\'s WooCommerce page whichever side you change them on.', 'tackquote' ) . '</p>';
+		}
 		$this->prerequisite_notice();
 	}
 
@@ -1377,7 +1510,8 @@ class Tack_Settings {
 	 *
 	 * Three sources, unioned, because none of them is complete on its own:
 	 *
-	 *   1. What the merchant typed into the codes field.
+	 *   1. The groups TackQuote lists (1.13.0, `store_settings` servers), or on an
+	 *      older server what the merchant typed into the codes field.
 	 *   2. Every code already used by a stored rule. This is what makes the
 	 *      upgrade from the old free-text boxes seamless — an existing rule's
 	 *      codes appear as ticked checkboxes without anyone retyping them —
@@ -1387,15 +1521,27 @@ class Tack_Settings {
 	 *   3. The `tackquote_buyer_group_codes` filter, so a site can supply the
 	 *      list from somewhere else.
 	 *
-	 * There is deliberately no TackQuote lookup here. See OPTION_GROUP_CODES:
-	 * no API-key-authenticated endpoint to list a tenant's buyer groups
-	 * exists, and calling one that does not exist would spend a request on a
-	 * 404 every time this page loads.
+	 * No TackQuote request is made here: the list comes from the stored store
+	 * settings (Tack_Store_Settings), read in the background. An older server has
+	 * no API-key route that lists groups, which is why the typed codes remain for it.
 	 *
 	 * @return string[] Upper-cased, unique, sorted.
 	 */
 	public function known_group_codes() {
-		$codes = $this->sanitize_group_codes( get_option( self::OPTION_GROUP_CODES, array() ) );
+		// 1.13.0: when TackQuote lists the groups, the codes are the ones picked from that
+		// list (all of them when none is picked) instead of typed ones.
+		$server = Tack_Store_Settings::buyer_groups();
+		if ( null === $server ) {
+			$codes = $this->sanitize_group_codes( get_option( self::OPTION_GROUP_CODES, array() ) );
+		} else {
+			$picked = (array) get_option( self::OPTION_GROUP_CODES, array() );
+			$codes  = array();
+			foreach ( $server as $group ) {
+				if ( empty( $picked ) || in_array( $group['code'], $picked, true ) ) {
+					$codes[] = $group['code'];
+				}
+			}
+		}
 
 		$restrictions = new Tack_Group_Restrictions();
 		$harvest      = array();
@@ -1790,11 +1936,294 @@ class Tack_Settings {
 	 * The order-sync on/off switch.
 	 */
 	public function field_enable_order_sync() {
-		$this->checkbox(
+		// Default OFF, the same default Tack_Order_Sync::is_enabled() reads: with the option
+		// absent the box used to render ticked while no order was being sent (1.13.0 fix).
+		$this->checkbox_default_off(
 			'tack_quotes_enable_order_sync',
 			__( 'Push new and updated WooCommerce orders to TackQuote (one-way).', 'tackquote' )
 		);
 		$this->help( __( 'Uncheck to stop outbound sync immediately. Existing quotes in TackQuote are not deleted.', 'tackquote' ) );
+	}
+
+	// ── 1.13.0: settings TackQuote decides ──────────────────────────────────────
+
+	/**
+	 * Display names of the TackQuote-owned switches.
+	 *
+	 * @param string $feature Tack_Store_Settings feature.
+	 * @return string
+	 */
+	private static function feature_name( $feature ) {
+		$names = array(
+			Tack_Store_Settings::ORDER_SYNC   => __( 'Order sync', 'tackquote' ),
+			Tack_Store_Settings::PRICES       => __( 'TackQuote prices', 'tackquote' ),
+			Tack_Store_Settings::ORDER_LIMITS => __( 'Order limits', 'tackquote' ),
+			Tack_Store_Settings::BUYER_GROUP  => __( 'Buyer group badge', 'tackquote' ),
+			Tack_Store_Settings::TAX_EXEMPT   => __( 'Tax-exempt buyers', 'tackquote' ),
+		);
+		return $names[ $feature ] ?? '';
+	}
+
+	/**
+	 * A switch TackQuote decides, edited here as in 1.12.0 (1.13.0). The box shows the
+	 * value in force in TackQuote; saving a change sends it to TackQuote first
+	 * (write_through()). Beside it, the store-local "Turn off … on this store" box.
+	 * Turning order sync ON also needs the personal-data statement ticked.
+	 *
+	 * @param array $args `feature`: a Tack_Store_Settings feature.
+	 */
+	public function field_server_feature( $args ) {
+		$feature  = isset( $args['feature'] ) ? (string) $args['feature'] : '';
+		$features = Tack_Store_Settings::features();
+		if ( ! isset( $features[ $feature ] ) ) {
+			return;
+		}
+		$def    = $features[ $feature ];
+		$name   = self::feature_name( $feature );
+		$server = true === Tack_Store_Settings::server_value( $feature );
+		$off    = Tack_Store_Settings::is_turned_off_here( $feature );
+		$labels = array(
+			Tack_Store_Settings::ORDER_SYNC   => __( 'Push new and updated WooCommerce orders to TackQuote (one-way).', 'tackquote' ),
+			Tack_Store_Settings::PRICES       => __( 'Replace store prices with TackQuote prices for signed-in customers.', 'tackquote' ),
+			Tack_Store_Settings::ORDER_LIMITS => __( 'Show and enforce TackQuote minimum/maximum order quantities.', 'tackquote' ),
+			Tack_Store_Settings::BUYER_GROUP  => __( 'Show the signed-in customer which pricing group they are on.', 'tackquote' ),
+			Tack_Store_Settings::TAX_EXEMPT   => __( 'Charge no tax to signed-in customers whose TackQuote buyer group is tax exempt.', 'tackquote' ),
+		);
+
+		if ( Tack_Store_Settings::ORDER_SYNC === $feature ) {
+			// One option, two inputs: the switch and the statement (`[on]`, `[ack]`).
+			printf(
+				'<input type="hidden" name="%1$s[on]" value="no" />' .
+				'<label class="tack-toggle"><input type="checkbox" class="tack-toggle__input" name="%1$s[on]" value="yes" %2$s /> <span class="tack-toggle__label">%3$s</span></label>',
+				esc_attr( $def['legacy'] ),
+				checked( $server, true, false ),
+				esc_html( $labels[ $feature ] )
+			);
+			if ( ! $server ) {
+				printf(
+					'<p><label><input type="checkbox" name="%1$s[ack]" value="yes" /> %2$s</label></p>',
+					esc_attr( $def['legacy'] ),
+					esc_html__( 'I understand that turning this on sends my customers\' personal data, as listed below, to TackQuote.', 'tackquote' )
+				);
+			}
+		} else {
+			$this->toggle( $def['legacy'], $labels[ $feature ], $server );
+		}
+
+		echo '<p class="tack-server-value">';
+		if ( ! $server ) {
+			$this->pill( 'off', __( 'Off in TackQuote', 'tackquote' ) );
+		} elseif ( $off ) {
+			$this->pill( 'warn', __( 'On in TackQuote, turned off on this store', 'tackquote' ) );
+		} else {
+			$this->pill( 'ok', __( 'On in TackQuote', 'tackquote' ) );
+		}
+		echo '</p>';
+		$this->help( __( 'Saved in TackQuote, so it matches TackQuote\'s WooCommerce page.', 'tackquote' ) );
+
+		$this->toggle(
+			$def['off'],
+			/* translators: %s: a feature, e.g. "Order limits". */
+			sprintf( __( 'Turn off %s on this store', 'tackquote' ), $name ),
+			$off
+		);
+		$this->help( __( 'Only this store: for example while you sort out a theme conflict. TackQuote is not changed.', 'tackquote' ) );
+	}
+
+	/**
+	 * A sanitize callback that saves a TackQuote-owned switch in TackQuote first.
+	 *
+	 * @param string $tab     Tab whose form carries it.
+	 * @param string $feature Tack_Store_Settings feature.
+	 * @return callable
+	 */
+	private function write_through_callback( $tab, $feature ) {
+		return function ( $value ) use ( $tab, $feature ) {
+			return $this->write_through( $tab, $feature, $value );
+		};
+	}
+
+	/**
+	 * Is this request the options.php save of a tab's own form, by someone allowed to save
+	 * it? Only then is TackQuote written to: `register_setting()` sanitizers also run on
+	 * every `update_option()`/`add_option()` (activation, other code), which must never
+	 * change TackQuote.
+	 *
+	 * @param string $tab Tab slug.
+	 * @return bool
+	 */
+	private static function is_tab_save( $tab ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- options.php verified this group's nonce (check_admin_referer( $option_page . '-options' )) before sanitizing; this only reads which group is being saved.
+		$page = isset( $_POST['option_page'] ) ? sanitize_key( wp_unslash( $_POST['option_page'] ) ) : '';
+		return self::option_group( $tab ) === $page && current_user_can( self::tab_capability( $tab ) );
+	}
+
+	/**
+	 * Save a TackQuote-owned switch: in TackQuote first, then (only when TackQuote took it)
+	 * locally. On a refusal the previous value stays and the reason is shown.
+	 *
+	 * @param string $tab     Tab slug.
+	 * @param string $feature Tack_Store_Settings feature.
+	 * @param mixed  $value   Submitted value ('yes'/'no', or `[on, ack]` for order sync).
+	 * @return string 'yes' or 'no'.
+	 */
+	public function write_through( $tab, $feature, $value ) {
+		$ack   = is_array( $value ) && isset( $value['ack'] ) && 'yes' === $value['ack'];
+		$value = is_array( $value ) ? ( $value['on'] ?? 'no' ) : $value;
+		$new   = $this->sanitize_checkbox( $value );
+		$def   = Tack_Store_Settings::features()[ $feature ];
+		if ( ! Tack_Store_Settings::is_server_driven() || ! self::is_tab_save( $tab ) ) {
+			// Not this form's own save: a local write only, as in 1.12.0.
+			return $new;
+		}
+		$current = true === Tack_Store_Settings::server_value( $feature ) ? 'yes' : 'no';
+		if ( $new === $current ) {
+			return $new;
+		}
+		if ( Tack_Store_Settings::ORDER_SYNC === $feature ) {
+			if ( 'yes' === $new && ! $ack ) {
+				add_settings_error( $def['legacy'], 'tack_order_sync_ack', __( 'Order sync was not turned on: tick the statement about personal data first.', 'tackquote' ) );
+				return $current;
+			}
+			$change = array( 'orderSync' => array_merge( array( 'push' => 'yes' === $new ), 'yes' === $new ? array( 'acknowledgePersonalData' => true ) : array() ) );
+		} else {
+			$change = array( 'features' => array( $def['field'] => 'yes' === $new ) );
+		}
+		$result = Tack_Store_Settings::write( $change );
+		if ( is_wp_error( $result ) ) {
+			add_settings_error(
+				$def['legacy'],
+				'tack_store_settings_write',
+				/* translators: 1: a feature, e.g. "Order limits"; 2: TackQuote's reason. */
+				sprintf( __( '%1$s was not changed: TackQuote did not save it (%2$s).', 'tackquote' ), self::feature_name( $feature ), $result->get_error_message() )
+			);
+			return $current;
+		}
+		return $new;
+	}
+
+	/**
+	 * Sanitize the picked buyer groups (1.13.0): only codes TackQuote lists.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string[]
+	 */
+	public function sanitize_server_group_codes( $value ) {
+		$listed = array();
+		foreach ( (array) Tack_Store_Settings::buyer_groups() as $group ) {
+			$listed[] = $group['code'];
+		}
+		$picked = array();
+		foreach ( (array) $value as $code ) {
+			$code = self::clean_stored_group_code( $code );
+			if ( in_array( $code, $listed, true ) && ! in_array( $code, $picked, true ) ) {
+				$picked[] = $code;
+			}
+		}
+		sort( $picked );
+		return $picked;
+	}
+
+	/**
+	 * The buyer groups for this store's rules, picked from TackQuote's list (1.13.0).
+	 */
+	public function field_server_groups() {
+		$groups = (array) Tack_Store_Settings::buyer_groups();
+		$picked = (array) get_option( self::OPTION_GROUP_CODES, array() );
+		if ( empty( $groups ) ) {
+			echo '<p>' . esc_html__( 'No buyer groups in TackQuote yet.', 'tackquote' ) . '</p>';
+			// An empty list still posts the option, so a save stores "none picked".
+			printf( '<input type="hidden" name="%s[]" value="" />', esc_attr( self::OPTION_GROUP_CODES ) );
+		} else {
+			printf( '<input type="hidden" name="%s[]" value="" />', esc_attr( self::OPTION_GROUP_CODES ) );
+			echo '<fieldset class="tack-checklist"><legend class="screen-reader-text">' . esc_html__( 'Your buyer groups', 'tackquote' ) . '</legend>';
+			foreach ( $groups as $group ) {
+				printf(
+					'<label><input type="checkbox" name="%1$s[]" value="%2$s" %3$s /> <strong>%4$s</strong> <code>%5$s</code></label>',
+					esc_attr( self::OPTION_GROUP_CODES ),
+					esc_attr( $group['code'] ),
+					checked( in_array( $group['code'], $picked, true ), true, false ),
+					esc_html( $group['name'] ),
+					esc_html( $group['code'] )
+				);
+			}
+			echo '</fieldset>';
+		}
+		$this->help( __( 'Pick the groups the grids on this tab use (none picked: all of them). The list comes from TackQuote, so no code is typed by hand.', 'tackquote' ) );
+		echo '<p>';
+		Tack_Store_Settings::render_change_link( __( 'buyer groups', 'tackquote' ) );
+		echo '</p>';
+	}
+
+	/**
+	 * Sanitize the picked wholesale form (1.13.0): one of TackQuote's forms, or '' for
+	 * TackQuote's default; saved in TackQuote first, kept locally only when it took it.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string
+	 */
+	public function sanitize_server_form_slug( $value ) {
+		$stored = (string) get_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, Tack_Storefront_Forms::DEFAULT_SLUG );
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return $stored;
+		}
+		$slug   = is_string( $value ) ? trim( $value ) : '';
+		$listed = array();
+		foreach ( (array) Tack_Store_Settings::wholesale_forms() as $form ) {
+			$listed[] = $form['slug'];
+		}
+		if ( '' !== $slug && ! in_array( $slug, $listed, true ) ) {
+			add_settings_error( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'tack_form_unknown', __( 'That wholesale form is not in TackQuote, so the form was not changed.', 'tackquote' ) );
+			return $stored;
+		}
+		if ( ! self::is_tab_save( 'forms' ) ) {
+			return '' === $slug ? $stored : $slug;
+		}
+		if ( Tack_Store_Settings::chosen_wholesale_form_slug() !== $slug ) {
+			$result = Tack_Store_Settings::write( array( 'defaultWholesaleFormSlug' => '' !== $slug ? $slug : null ) );
+			if ( is_wp_error( $result ) ) {
+				add_settings_error(
+					Tack_Storefront_Forms::OPTION_FORM_SLUG,
+					'tack_store_settings_write',
+					/* translators: %s: TackQuote's reason. */
+					sprintf( __( 'The wholesale form was not changed: TackQuote did not save it (%s).', 'tackquote' ), $result->get_error_message() )
+				);
+				return $stored;
+			}
+		}
+		return '' === $slug ? $stored : $slug;
+	}
+
+	/**
+	 * The wholesale form, picked from TackQuote's list and saved there (1.13.0).
+	 */
+	public function field_server_wholesale_form() {
+		$forms  = (array) Tack_Store_Settings::wholesale_forms();
+		$chosen = Tack_Store_Settings::chosen_wholesale_form_slug();
+		printf( '<select id="%1$s" name="%1$s">', esc_attr( Tack_Storefront_Forms::OPTION_FORM_SLUG ) );
+		printf( '<option value="">%s</option>', esc_html__( 'TackQuote\'s default form', 'tackquote' ) );
+		foreach ( $forms as $form ) {
+			printf(
+				'<option value="%1$s" %2$s>%3$s (%4$s)</option>',
+				esc_attr( $form['slug'] ),
+				selected( $chosen, $form['slug'], false ),
+				esc_html( $form['name'] ),
+				esc_html( $form['slug'] )
+			);
+		}
+		echo '</select>';
+		if ( '' === Tack_Store_Settings::server_wholesale_form_slug() ) {
+			// Neither a form chosen for this store nor a default form in TackQuote:
+			// Tack_Storefront_Forms::default_slug() then uses the slug saved in the plugin.
+			echo '<p class="description">' . esc_html(
+				sprintf(
+					/* translators: %s: a wholesale form slug. */
+					__( 'TackQuote names no wholesale form for this store yet, so the slug saved in this plugin earlier ("%s") is used until you pick one.', 'tackquote' ),
+					Tack_Storefront_Forms::default_slug()
+				)
+			) . '</p>';
+		}
+		$this->help( __( 'Saved in TackQuote. Used by the "Wholesale account" tab and by the shortcode when it names no form.', 'tackquote' ) );
 	}
 
 	/**
@@ -1835,7 +2264,7 @@ class Tack_Settings {
 		echo '<p>' . esc_html__( 'Let customers apply for a wholesale account or for net payment terms from your store.', 'tackquote' ) . '</p>';
 		$this->learn_more(
 			array(
-				__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is the one you design in TackQuote under Wholesale → Signup forms; the net-terms application goes to your TackQuote review queue.', 'tackquote' ),
+				__( 'Let customers apply for a wholesale (trade) account or for net payment terms from your store. The wholesale form is one you design in TackQuote; the net-terms application goes to your TackQuote review queue.', 'tackquote' ),
 				__( 'The shortcode [tackquote_wholesale_application] renders the wholesale form on any page; add slug="…" to render a different form. Both tabs below appear on My Account only when ticked. The API key needs the buyers:write scope for applications to be accepted.', 'tackquote' ),
 			)
 		);
@@ -1852,7 +2281,7 @@ class Tack_Settings {
 			esc_attr( $value ),
 			esc_attr( Tack_Storefront_Forms::DEFAULT_SLUG )
 		);
-		$this->help( __( 'The form slug from TackQuote → Wholesale → Signup forms. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) );
+		$this->help( __( 'The slug of a wholesale signup form in TackQuote. Used by the My Account tab and by the shortcode when it names no slug.', 'tackquote' ) );
 	}
 
 	/**
@@ -1915,9 +2344,8 @@ class Tack_Settings {
 	 * Render the settings screen: header, tabs, then the current tab.
 	 */
 	public function render_page() {
-		// Must match add_menu()'s capability and options.php's own requirement — see the note
-		// on add_menu() for why that is manage_options.
-		if ( ! current_user_can( 'manage_options' ) ) {
+		// Must match add_menu()'s capability; each tab's form then needs tab_capability().
+		if ( ! current_user_can( self::CAPABILITY ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'tackquote' ) );
 		}
 		$tab = self::current_tab();
@@ -1960,16 +2388,10 @@ class Tack_Settings {
 
 			if ( self::DEFAULT_TAB === $tab ) {
 				$this->render_overview();
+			} elseif ( 'connection' === $tab ) {
+				$this->render_connection_tab();
 			} else {
-				if ( 'connection' === $tab ) {
-					Tack_Connect::render_card();
-					// 1.12.0: catalogue and order sync (WooCommerce REST keys), when the server offers it.
-					( new Tack_Rest_Keys() )->render_card();
-				}
 				$this->render_tab_form( $tab );
-			}
-			if ( 'connection' === $tab ) {
-				$this->render_connection_tools();
 			}
 			?>
 		</div>
@@ -1982,15 +2404,33 @@ class Tack_Settings {
 	 * @param string $current Current tab.
 	 */
 	private function render_tabs( $current ) {
-		echo '<nav class="nav-tab-wrapper tack-tabs" aria-label="' . esc_attr__( 'TackQuote settings', 'tackquote' ) . '">';
+		self::render_nav( $current );
+	}
+
+	/**
+	 * The one tab bar of WooCommerce → TackQuote (1.13.0): the TackQuote dashboard first,
+	 * then the settings tabs. Also printed by the dashboard page, so the seller moves
+	 * between the two without a second menu entry.
+	 *
+	 * @param string $current 'dashboard', or a settings tab slug.
+	 */
+	public static function render_nav( $current ) {
+		$items = array();
+		if ( class_exists( 'Tack_Embed_Admin', false ) ) {
+			$items['dashboard'] = array( Tack_Embed_Admin::page_url(), __( 'Dashboard', 'tackquote' ) );
+		}
 		foreach ( self::tabs() as $slug => $label ) {
+			$items[ $slug ] = array( self::tab_url( $slug ), $label );
+		}
+		echo '<nav class="nav-tab-wrapper tack-tabs" aria-label="' . esc_attr__( 'TackQuote', 'tackquote' ) . '">';
+		foreach ( $items as $slug => $item ) {
 			$active = $slug === $current;
 			printf(
 				'<a href="%1$s" class="nav-tab%2$s"%3$s>%4$s</a>',
-				esc_url( self::tab_url( $slug ) ),
+				esc_url( $item[0] ),
 				$active ? ' nav-tab-active' : '',
 				$active ? ' aria-current="page"' : '',
-				esc_html( $label )
+				esc_html( $item[1] )
 			);
 		}
 		echo '</nav>';
@@ -2002,12 +2442,49 @@ class Tack_Settings {
 	 * @param string $tab Tab slug.
 	 */
 	private function render_tab_form( $tab ) {
+		// A shop manager sees a tab only an administrator may change (tab_capability()),
+		// read-only: options.php would refuse the save anyway.
+		$can = current_user_can( self::tab_capability( $tab ) );
+		if ( ! $can ) {
+			echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Only an administrator can change these settings.', 'tackquote' ) . '</p></div>';
+		}
 		echo '<form method="post" action="options.php" class="tack-form" novalidate>';
+		echo $can ? '<fieldset>' : '<fieldset disabled>';
 		settings_fields( self::option_group( $tab ) );
 		do_settings_sections( self::tab_page( $tab ) );
-		echo '<div class="tack-savebar">';
-		submit_button( __( 'Save changes', 'tackquote' ), 'primary', 'submit', false );
-		echo '</div></form>';
+		echo '</fieldset>';
+		if ( $can ) {
+			echo '<div class="tack-savebar">';
+			submit_button( __( 'Save changes', 'tackquote' ), 'primary', 'submit', false );
+			echo '</div>';
+		}
+		echo '</form>';
+	}
+
+	/**
+	 * The Connection tab (1.13.0 layout): Connect with TackQuote first, and the WooCommerce
+	 * approval for catalogue and order sync in the same place (Connect continues straight
+	 * into it); the pasted key and API URL folded under "Advanced"; then test and remove.
+	 */
+	private function render_connection_tab() {
+		Tack_Connect::render_card();
+		// 1.12.0: catalogue and order sync (WooCommerce REST keys), when the server offers it.
+		( new Tack_Rest_Keys() )->render_card();
+
+		if ( ! current_user_can( self::tab_capability( 'connection' ) ) ) {
+			echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Only an administrator can connect this store or change its API key.', 'tackquote' ) . '</p></div>';
+			return;
+		}
+
+		// Open when the store already runs on a pasted key or a changed API URL, so what
+		// is in use is never hidden.
+		$url  = (string) get_option( 'tack_quotes_api_url', self::DEFAULT_API_URL );
+		$open = ( '' !== (string) get_option( 'tack_quotes_api_key', '' ) && Tack_Connect::VIA_CONNECT !== get_option( Tack_Connect::OPTION_VIA, '' ) )
+			|| ( '' !== $url && self::DEFAULT_API_URL !== $url );
+		echo '<details class="tack-advanced tack-card tack-advanced-connection"' . ( $open ? ' open' : '' ) . '><summary>' . esc_html__( 'Advanced: paste an API key instead', 'tackquote' ) . '</summary>';
+		$this->render_tab_form( 'connection' );
+		echo '</details>';
+		$this->render_connection_tools();
 	}
 
 	/**
@@ -2377,7 +2854,7 @@ class Tack_Settings {
 		}
 		if ( 'none' === $status['state'] ) {
 			echo '<p class="description">' . esc_html__( 'Press Connect with TackQuote on the Connection tab, or add an API key, to send quotes and orders to TackQuote.', 'tackquote' ) . '</p>';
-		} else {
+		} elseif ( current_user_can( self::tab_capability( 'connection' ) ) ) {
 			$this->test_connection_form( 'overview' );
 			echo '<p class="description">' . esc_html__( 'The test checks the key is valid, not its scopes: quotes need quotes:write, order sync needs orders:write.', 'tackquote' ) . '</p>';
 		}
@@ -2410,7 +2887,8 @@ class Tack_Settings {
 	 * the queue, so no "failed" count is shown: it would always read zero.
 	 */
 	private function card_sync() {
-		$on    = 'yes' === get_option( 'tack_quotes_enable_order_sync', 'no' );
+		// 1.13.0: what is in force (TackQuote's switch when it decides), not just the local box.
+		$on    = Tack_Order_Sync::is_enabled();
 		$block = null;
 		if ( $on && class_exists( 'Tack_Sync_Gate' ) ) {
 			$block = Tack_Sync_Gate::active_block( (string) get_option( 'tack_quotes_api_key', '' ), time() );
@@ -2431,6 +2909,9 @@ class Tack_Settings {
 			echo '<p class="description">' . esc_html__( 'TackQuote asked the store to slow down. Sending resumes on its own.', 'tackquote' ) . '</p>';
 		} elseif ( ! $on ) {
 			echo '<p class="description">' . esc_html__( 'Orders stay in WooCommerce only.', 'tackquote' ) . '</p>';
+		}
+		if ( Tack_Store_Settings::is_server_driven() ) {
+			echo '<p class="description">' . esc_html__( 'Saved in TackQuote and here.', 'tackquote' ) . '</p>';
 		}
 
 		if ( $on && function_exists( 'as_get_scheduled_actions' ) && class_exists( 'Tack_Order_Sync' ) ) {
@@ -2462,11 +2943,12 @@ class Tack_Settings {
 	 * B2B features card: every switch on the pricing, groups and forms tabs.
 	 */
 	private function card_b2b() {
+		// 1.13.0: the four TackQuote decides are shown as in force (Tack_Store_Settings::enabled()).
 		$features = array(
-			array( Tack_Wholesale_Pricing::OPTION_ENABLED, __( 'TackQuote prices', 'tackquote' ) ),
-			array( Tack_B2B_Notices::OPTION_ORDER_LIMITS, __( 'Order limits', 'tackquote' ) ),
-			array( Tack_B2B_Notices::OPTION_BUYER_GROUP, __( 'Buyer group badge', 'tackquote' ) ),
-			array( Tack_Tax_Exempt::OPTION_ENABLED, __( 'Tax-exempt buyers', 'tackquote' ) ),
+			array( Tack_Store_Settings::PRICES, __( 'TackQuote prices', 'tackquote' ) ),
+			array( Tack_Store_Settings::ORDER_LIMITS, __( 'Order limits', 'tackquote' ) ),
+			array( Tack_Store_Settings::BUYER_GROUP, __( 'Buyer group badge', 'tackquote' ) ),
+			array( Tack_Store_Settings::TAX_EXEMPT, __( 'Tax-exempt buyers', 'tackquote' ) ),
 			array( Tack_Group_Restrictions::OPTION_ENABLED, __( 'Payment and shipping by group', 'tackquote' ) ),
 			array( Tack_Catalog_Visibility::OPTION_ENABLED, __( 'Hidden categories by group', 'tackquote' ) ),
 			array( Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED, __( 'Shipping discounts by group', 'tackquote' ) ),
@@ -2475,8 +2957,12 @@ class Tack_Settings {
 			array( Tack_Storefront_Forms::OPTION_NET_TERMS_TAB, __( 'Net terms tab', 'tackquote' ) ),
 		);
 		$on       = 0;
-		foreach ( $features as $feature ) {
-			if ( 'yes' === get_option( $feature[0], 'no' ) ) {
+		$state    = array();
+		foreach ( $features as $i => $feature ) {
+			$state[ $i ] = isset( Tack_Store_Settings::features()[ $feature[0] ] )
+				? Tack_Store_Settings::enabled( $feature[0] )
+				: 'yes' === get_option( $feature[0], 'no' );
+			if ( $state[ $i ] ) {
 				++$on;
 			}
 		}
@@ -2492,8 +2978,8 @@ class Tack_Settings {
 			)
 		);
 		echo '<ul class="tack-features">';
-		foreach ( $features as $feature ) {
-			$enabled = 'yes' === get_option( $feature[0], 'no' );
+		foreach ( $features as $i => $feature ) {
+			$enabled = $state[ $i ];
 			printf(
 				'<li class="tack-feature%1$s"><span class="tack-feature__name">%2$s</span> <span class="tack-feature__state">%3$s</span></li>',
 				$enabled ? ' is-on' : '',

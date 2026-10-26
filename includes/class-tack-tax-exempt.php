@@ -71,7 +71,8 @@ class Tack_Tax_Exempt {
 	 * @return bool
 	 */
 	public static function is_enabled() {
-		return 'yes' === get_option( self::OPTION_ENABLED, 'no' );
+		// 1.13.0: TackQuote's switch when it decides; see Tack_Store_Settings::enabled().
+		return Tack_Store_Settings::enabled( Tack_Store_Settings::TAX_EXEMPT );
 	}
 
 	/**

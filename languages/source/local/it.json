@@ -162,5 +162,6 @@
   "woo.widget.no_products": "Nessun prodotto da inserire nel preventivo.",
   "woo.widget.rate_limited": "Troppe richieste di preventivo da questa connessione. Attenda qualche minuto e riprovi.",
   "woo.widget.stale_page": "Questa pagina è aperta da troppo tempo o è stata servita da una cache. La ricarichi e riprovi.",
-  "woo.widget.target_prices": "Prezzi obiettivo:"
+  "woo.widget.target_prices": "Prezzi obiettivo:",
+  "woo.quote.question_required": "Rispondi a: {question}"
 }

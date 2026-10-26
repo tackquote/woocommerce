@@ -162,5 +162,6 @@
   "woo.widget.no_products": "Keine Produkte für ein Angebot.",
   "woo.widget.rate_limited": "Zu viele Angebotsanfragen über diese Verbindung. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
   "woo.widget.stale_page": "Diese Seite war zu lange geöffnet oder stammt aus einem Cache. Laden Sie sie neu und versuchen Sie es erneut.",
-  "woo.widget.target_prices": "Wunschpreise:"
+  "woo.widget.target_prices": "Wunschpreise:",
+  "woo.quote.question_required": "Bitte beantworten Sie: {question}"
 }

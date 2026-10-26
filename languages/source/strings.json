@@ -47,7 +47,8 @@
       "A shopper's quote request could not be sent to TackQuote.": "admin notice about a failed shopper quote request, shown to store administrators only",
       "TackQuote refused this store's API key.": "admin notice about a failed shopper quote request, shown to store administrators only",
       "TackQuote answered HTTP %1$d: %2$s": "admin notice about a failed shopper quote request, shown to store administrators only",
-      "Check the connection": "admin notice about a failed shopper quote request, shown to store administrators only"
+      "Check the connection": "admin notice about a failed shopper quote request, shown to store administrators only",
+      "Only administrators see this: no TackQuote wholesale form has the slug \"%s\". Choose a wholesale form for this store in TackQuote.": "hint rendered only for users who can manage the store"
     }
   },
   "strings": [
@@ -1093,6 +1094,13 @@
     {
       "msgid": "We could not send your quote request right now. Please try again in a few minutes.",
       "key": "woo.quote.request_failed"
+    },
+    {
+      "msgid": "Please answer: %s",
+      "key": "woo.quote.question_required",
+      "placeholders": {
+        "question": "%s"
+      }
     }
   ]
 }

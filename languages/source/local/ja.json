@@ -162,5 +162,6 @@
   "woo.widget.no_products": "見積りの対象となる商品がありません。",
   "woo.widget.rate_limited": "この接続からの見積り依頼が多すぎます。数分待ってからもう一度お試しください。",
   "woo.widget.stale_page": "このページは長時間開かれていたか、キャッシュから表示されています。再読み込みしてから、もう一度お試しください。",
-  "woo.widget.target_prices": "希望価格："
+  "woo.widget.target_prices": "希望価格：",
+  "woo.quote.question_required": "次の質問に回答してください: {question}"
 }

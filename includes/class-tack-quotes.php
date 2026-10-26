@@ -35,6 +35,7 @@ require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-checkout.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quote-form.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-quick-order.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-standing.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-store-settings.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-rest-keys.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-lifecycle.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-update-notice.php';
@@ -88,6 +89,9 @@ final class Tack_Quotes {
 		// from the GitHub release. The updater file is absent from the WordPress.org build.
 		( new Tack_Rest_Keys() )->init();
 		Tack_Standing::init();
+		// 1.13.0: the settings TackQuote owns (order sync, features, groups, wholesale form),
+		// read on the same background refresh, never on a shopper's request.
+		Tack_Store_Settings::init();
 		// Why shoppers' quote requests fail, for administrators (the shopper sees a calm sentence).
 		add_action( 'admin_notices', array( 'Tack_Widget', 'failure_notice' ) );
 		$updater = TACK_QUOTES_DIR . 'includes/class-tack-release-updates.php';

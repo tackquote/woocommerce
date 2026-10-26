@@ -68,10 +68,16 @@ check(
 	"link '$linked' vs constant '" . Tack_Settings::PAGE_SLUG . "'"
 );
 
-// The page holds the API key that authenticates the whole store to TackQuote.
+// 1.13.0: one menu entry (WooCommerce → TackQuote), so the settings page has no menu
+// entry of its own and the shop-manager capability; the API key itself stays behind
+// manage_options (Tack_Settings::tab_capability(), settings-tabs-test.php).
 check(
-	'the admin page requires manage_options',
-	'manage_options' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null )
+	'the settings page requires manage_woocommerce',
+	'manage_woocommerce' === ( $registered[ Tack_Settings::PAGE_SLUG ] ?? null )
+);
+check(
+	'...registered with no menu entry of its own (parent \'\', not a top-level menu)',
+	'' === ( $GLOBALS['TACK_SUBMENU_PARENTS'][ Tack_Settings::PAGE_SLUG ] ?? null )
 );
 
 echo "\n-- quote-only (B2B catalog) mode --\n";
@@ -222,6 +228,9 @@ require __DIR__ . '/product-types-test.php';
 
 echo "\n-- live QA re-run fixes (address, embed claim, wording, sync on http) --\n";
 require __DIR__ . '/live-qa-2-test.php';
+
+echo "\n-- 1.13.0 one place: store settings from TackQuote, one menu, registration questions --\n";
+require __DIR__ . '/store-settings-test.php';
 
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

@@ -162,5 +162,6 @@
   "woo.widget.no_products": "Geen producten om een offerte voor te maken.",
   "woo.widget.rate_limited": "Te veel offerteaanvragen vanaf deze verbinding. Wacht een paar minuten en probeer het opnieuw.",
   "woo.widget.stale_page": "Deze pagina staat te lang open of kwam uit een cache. Laad de pagina opnieuw en probeer het nogmaals.",
-  "woo.widget.target_prices": "Richtprijzen:"
+  "woo.widget.target_prices": "Richtprijzen:",
+  "woo.quote.question_required": "Beantwoord: {question}"
 }
