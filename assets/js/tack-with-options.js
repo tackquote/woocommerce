@@ -347,11 +347,16 @@
 		};
 	}
 
+	// Why a dropped row goes from the list: it cannot come back. A `hidden` row (a draft,
+	// a password-protected product, one hidden from the buyer's group for now) stays.
+	const DROP_REASONS = [ 'gone', 'grouped', 'no_variation' ];
+
 	/**
-	 * The quote list without the rows the server will quote no line for (1.12.0
-	 * follow-up): the re-price answer's `dropped` (`[{ product_id, variation_id, grouped }]`).
-	 * A row is matched by product and variation; its "Any …" choices do not matter, as
-	 * they cannot make a row quotable.
+	 * The quote list without the rows the server will quote no line for and that cannot
+	 * come back (1.12.0 follow-up): the re-price answer's `dropped`
+	 * (`[{ product_id, variation_id, reason }]`, reason `gone` | `grouped` |
+	 * `no_variation` | `hidden`). Only the first three are removed; an unknown reason is
+	 * kept. A row is matched by product and variation; its "Any …" choices do not matter.
 	 *
 	 * @param {Array} list    The quote-list rows.
 	 * @param {Array} dropped The server's `dropped`.
@@ -369,6 +374,7 @@
 			for ( let i = 0; i < gone.length; i++ ) {
 				if (
 					gone[ i ] &&
+					DROP_REASONS.indexOf( gone[ i ].reason ) !== -1 &&
 					positiveInt( gone[ i ].product_id ) ===
 						positiveInt( row && row.productId ) &&
 					positiveInt( gone[ i ].variation_id ) ===
@@ -383,7 +389,7 @@
 				return;
 			}
 			removed.push( row );
-			if ( match.grouped !== true ) {
+			if ( match.reason !== 'grouped' ) {
 				allGrouped = false;
 			}
 		} );

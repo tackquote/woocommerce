@@ -2490,13 +2490,21 @@ class Tack_Widget {
 	/**
 	 * One decoded quote-list row as the quote request would see it: the product quoted,
 	 * or, when the request would quote no line for it, the row as the re-price answer's
-	 * `dropped` names it (`grouped` true for a grouped product, which is quoted as its
-	 * children, never itself).
+	 * `dropped` names it, with the reason:
+	 *
+	 * - `gone`: the product (or the chosen variation, or a variation's parent) no longer
+	 *   exists;
+	 * - `grouped`: a grouped product, which is quoted as its children, never itself (a
+	 *   row saved before 1.12.0);
+	 * - `no_variation`: a variable product with no variation chosen;
+	 * - `hidden`: it exists but this visitor may not quote it right now (a draft,
+	 *   pending, private or password-protected product, or one hidden from the buyer's
+	 *   group). It may come back, so the list keeps it; the request still leaves it out.
 	 *
 	 * @since 1.12.0
 	 *
 	 * @param array $row A row from decode_rows().
-	 * @return array{0:WC_Product|null,1:array{product_id:int,variation_id:int,grouped:bool}|null}
+	 * @return array{0:WC_Product|null,1:array{product_id:int,variation_id:int,reason:string}|null}
 	 */
 	private function resolve_row( array $row ) {
 		$product = wc_get_product( $row['product_id'] );
@@ -2509,9 +2517,38 @@ class Tack_Widget {
 			array(
 				'product_id'   => (int) $row['product_id'],
 				'variation_id' => (int) $row['variation_id'],
-				'grouped'      => $product instanceof WC_Product && $product->is_type( 'grouped' ),
+				'reason'       => self::dropped_reason( $product, (int) $row['variation_id'] ),
 			),
 		);
+	}
+
+	/**
+	 * Why a row resolve_purchasable() refused will quote no line: see resolve_row().
+	 *
+	 * @since 1.12.0
+	 *
+	 * @param WC_Product|false|null $product      The row's product, as wc_get_product() found it.
+	 * @param int                   $variation_id The row's variation id, or 0.
+	 * @return string `gone`, `grouped`, `no_variation` or `hidden`.
+	 */
+	private static function dropped_reason( $product, $variation_id ) {
+		if ( ! $product instanceof WC_Product ) {
+			return 'gone';
+		}
+		if ( $product->is_type( 'grouped' ) ) {
+			return 'grouped';
+		}
+		if ( $product->is_type( 'variable' ) ) {
+			if ( ! $variation_id ) {
+				return 'no_variation';
+			}
+			$variation = wc_get_product( $variation_id );
+			return $variation instanceof WC_Product_Variation && (int) $variation->get_parent_id() === (int) $product->get_id() ? 'hidden' : 'gone';
+		}
+		if ( $product instanceof WC_Product_Variation && ! wc_get_product( $product->get_parent_id() ) instanceof WC_Product ) {
+			return 'gone';
+		}
+		return 'hidden';
 	}
 
 	/**
@@ -2606,11 +2643,10 @@ class Tack_Widget {
 		$resolved   = array();
 
 		/*
-		 * Rows the quote request would quote no line for (1.12.0 follow-up): a product
-		 * that is gone or that this visitor may not quote, a variable product with no
-		 * variation, or a grouped product saved in the list before grouped products were
-		 * quoted as their children. The list drops them, so the shopper does not send a
-		 * request for something that is silently left out; `grouped` lets it say why.
+		 * Rows the quote request would quote no line for (1.12.0 follow-up), each with its
+		 * reason (resolve_row()). The list drops the ones that cannot come back (`gone`,
+		 * `grouped`, `no_variation`) and keeps a `hidden` one, which may be quotable again
+		 * (a product being edited, or hidden from the buyer's group for now).
 		 */
 		$dropped = array();
 		foreach ( $this->decode_rows( $items_json ) as $row ) {

@@ -483,14 +483,36 @@ $fu_resolve = function ( $row ) use ( $fu_widget ) {
 	return tack_parity_call( $fu_widget, 'resolve_row', array( $row + array( 'variation_id' => 0, 'quantity' => 1, 'target_price' => null, 'attributes' => array() ) ) );
 };
 list( $fu_p, $fu_gone ) = $fu_resolve( array( 'product_id' => 252 ) );
-check( 'dead row: a grouped parent left in the list is dropped, marked grouped', null === $fu_p && array( 'product_id' => 252, 'variation_id' => 0, 'grouped' => true ) === $fu_gone, var_export( $fu_gone, true ) );
+check( 'dead row: a grouped parent left in the list is dropped, reason grouped', null === $fu_p && array( 'product_id' => 252, 'variation_id' => 0, 'reason' => 'grouped' ) === $fu_gone, var_export( $fu_gone, true ) );
 list( $fu_p, $fu_gone ) = $fu_resolve( array( 'product_id' => 999999 ) );
-check( 'dead row: a deleted product is dropped, not grouped', null === $fu_p && false === $fu_gone['grouped'] );
+check( 'dead row: a deleted product is dropped, reason gone', null === $fu_p && 'gone' === $fu_gone['reason'] );
+// resolve_purchasable() refuses a WC_Product_Variable without a variation; the shared
+// doubles are not one, so this parent is (WooCommerce's class is absent in these tests).
+if ( ! class_exists( 'WC_Product_Variable' ) ) {
+	/** WooCommerce's variable product class, as far as instanceof reads it. */
+	class WC_Product_Variable extends Tack_PT_Product {}
+}
+$fu_variable                        = new WC_Product_Variable( 240, 'variable', 'Polo', 'POLO', 20.0 );
+$GLOBALS['TACK_TEST_PRODUCTS'][240] = $fu_variable;
+list( $fu_p, $fu_gone ) = $fu_resolve( array( 'product_id' => 240 ) );
+check( 'dead row: a variable product with no variation, reason no_variation', null === $fu_p && 'no_variation' === $fu_gone['reason'], var_export( $fu_gone, true ) );
+list( $fu_p, $fu_gone ) = $fu_resolve( array( 'product_id' => 240, 'variation_id' => 888888 ) );
+check( 'dead row: a variation that no longer exists, reason gone', null === $fu_p && 'gone' === $fu_gone['reason'], var_export( $fu_gone, true ) );
+$GLOBALS['TACK_TEST_PRODUCTS'][240] = $pt_var_parent;
+// Hidden for now (a draft, a password, a group restriction): kept in the list, not dropped.
+$GLOBALS['TACK_FILTERS']['woocommerce_product_is_visible'][] = function ( $visible, $id = 0 ) {
+	return 236 === (int) $id ? false : $visible;
+};
+list( $fu_p, $fu_gone ) = $fu_resolve( array( 'product_id' => 236 ) );
+check( 'hidden row: a product this buyer may not quote right now is reason hidden (the list keeps it)', null === $fu_p && 'hidden' === $fu_gone['reason'], var_export( $fu_gone, true ) );
+$GLOBALS['TACK_FILTERS'] = array();
 list( $fu_p, $fu_gone ) = $fu_resolve( array( 'product_id' => 233 ) );
 check( 'live row: a child of the group is quoted', $pt_tshirt === $fu_p && null === $fu_gone );
 $fu_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-widget.php' );
 $fu_js = preg_replace( '/\s+/', '', (string) file_get_contents( TACK_QUOTES_DIR . 'assets/js/tack-quotes.js' ) );
 check( 'dead row (JS): the re-price answer drops the rows and, when all were grouped, shows the grouped message', false !== strpos( $fu_js, 'constfresh=dropped.kept;' ) && false !== strpos( $fu_js, 'if(dropped.allGrouped){listNotice=TackQuotes.i18n.chooseQuantities;}' ) );
+check( 'list note: emptying the list clears the note (no launcher left at count 0)', false !== strpos( $fu_js, "functionclearList(){listNotice='';saveList([]);}" ) );
+check( 'list note: the quote page shows the same note', false !== strpos( $fu_js, "let\$note=\$page.find('.tack-quote-list-notice');" ) && false !== strpos( $fu_js, "if(listNotice){\$note.text(listNotice);}else{\$note.remove();}" ) );
 check( 'dead row: both re-price answers carry `dropped`', 2 === substr_count( $fu_src, "'dropped' => \$dropped," ) );
 
 // Store-wide quote-only grouped form: only when this plugin is why the group cannot be bought.
@@ -506,6 +528,10 @@ $GLOBALS['TACK_CAPS']                                    = array(); // A shopper
 $GLOBALS['TACK_OPTIONS'][ Tack_Catalog_Mode::OPT_MODE ]  = Tack_Catalog_Mode::MODE_QUOTE_ONLY;
 $GLOBALS['TACK_OPTIONS'][ Tack_Catalog_Mode::OPT_SCOPE ] = Tack_Catalog_Mode::SCOPE_EVERYONE;
 $GLOBALS['product']                                      = $pt_group;
+// A real WC_Product_Grouped is never purchasable unless a filter says so
+// (`is_purchasable()` returns `apply_filters( 'woocommerce_is_purchasable', false, … )`,
+// WooCommerce 11.2.1); this double stands in for a store where one does, to prove the
+// quote form is not rendered for a group the cart could still take.
 $pt_group->purchasable                                   = true;
 ( new Tack_Catalog_Mode() )->render_quote_only_grouped_form();
 $fu_when_purchasable    = $GLOBALS['TACK_FU_GROUPED_FORMS'];

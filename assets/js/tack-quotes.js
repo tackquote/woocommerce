@@ -199,6 +199,7 @@
 	}
 
 	function clearList() {
+		listNotice = '';
 		saveList( [] );
 	}
 
@@ -476,6 +477,18 @@
 
 		$empty.prop( 'hidden', list.length > 0 );
 		$table.prop( 'hidden', list.length === 0 );
+		// The same note as the drawer's (a grouped product removed, 1.12.0 follow-up).
+		let $note = $page.find( '.tack-quote-list-notice' );
+		if ( listNotice && ! $note.length ) {
+			$note = $(
+				'<p class="tack-quote-list-notice" role="status"></p>'
+			).prependTo( $page );
+		}
+		if ( listNotice ) {
+			$note.text( listNotice );
+		} else {
+			$note.remove();
+		}
 		$( '#tack-quote-page-submit' ).prop( 'disabled', list.length === 0 );
 
 		// `shop_table_responsive` (1.10.0): on a narrow screen WooCommerce's stylesheet
