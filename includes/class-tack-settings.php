@@ -2053,7 +2053,9 @@ class Tack_Settings {
 		}
 		echo '<p><strong>' . esc_html( $name ) . '</strong> <code>' . esc_html( $slug ) . '</code></p>';
 		if ( '' === $chosen ) {
-			echo '<p class="description">' . esc_html__( 'TackQuote has no wholesale form chosen for this store, so the one saved here before is used.', 'tackquote' ) . '</p>';
+			// Neither a form chosen for this store nor a default form in TackQuote:
+			// Tack_Storefront_Forms::default_slug() then uses the slug saved in the plugin.
+			echo '<p class="description">' . esc_html__( 'TackQuote names no wholesale form for this store yet, so the slug saved in this plugin earlier is used until you choose one in TackQuote.', 'tackquote' ) . '</p>';
 		}
 		echo '<p>';
 		Tack_Store_Settings::render_change_link( __( 'wholesale form', 'tackquote' ) );

@@ -296,6 +296,9 @@ class Tack_Rest_Keys {
 		if ( ! $this->is_offered() ) {
 			return;
 		}
+		// 1.13.0: shop managers see the status; only someone who may connect the store
+		// (Tack_Connect::can_connect()) gets the button, which would refuse them anyway.
+		$can    = Tack_Connect::can_connect();
 		$status = $this->status();
 
 		echo '<section class="tack-card tack-rest-keys" aria-labelledby="tack-rest-keys-heading"><div class="tack-card__head"><h2 id="tack-rest-keys-heading">' . esc_html__( 'Catalogue and order sync', 'tackquote' ) . '</h2>';
@@ -325,12 +328,16 @@ class Tack_Rest_Keys {
 			if ( ! $https ) {
 				echo '<p class="tack-field-error">' . esc_html__( 'Catalogue and order sync needs your site to use https: WooCommerce sends the key only to an https site. Switch the site address to https (Settings → General), then come back here.', 'tackquote' ) . '</p>';
 			}
-			printf( '<form method="post" action="%s" class="tack-rest-keys__form">', esc_url( admin_url( 'admin-post.php' ) ) );
-			wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD );
-			printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::START_ACTION ) );
-			submit_button( __( 'Allow catalogue and order sync', 'tackquote' ), $https ? 'primary' : 'secondary', 'tack_rest_keys', false, $https ? null : array( 'disabled' => 'disabled' ) );
-			echo '</form>';
-			echo '<p class="description">' . esc_html__( 'Opens WooCommerce\'s own approval screen. WooCommerce creates a Read/Write REST API key and sends it to TackQuote directly; it is never shown here. Needs https.', 'tackquote' ) . '</p>';
+			if ( $can ) {
+				printf( '<form method="post" action="%s" class="tack-rest-keys__form">', esc_url( admin_url( 'admin-post.php' ) ) );
+				wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD );
+				printf( '<input type="hidden" name="action" value="%s" />', esc_attr( self::START_ACTION ) );
+				submit_button( __( 'Allow catalogue and order sync', 'tackquote' ), $https ? 'primary' : 'secondary', 'tack_rest_keys', false, $https ? null : array( 'disabled' => 'disabled' ) );
+				echo '</form>';
+				echo '<p class="description">' . esc_html__( 'Opens WooCommerce\'s own approval screen. WooCommerce creates a Read/Write REST API key and sends it to TackQuote directly; it is never shown here. Needs https.', 'tackquote' ) . '</p>';
+			} else {
+				echo '<p class="description">' . esc_html__( 'Only an administrator can allow catalogue and order sync.', 'tackquote' ) . '</p>';
+			}
 		}
 		echo '</div></section>';
 	}

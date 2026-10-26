@@ -129,15 +129,10 @@ check( 'old server: prices follow the plugin\'s own option (off)', ! Tack_Wholes
 update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'typed-form' );
 check( 'old server: the typed form slug is used', 'typed-form' === Tack_Storefront_Forms::default_slug() );
 check( 'old server: no buyer group list', null === Tack_Store_Settings::buyer_groups() );
-Tack_Store_Settings::maybe_schedule_refresh();
-check( 'old server: no refresh is scheduled for store settings', empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] ) );
 
 // ── A store_settings server ─────────────────────────────────────────────────
 tack_ss_reset();
 tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY ) );
-Tack_Store_Settings::maybe_schedule_refresh();
-check( 'new server, nothing stored: the standing refresh event is scheduled', ! empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] ) );
-$GLOBALS['TACK_CRON'] = array();
 
 update_option( 'tack_quotes_enable_order_sync', 'no' );
 update_option( 'tack_quotes_enable_wholesale_pricing', 'no' );
@@ -154,12 +149,12 @@ check( 'TackQuote wins: order limits OFF although the local option is on', ! Tac
 check( '...the badge is on, so the B2B notices attach', Tack_B2B_Notices::is_enabled() && Tack_B2B_Notices::buyer_group_enabled() );
 check( 'TackQuote wins: tax exemption OFF', ! Tack_Tax_Exempt::is_enabled() );
 check( 'the wholesale form TackQuote names is used (no typed slug)', 'distributor' === Tack_Storefront_Forms::default_slug() );
+$ss_norm = Tack_Store_Settings::normalise( tack_ss_answer( array( 'wholesaleForms' => array( array( 'slug' => 'Distributor-EU', 'name' => 'EU', 'isDefault' => false ), array( 'slug' => 'bad slug!', 'name' => 'x', 'isDefault' => false ) ), 'defaultWholesaleFormSlug' => 'Distributor-EU' ) ) );
+check( 'slugs: kept verbatim (capitals too) when they follow TackQuote\'s own pattern', 'Distributor-EU' === $ss_norm['defaultWholesaleFormSlug'] && in_array( 'Distributor-EU', array_column( $ss_norm['wholesaleForms'], 'slug' ), true ) );
+check( 'slugs: one outside the pattern is dropped, not rewritten', ! in_array( 'bad slug!', array_column( $ss_norm['wholesaleForms'], 'slug' ), true ) && ! in_array( 'badslug', array_column( $ss_norm['wholesaleForms'], 'slug' ), true ) );
+check( 'slugs: a posted or shortcode slug in that pattern is not lowered', 'Distributor-EU' === Tack_Storefront_Forms::clean_slug( 'Distributor-EU' ) && 'abc' === Tack_Storefront_Forms::clean_slug( 'a b!c' ) );
 $ss_groups = Tack_Store_Settings::buyer_groups();
 check( 'buyer groups: codes upper-cased, names stripped of markup, sorted', array( array( 'code' => 'GOLD', 'name' => 'Gold trade' ), array( 'code' => 'TIER2', 'name' => 'Tier 2' ) ) === $ss_groups, wp_json_encode( $ss_groups ) );
-check( 'a fresh answer schedules nothing', ( function () {
-	Tack_Store_Settings::maybe_schedule_refresh();
-	return empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] );
-} )() );
 
 // The local box can only switch OFF.
 update_option( 'tack_quotes_off_prices', 'yes' );
@@ -191,16 +186,33 @@ check( 'another key: the stored answer is not used', ! Tack_Store_Settings::is_s
 update_option( 'tack_quotes_api_key', $ss_key );
 tack_ss_caps( array( 'standing', Tack_Store_Settings::CAPABILITY ) );
 
-// Stale answer: scheduled again.
+// Cadence (Fable 2): the read rides ONLY the standing event, so background traffic stays
+// one ping + one read per ten minutes and the ping never runs more often than before.
+check( 'cadence: the freshness window is the standing refresh\'s own (600 s)', Tack_Store_Settings::TTL === Tack_Standing::TTL && 600 === Tack_Store_Settings::TTL );
+$GLOBALS['TACK_HOOKS'] = array();
+$ss_admin_was          = $GLOBALS['TACK_IS_ADMIN'];
+$GLOBALS['TACK_IS_ADMIN'] = false;
+Tack_Store_Settings::init();
+$GLOBALS['TACK_IS_ADMIN'] = $ss_admin_was;
+check( 'cadence: init hooks only the standing event, after its ping (priority 20), and schedules nothing of its own', array( array( 'hook' => Tack_Standing::REFRESH_HOOK, 'priority' => 20, 'args' => 1 ) ) === $GLOBALS['TACK_HOOKS'] && ! method_exists( 'Tack_Store_Settings', 'maybe_schedule_refresh' ) );
 $ss_stored            = get_option( Tack_Store_Settings::OPTION );
 $ss_stored['fetched'] = time() - Tack_Store_Settings::TTL - 1;
 update_option( Tack_Store_Settings::OPTION, $ss_stored );
 $GLOBALS['TACK_CRON'] = array();
-Tack_Store_Settings::maybe_schedule_refresh();
-check( 'an answer older than five minutes schedules the refresh', ! empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] ) );
-$GLOBALS['TACK_HOOKS'] = array();
-Tack_Store_Settings::init();
-check( 'the refresh rides on the standing event, after its ping (priority 20)', in_array( array( 'hook' => Tack_Standing::REFRESH_HOOK, 'priority' => 20, 'args' => 1 ), $GLOBALS['TACK_HOOKS'], true ) && false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-store-settings.php' ), "array( __CLASS__, 'on_refresh_event' ), 20 )" ) );
+check( 'cadence: a stale answer schedules no extra standing run (no extra ping)', ( function () {
+	update_option( Tack_Standing::OPTION, array( 'state' => 'active', 'key' => Tack_Standing::fingerprint( (string) get_option( 'tack_quotes_api_key' ) ), 'supported' => true, 'checked' => time() ) );
+	Tack_Standing::maybe_schedule_refresh();
+	return empty( $GLOBALS['TACK_CRON'][ Tack_Standing::REFRESH_HOOK ] );
+} )() );
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping' => array( 200, array( 'ok' => true, 'capabilities' => array( 'standing', Tack_Store_Settings::CAPABILITY ) ) ),
+		'/store-settings'                => array( 200, tack_ss_answer() ),
+	)
+);
+Tack_Standing::refresh();
+Tack_Store_Settings::on_refresh_event();
+check( 'cadence: one standing run = exactly one ping and one store-settings read', 1 === count( tack_ss_calls( '/ping' ) ) && 1 === count( tack_ss_calls( '/store-settings' ) ) && 2 === count( $GLOBALS['TACK_HTTP_REQUESTS'] ) );
 
 // ── Seed: TackQuote holds nothing yet ────────────────────────────────────────
 tack_ss_reset();
@@ -210,6 +222,7 @@ update_option( 'tack_quotes_enable_wholesale_pricing', 'yes' );
 update_option( 'tack_quotes_enable_order_limits', 'no' );
 update_option( 'tack_quotes_enable_buyer_group', 'yes' );
 update_option( 'tack_quotes_apply_tax_exempt', 'no' );
+update_option( Tack_Storefront_Forms::OPTION_FORM_SLUG, 'Trade-Signup' );
 $ss_empty  = array_merge( tack_ss_answer( array( 'orderSync' => array( 'push' => false ), 'features' => array( 'prices' => false, 'buyerGroupBadge' => false ) ) ), array( 'updatedAt' => null ) );
 $ss_seeded = tack_ss_answer( array( 'features' => array( 'orderLimits' => false, 'buyerGroupBadge' => true ) ) );
 tack_cx_routes(
@@ -231,9 +244,12 @@ check(
 			'buyerGroupBadge' => true,
 			'taxExempt'       => false,
 		),
+		'defaultWholesaleFormSlug' => 'Trade-Signup',
 	) === json_decode( (string) $ss_seed[0]['args']['body'], true ),
 	(string) ( $ss_seed[0]['args']['body'] ?? '' )
 );
+delete_option( Tack_Storefront_Forms::OPTION_FORM_SLUG );
+check( '...with no slug saved in the plugin, the seed says null (TackQuote keeps its default)', array_key_exists( 'defaultWholesaleFormSlug', Tack_Store_Settings::local_values() ) && null === Tack_Store_Settings::local_values()['defaultWholesaleFormSlug'] );
 check( '...so an existing store keeps its behaviour', Tack_Order_Sync::is_enabled() && Tack_Wholesale_Pricing::is_enabled() && Tack_B2B_Notices::buyer_group_enabled() );
 
 tack_ss_reset();
@@ -344,6 +360,20 @@ $ss_long = Tack_Widget::registration_answers( array( 'heardFrom' => str_repeat( 
 check( 'questions: a text answer is capped at 500 characters (the server\'s bound)', 500 === strlen( $ss_long['values']['heardFrom'] ) );
 $ss_src = (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-widget.php' );
 check( 'the quote request carries customFields when there are answers', false !== strpos( $ss_src, "\$payload['customFields'] = \$questions['values'];" ) );
+
+// REST keys (Fable 4): a shop manager sees the status, not the button.
+tack_ss_caps( array( 'rest_keys' ) );
+tack_cx_routes( array( '/rest-keys/status' => array( 200, array( 'status' => 'none', 'message' => '' ) ) ) );
+delete_transient( Tack_Rest_Keys::STATUS_TRANSIENT );
+$GLOBALS['TACK_CAPS'] = array( 'manage_woocommerce' );
+ob_start();
+( new Tack_Rest_Keys() )->render_card();
+$ss_rk = (string) ob_get_clean();
+check( 'REST keys: no "Allow catalogue and order sync" button for a shop manager', false === strpos( $ss_rk, Tack_Rest_Keys::START_ACTION ) && false !== strpos( $ss_rk, 'Only an administrator can allow catalogue and order sync.' ) );
+$GLOBALS['TACK_CAPS'] = array( 'manage_options', 'manage_woocommerce' );
+ob_start();
+( new Tack_Rest_Keys() )->render_card();
+check( 'REST keys: an administrator gets the button', false !== strpos( (string) ob_get_clean(), Tack_Rest_Keys::START_ACTION ) );
 
 // Uninstall removes every option this feature writes.
 $ss_uninstall = (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' );

@@ -31,9 +31,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *     every feature reads the plugin's own option, exactly as in 1.12.0.
  *   - TackQuote's value wins. The plugin's own "Turn off … on this store" box can only
  *     switch a feature OFF here; it can never switch on what TackQuote has off.
- *   - The settings are read by the background refresh (the same WP-Cron event that checks
- *     the store's standing), at most every five minutes, and by an administrator opening
- *     the settings page. Never on a shopper's request.
+ *   - The settings are read on the background refresh (the same WP-Cron event that checks
+ *     the store's standing, at most every ten minutes, one ping plus this read), and by an
+ *     administrator opening a stale settings page. Never on a shopper's request.
  *   - TackQuote unreachable: the last answer it gave stays in force (fail closed to the
  *     last known value), and with no answer yet the plugin's own option decides.
  *   - When TackQuote answers with nothing stored (`updatedAt` null), the plugin reports its
@@ -48,8 +48,15 @@ class Tack_Store_Settings {
 	/** The last answer TackQuote gave, for the saved key (autoloaded: storefront reads it). */
 	const OPTION = 'tack_quotes_store_settings';
 
-	/** Seconds an answer counts as fresh. */
-	const TTL = 300;
+	/**
+	 * Seconds an answer counts as fresh: the standing refresh's own cadence
+	 * (Tack_Standing::TTL), because the read rides only that event. A shorter TTL here
+	 * would have to schedule the event more often, and every run of it also pings.
+	 */
+	const TTL = 600;
+
+	/** TackQuote's own rule for a wholesale form slug (WOO_WHOLESALE_FORM_SLUG). */
+	const SLUG_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/';
 
 	/** Timeout for the background read; nobody waits on it. */
 	const CRON_TIMEOUT = 10;
@@ -106,15 +113,13 @@ class Tack_Store_Settings {
 	}
 
 	/**
-	 * Hooks: the read rides on the standing refresh event (Tack_Standing::REFRESH_HOOK),
-	 * after its ping, and a stale answer schedules that same event. Never a request of
-	 * its own on a shopper's page view.
+	 * Hooks: the read rides ONLY on the standing refresh event (Tack_Standing::REFRESH_HOOK,
+	 * at most every ten minutes), after its ping. It schedules nothing of its own, so the
+	 * background traffic is one ping plus one read per ten minutes, never a request on a
+	 * shopper's page view.
 	 */
 	public static function init() {
 		add_action( Tack_Standing::REFRESH_HOOK, array( __CLASS__, 'on_refresh_event' ), 20 );
-		if ( ! is_admin() ) {
-			add_action( 'init', array( __CLASS__, 'maybe_schedule_refresh' ), 21 );
-		}
 	}
 
 	// ── Reading ───────────────────────────────────────────────────────────────
@@ -309,8 +314,9 @@ class Tack_Store_Settings {
 			if ( ! is_array( $form ) || ! isset( $form['slug'] ) || ! is_string( $form['slug'] ) ) {
 				continue;
 			}
-			$slug = sanitize_key( $form['slug'] );
-			if ( '' === $slug || isset( $forms[ $slug ] ) ) {
+			// Verbatim (TackQuote's slugs may carry capitals); refused when not its own form.
+			$slug = $form['slug'];
+			if ( ! self::is_slug( $slug ) || isset( $forms[ $slug ] ) ) {
 				continue;
 			}
 			$name           = isset( $form['name'] ) && is_string( $form['name'] ) ? self::clip( wp_strip_all_tags( $form['name'] ), 120 ) : '';
@@ -321,8 +327,8 @@ class Tack_Store_Settings {
 			);
 		}
 
-		$default = isset( $answer['defaultWholesaleFormSlug'] ) && is_string( $answer['defaultWholesaleFormSlug'] )
-			? sanitize_key( $answer['defaultWholesaleFormSlug'] )
+		$default = isset( $answer['defaultWholesaleFormSlug'] ) && self::is_slug( $answer['defaultWholesaleFormSlug'] )
+			? $answer['defaultWholesaleFormSlug']
 			: '';
 
 		return array(
@@ -341,19 +347,35 @@ class Tack_Store_Settings {
 	 * @return array
 	 */
 	public static function local_values() {
+		// The wholesale form slug typed in the plugin (any text TackQuote takes, up to 200
+		// characters), or null when none was saved. TackQuote keeps it only when it names
+		// one of the workspace's enabled forms.
+		$typed    = get_option( 'tack_quotes_wholesale_form_slug', null );
+		$typed    = is_string( $typed ) ? trim( $typed ) : '';
 		$features = self::features();
 		$on       = static function ( $feature ) use ( $features ) {
 			return 'yes' === get_option( $features[ $feature ]['legacy'], 'no' );
 		};
 		return array(
-			'orderSync' => array( 'push' => $on( self::ORDER_SYNC ) ),
-			'features'  => array(
+			'orderSync'                => array( 'push' => $on( self::ORDER_SYNC ) ),
+			'features'                 => array(
 				'prices'          => $on( self::PRICES ),
 				'orderLimits'     => $on( self::ORDER_LIMITS ),
 				'buyerGroupBadge' => $on( self::BUYER_GROUP ),
 				'taxExempt'       => $on( self::TAX_EXEMPT ),
 			),
+			'defaultWholesaleFormSlug' => '' !== $typed ? self::clip( $typed, 200 ) : null,
 		);
+	}
+
+	/**
+	 * Is this one of TackQuote's wholesale form slugs (its own pattern)?
+	 *
+	 * @param mixed $slug Value.
+	 * @return bool
+	 */
+	public static function is_slug( $slug ) {
+		return is_string( $slug ) && 1 === preg_match( self::SLUG_PATTERN, $slug );
 	}
 
 	// ── Refreshing ────────────────────────────────────────────────────────────
@@ -366,20 +388,6 @@ class Tack_Store_Settings {
 	public static function is_stale() {
 		$snapshot = self::snapshot();
 		return null === $snapshot || time() - $snapshot['fetched'] >= self::TTL;
-	}
-
-	/**
-	 * Schedule the standing refresh when the store settings are stale and the server
-	 * serves them (or the plugin cannot tell yet). An older server costs nothing extra.
-	 */
-	public static function maybe_schedule_refresh() {
-		if ( '' === self::fingerprint() || false === self::server_offers() || ! self::is_stale() ) {
-			return;
-		}
-		if ( wp_next_scheduled( Tack_Standing::REFRESH_HOOK ) ) {
-			return;
-		}
-		wp_schedule_single_event( time(), Tack_Standing::REFRESH_HOOK );
 	}
 
 	/**
@@ -442,6 +450,8 @@ class Tack_Store_Settings {
 	 */
 	public static function refresh_for_admin() {
 		if ( self::is_stale() && false !== self::server_offers() ) {
+			// An administrator looking, never a shopper; the standing ping cache serves the
+			// capability check, so this costs one read.
 			self::refresh( null, Tack_Api_Client::INTERACTIVE_TIMEOUT );
 		}
 	}

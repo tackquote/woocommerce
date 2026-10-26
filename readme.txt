@@ -202,9 +202,9 @@ WooCommerce → TackQuote or presses its buttons. Sends that user's WordPress us
 kept in their user meta and, to open, `purpose` (`frame` in the page or `tab` for a new tab); linking
 also sends the one-time code they typed and their login name. No customer or order data.
 
-19. **Store settings** (since 1.13.0) — `GET /integrations/woocommerce/store-settings`, in the
-background at most every five minutes and when the settings are opened; headers only. While TackQuote
-holds none, `POST …/store-settings/seed` sends which of order sync and the four B2B switches are on.
+19. **Store settings** (since 1.13.0) — `GET /integrations/woocommerce/store-settings` every
+ten minutes and on opening settings; headers only. While TackQuote holds none, `POST …/store-settings/seed`
+sends which of order sync and the four B2B switches are on and the plugin's wholesale form slug.
 
 This plugin sends data to no other external service.
 
@@ -223,7 +223,7 @@ WooCommerce must be installed and active first, and you need a TackQuote account
 
 1. In WP Admin go to **Plugins → Add New**, search for **TackQuote**, and click **Install Now**.
 2. Activate **TackQuote: Request a Quote & B2B Wholesale for WooCommerce**.
-3. Open **TackQuote** in the admin menu.
+3. Open **WooCommerce → TackQuote** in the admin menu.
 4. Under **WooCommerce → TackQuote**, on the **Connection** tab, press **Connect with TackQuote**, sign in to TackQuote (or create an account) and approve; you come back to the Connection tab connected. Or open **Advanced**, paste a TackQuote API key and save. Leave the API URL as the default unless support gives you another base URL.
 5. Work down the numbered sections in order — they are arranged as a setup sequence, and each one only depends on the ones above it. Then click **Save TackQuote settings**.
 6. Click **Test TackQuote connection** to verify (Connect with TackQuote runs this test for you).
