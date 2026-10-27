@@ -442,7 +442,7 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 == Changelog ==
 
 = 1.13.1 =
-Unreleased. Full notes are in `changelog.txt`.
+Released 2026-10-27. Full notes are in `changelog.txt`.
 
 * Fixed: a signed-in customer whose WordPress account the seller linked to their TackQuote buyer is no longer shown to the seller as "Requester not verified" on their quote requests. On a TackQuote server that offers it, the request names the signed-in WordPress user; a guest's request is unchanged.
 

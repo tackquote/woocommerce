@@ -2,7 +2,7 @@ TackQuote: Request a Quote & B2B Wholesale for WooCommerce. Full changelog, newe
 The latest releases are listed in readme.txt.
 
 = 1.13.1 =
-Unreleased.
+Released 2026-10-27.
 
 * Fixed: quote requests from a signed-in customer no longer reach the seller as "Requester not verified" when the seller has linked that customer's WordPress account to their TackQuote buyer. To a TackQuote server that lists the `requester_identity` capability, the request carries `buyerExternalId`, the signed-in WordPress user's numeric ID (a guest sends nothing, and an older server never receives the field). TackQuote treats the request as the buyer's own only when that WordPress user is the one linked to the buyer the typed email belongs to.
 
