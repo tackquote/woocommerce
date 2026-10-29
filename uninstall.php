@@ -125,6 +125,9 @@ $tack_quotes_options = array(
 	// 1.13.0: the store settings TackQuote decides (Tack_Store_Settings::OPTION) and the
 	// "turn off on this store" boxes (Tack_Store_Settings::features() `off`).
 	'tack_quotes_store_settings',
+	// 1.14.0: the storefront cache's generation (Tack_Storefront_Cache::GENERATION_OPTION).
+	// Its `tack_sfc_*` entries are per visitor and expire within two minutes.
+	'tack_quotes_storefront_cache_gen',
 	'tack_quotes_off_order_sync',
 	'tack_quotes_off_prices',
 	'tack_quotes_off_order_limits',

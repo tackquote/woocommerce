@@ -12,6 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// 1.14.0: storefront lookups cached for page views (loaded here so every entry point has it).
+require_once __DIR__ . '/class-tack-storefront-cache.php';
+
 /**
  * Registers the admin settings screen and options.
  */
@@ -307,6 +310,9 @@ class Tack_Settings {
 	 */
 	private function setting( $tab, $option, $callback ) {
 		register_setting( self::option_group( $tab ), $option, array( 'sanitize_callback' => $callback ) );
+		// 1.14.0: saving any TackQuote setting forgets the storefront lookups cached
+		// for page views (Tack_Storefront_Cache), so a change shows on the next view.
+		Tack_Storefront_Cache::flush_on_change( $option );
 	}
 
 	/**

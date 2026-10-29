@@ -461,7 +461,13 @@ class Tack_Wholesale_Pricing {
 		}
 
 		foreach ( $items as $item ) {
-			$this->asked[ $item['sku'] . '|' . (int) $item['quantity'] ] = true;
+			$key                 = $item['sku'] . '|' . (int) $item['quantity'];
+			$this->asked[ $key ] = true;
+			// Whatever this request learnt about the line before is dropped: a line the
+			// new answer leaves out must read as "no answer" (the store's price), never
+			// as an earlier answer. That earlier answer may have come from the display
+			// cache, and the cart is priced from this map.
+			unset( $this->resolved[ $key ] );
 		}
 
 		$body = array( 'items' => array_slice( $items, 0, self::MAX_ITEMS_PER_REQUEST ) );
@@ -471,7 +477,22 @@ class Tack_Wholesale_Pricing {
 			$body['buyerEmail'] = $email;
 		}
 
-		$response = $this->client->request( 'POST', '/storefront-pricing/resolve', $body, self::TIMEOUT );
+		/*
+		 * 1.14.0: a listing's labels are kept for a minute per customer, currency and
+		 * batch (Tack_Storefront_Cache), so a category page is not one TackQuote call
+		 * per product card on every view. `apply_cart_prices()` runs inside
+		 * `woocommerce_before_calculate_totals`, where the cache always stands aside:
+		 * the price CHARGED is TackQuote's answer at that moment.
+		 */
+		$client   = $this->client;
+		$response = Tack_Storefront_Cache::remember(
+			'pricing-resolve',
+			array( 'items' => $body['items'] ),
+			$email,
+			function () use ( $client, $body ) {
+				return $client->request( 'POST', '/storefront-pricing/resolve', $body, self::TIMEOUT );
+			}
+		);
 
 		if ( is_wp_error( $response ) ) {
 			/*

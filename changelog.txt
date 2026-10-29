@@ -1,6 +1,10 @@
 TackQuote: Request a Quote & B2B Wholesale for WooCommerce. Full changelog, newest first.
 The latest releases are listed in readme.txt.
 
+= Unreleased =
+
+* **Faster storefront pages.** The TackQuote answers a product page or a listing needs (order limits, buyer group, quantity breaks, the account price and the listing prices) are kept for one to two minutes per customer, per currency and per store, so repeat page views no longer wait on TackQuote for each one. A guest's answers are shared only with other guests. The cart, the checkout, the tax exemption and every limit check still ask TackQuote at that moment, so what is charged and enforced is never a cached answer. Saving any TackQuote setting, changing the connection, or a change in the store settings TackQuote sends forgets everything kept. The time can be changed, or caching switched off, with the `tackquote_storefront_cache_ttl` filter.
+
 = 1.13.1 =
 Released 2026-10-27.
 
