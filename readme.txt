@@ -441,6 +441,10 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 
 == Changelog ==
 
+= Unreleased =
+
+* **Faster storefront pages.** Product pages and listings keep TackQuote's answers for one to two minutes per customer and currency; the cart, checkout and every limit check still ask TackQuote live. On sites without a persistent object cache, those answers are stored as short-lived transients in `wp_options` (60 to 120 seconds), and WordPress removes them when they expire.
+
 = 1.13.1 =
 Released 2026-10-27. Full notes are in `changelog.txt`.
 
