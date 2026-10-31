@@ -125,9 +125,11 @@ $tack_quotes_options = array(
 	// 1.13.0: the store settings TackQuote decides (Tack_Store_Settings::OPTION) and the
 	// "turn off on this store" boxes (Tack_Store_Settings::features() `off`).
 	'tack_quotes_store_settings',
-	// 1.14.0: the storefront cache's generation (Tack_Storefront_Cache::GENERATION_OPTION).
-	// Its `tack_sfc_*` entries are per visitor and expire within two minutes.
+	// 1.14.0: the storefront cache's generation (Tack_Storefront_Cache::GENERATION_OPTION)
+	// and when it last swept expired transients (SWEEP_OPTION). Its `tack_sfc_*` entries
+	// have no fixed name; tack_quotes_delete_storefront_cache() removes them.
 	'tack_quotes_storefront_cache_gen',
+	'tack_quotes_storefront_cache_swept',
 	'tack_quotes_off_order_sync',
 	'tack_quotes_off_prices',
 	'tack_quotes_off_order_limits',
@@ -278,6 +280,30 @@ function tack_quotes_delete_wc_rest_key() {
 }
 
 /**
+ * Delete the 1.14.0 storefront cache entries (`tack_sfc_<hash>` transients) on the
+ * current site.
+ *
+ * They are per visitor, so they have no fixed names for delete_transient(). Without a
+ * persistent object cache they are `_transient_tack_sfc_*` and
+ * `_transient_timeout_tack_sfc_*` rows in the options table; with one, they live in
+ * that cache, expire within two minutes, and the generation option deleted with the
+ * other options already makes every one of them unreadable.
+ *
+ * @return void
+ */
+function tack_quotes_delete_storefront_cache() {
+	global $wpdb;
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- WordPress has no API to delete transients by prefix; one bounded DELETE at uninstall.
+	$wpdb->query(
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+			$wpdb->esc_like( '_transient_tack_sfc_' ) . '%',
+			$wpdb->esc_like( '_transient_timeout_tack_sfc_' ) . '%'
+		)
+	);
+}
+
+/**
  * Delete this plugin's stored values on the current site.
  *
  * @param array $options    Option names.
@@ -312,6 +338,7 @@ function tack_quotes_delete_site_data( $options, $transients, $post_meta = array
 	foreach ( $transients as $transient ) {
 		delete_transient( $transient );
 	}
+	tack_quotes_delete_storefront_cache();
 	foreach ( $post_meta as $key ) {
 		delete_post_meta_by_key( $key );
 	}

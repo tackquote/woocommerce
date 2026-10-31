@@ -24,9 +24,9 @@
  *     same answer TackQuote gives every guest.
  *  2. MONEY AND ENFORCEMENT ARE ALWAYS FRESH. Nothing is read from or written to
  *     the cache while WooCommerce prices the cart, validates an add-to-cart or a
- *     cart update, checks the cart, validates or processes checkout, on the cart
- *     or checkout page, or in any REST request (the block cart and checkout run
- *     on the Store API). So the price CHARGED, the tax exemption applied and the
+ *     cart update, checks the cart, validates or processes checkout, on the
+ *     configured cart/checkout pages, or in any REST request (the block cart and
+ *     checkout run on the Store API). So the price CHARGED, the tax exemption applied and the
  *     limits ENFORCED are TackQuote's answer at that moment, never a cached one.
  *     Only what a product page or a listing DISPLAYS can be up to TTL old.
  *  3. ONLY ANSWERS ARE KEPT. A WP_Error (an outage, a 4xx) or a "this server has
@@ -46,6 +46,11 @@
  * and a miss simply asks TackQuote again. Names are hashed, so they stay far
  * under the 172-character limit and carry no email.
  *
+ * Without a persistent object cache an expired transient row stays in the options
+ * table until it is read again or WordPress's daily `delete_expired_transients`
+ * event runs. Per-visitor keys are rarely read again, so init() also runs
+ * delete_expired_transients() itself, at most once an hour (SWEEP_OPTION).
+ *
  * @package TackQuotes
  * @since 1.14.0
  */
@@ -64,6 +69,15 @@ class Tack_Storefront_Cache {
 
 	/** Option holding the generation number every key includes (autoloaded). */
 	const GENERATION_OPTION = 'tack_quotes_storefront_cache_gen';
+
+	/**
+	 * Option holding when init() last removed expired transients (autoloaded). Only
+	 * written on sites without a persistent object cache.
+	 */
+	const SWEEP_OPTION = 'tack_quotes_storefront_cache_swept';
+
+	/** Seconds between two sweeps of expired transients. */
+	const SWEEP_INTERVAL = 3600;
 
 	/**
 	 * Seconds an answer is kept, per route. Prices are kept the shortest: they are
@@ -96,13 +110,43 @@ class Tack_Storefront_Cache {
 
 	/**
 	 * Register the invalidation hooks that must work on every request, not only on
-	 * the settings page: the connection options, and TackQuote's store settings.
+	 * the settings page: the connection options, every option the settings page
+	 * saves (so a change made with WP-CLI or the REST API forgets the cache too), and
+	 * TackQuote's store settings. On a site without a persistent object cache, also
+	 * remove expired transients at most hourly.
 	 */
 	public static function init() {
-		foreach ( array( 'tack_quotes_api_key', 'tack_quotes_api_url' ) as $option ) {
+		$options = array( 'tack_quotes_api_key', 'tack_quotes_api_url' );
+		if ( class_exists( 'Tack_Settings' ) ) {
+			$options = array_merge( $options, Tack_Settings::option_names() );
+		}
+		foreach ( array_unique( $options ) as $option ) {
 			self::flush_on_change( $option );
 		}
 		add_action( 'update_option_tack_quotes_store_settings', array( __CLASS__, 'on_store_settings_update' ), 10, 2 );
+		self::maybe_sweep();
+	}
+
+	/**
+	 * Remove expired transients, at most once per SWEEP_INTERVAL, on a site whose
+	 * transients live in the options table. With a persistent object cache the
+	 * cache evicts them itself and delete_expired_transients() would do nothing.
+	 *
+	 * @return bool Whether a sweep ran.
+	 */
+	public static function maybe_sweep() {
+		if ( ! function_exists( 'wp_using_ext_object_cache' ) || wp_using_ext_object_cache() || ! function_exists( 'delete_expired_transients' ) ) {
+			return false;
+		}
+		$now  = time();
+		$last = (int) get_option( self::SWEEP_OPTION, 0 );
+		if ( $last > 0 && $now - $last < self::SWEEP_INTERVAL && $last <= $now ) {
+			return false;
+		}
+		// Written first, so concurrent requests in the same second mostly skip it.
+		update_option( self::SWEEP_OPTION, $now, true );
+		delete_expired_transients();
+		return true;
 	}
 
 	/**
@@ -251,19 +295,46 @@ class Tack_Storefront_Cache {
 			'c' => $customer,
 			'$' => $currency,
 			'r' => (string) $route,
-			'p' => self::canonical( $params ),
+			'p' => self::canonical( $route, $params ),
 		);
-		return self::PREFIX . substr( wp_hash( (string) wp_json_encode( $parts ) ), 0, 32 );
+		return self::PREFIX . wp_hash( (string) wp_json_encode( $parts ) );
 	}
 
 	/**
 	 * Parameters in a fixed order, so the same lookup always has the same key.
 	 *
-	 * @param array $params Parameters.
+	 * A `pricing-resolve` batch is also sorted by `sku|quantity`: TackQuote's answer
+	 * names each line by its SKU and quantity and is matched that way, so the same
+	 * listing shown in another order (a sort, a filter) is the same question.
+	 *
+	 * @param string $route  Route name.
+	 * @param array  $params Parameters.
 	 * @return array
 	 */
-	private static function canonical( array $params ) {
+	private static function canonical( $route, array $params ) {
 		ksort( $params );
+		if ( 'pricing-resolve' === $route && isset( $params['items'] ) && is_array( $params['items'] ) ) {
+			$items = array_values( $params['items'] );
+			usort(
+				$items,
+				function ( $a, $b ) {
+					return strcmp( self::line_key( $a ), self::line_key( $b ) );
+				}
+			);
+			$params['items'] = $items;
+		}
 		return $params;
+	}
+
+	/**
+	 * `sku|quantity` of one batch line, the way the answer is matched.
+	 *
+	 * @param mixed $item Line.
+	 * @return string
+	 */
+	private static function line_key( $item ) {
+		$sku      = is_array( $item ) && isset( $item['sku'] ) ? (string) $item['sku'] : '';
+		$quantity = is_array( $item ) && isset( $item['quantity'] ) ? (int) $item['quantity'] : 0;
+		return $sku . '|' . $quantity;
 	}
 }
