@@ -9,6 +9,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// 1.14.0: storefront lookups cached for page views (loaded here so every entry point has it).
+require_once __DIR__ . '/class-tack-storefront-cache.php';
+
 /**
  * Handles authenticated requests to the Tack API.
  */
@@ -1038,13 +1041,19 @@ class Tack_Api_Client {
 	 * @return array|WP_Error|null
 	 */
 	public function get_wholesale_price( $sku, $quantity, $buyer_email ) {
-		return $this->storefront_v1_get(
+		$query = array(
+			'sku'      => (string) $sku,
+			'quantity' => (string) max( 1, (int) $quantity ),
+		);
+		// Display only (the product page label): cached per customer and currency for
+		// a minute; never while the cart or checkout is priced (Tack_Storefront_Cache).
+		return Tack_Storefront_Cache::remember(
 			'wholesale-price',
-			array(
-				'sku'      => (string) $sku,
-				'quantity' => (string) max( 1, (int) $quantity ),
-			),
-			$buyer_email
+			$query,
+			$buyer_email,
+			function () use ( $query, $buyer_email ) {
+				return $this->storefront_v1_get( 'wholesale-price', $query, $buyer_email );
+			}
 		);
 	}
 
@@ -1063,7 +1072,15 @@ class Tack_Api_Client {
 	 * @return array|WP_Error|null The result, a WP_Error, or null when v1 is absent.
 	 */
 	public function get_quantity_breaks( $sku, $buyer_email = '' ) {
-		return $this->storefront_v1_get( 'quantity-breaks', array( 'sku' => (string) $sku ), $buyer_email );
+		$query = array( 'sku' => (string) $sku );
+		return Tack_Storefront_Cache::remember(
+			'quantity-breaks',
+			$query,
+			$buyer_email,
+			function () use ( $query, $buyer_email ) {
+				return $this->storefront_v1_get( 'quantity-breaks', $query, $buyer_email );
+			}
+		);
 	}
 
 	/**
@@ -1080,6 +1097,26 @@ class Tack_Api_Client {
 	 * @return array|WP_Error
 	 */
 	public function get_order_limits( $sku, $buyer_email = '' ) {
+		// Cached for the product page notice; the cart check and add-to-cart
+		// validation that ENFORCE a limit always ask afresh (Tack_Storefront_Cache).
+		return Tack_Storefront_Cache::remember(
+			'order-limits',
+			array( 'sku' => (string) $sku ),
+			$buyer_email,
+			function () use ( $sku, $buyer_email ) {
+				return $this->fetch_order_limits( $sku, $buyer_email );
+			}
+		);
+	}
+
+	/**
+	 * `get_order_limits()` without the cache.
+	 *
+	 * @param string $sku         Product SKU.
+	 * @param string $buyer_email Signed-in buyer's email, or ''.
+	 * @return array|WP_Error
+	 */
+	private function fetch_order_limits( $sku, $buyer_email ) {
 		$query  = array( 'sku' => (string) $sku );
 		$result = $this->storefront_v1_get( 'order-limits', $query, $buyer_email );
 		if ( null !== $result ) {
@@ -1102,6 +1139,26 @@ class Tack_Api_Client {
 	 * @return array|WP_Error
 	 */
 	public function get_buyer_group( $buyer_email ) {
+		// Asked twice per page view before (the badge and the tax-exemption check).
+		// The tax exemption is decided while the cart is priced, where the cache
+		// always stands aside (Tack_Storefront_Cache).
+		return Tack_Storefront_Cache::remember(
+			'buyer-group',
+			array(),
+			$buyer_email,
+			function () use ( $buyer_email ) {
+				return $this->fetch_buyer_group( $buyer_email );
+			}
+		);
+	}
+
+	/**
+	 * `get_buyer_group()` without the cache.
+	 *
+	 * @param string $buyer_email Signed-in buyer's email.
+	 * @return array|WP_Error
+	 */
+	private function fetch_buyer_group( $buyer_email ) {
 		$result = $this->storefront_v1_get( 'buyer-group', array(), $buyer_email );
 		if ( null !== $result ) {
 			return $result;

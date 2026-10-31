@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.13.1
+Stable tag: 1.14.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -415,10 +415,11 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Since 1.12.0: `tack_quotes_standing` — an option recording whether TackQuote still accepts this store's key (state, reason, a 16-character SHA-256 prefix of the key, never the key, and when it was checked), refreshed by the WP-Cron hook `tackquote_refresh_standing`; `tack_quotes_wc_rest_key_id` — WooCommerce's own id of the REST API key approved for TackQuote's catalogue and order sync (never the key).
 * Since 1.12.0, transients: `tack_quotes_quote_form_cache` (your quote request form, five minutes, served up to 30 minutes longer while one request refreshes it, one minute after a failure); `tack_quotes_qf_refresh_*` (a 30-second lock so only one request refreshes it); `tack_quotes_quote_form_file_fallback` (one day, so the log notes once that the built-in form was shown); `tack_quotes_rest_keys_status` (the catalogue and order sync status, five minutes); the site transient `tack_quotes_github_release` (the latest GitHub release of the plugin, twelve hours, one hour after a failure; only in the zip from the TackQuote website); `tack_qo_*` and `tack_qa_*` (quick-order rate limits per visitor, five minutes, keyed on a salted hash of the IP address, never the address).
 * Since 1.12.0: user meta `_tackquote_embed_secret` — a random per-user secret for TackQuote inside WooCommerce admin, sent only to TackQuote, server to server.
+* Since 1.14.0: `tack_sfc_*` transients — TackQuote's answers for product pages and listings (order limits, buyer group, quantity breaks and prices), kept 60 to 120 seconds per customer and currency under a hashed name that carries no email; options `tack_quotes_storefront_cache_gen` (a counter that makes every kept answer unreadable when a setting changes) and `tack_quotes_storefront_cache_swept` (when expired transients were last removed).
 
 * User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`, `_tack_wholesale_applied` (when a wholesale application sent from the store was answered "pending"); product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
 
-Deleting the plugin removes every option above, the fixed-name transients (and the site transient), the user meta, the product meta, queued order-sync jobs and the `tackquote_refresh_standing` schedule, on every site of a multisite network. It also deletes the WooCommerce REST API key approved for TackQuote, but only when TackQuote confirms it let go of that key and the key still has the name WooCommerce gave it; otherwise the key stays under WooCommerce → Settings → Advanced → REST API for you to revoke. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
+Deleting the plugin removes every option above, the fixed-name transients (and the site transient), the `tack_sfc_*` storefront cache transients, the user meta, the product meta, queued order-sync jobs and the `tackquote_refresh_standing` schedule, on every site of a multisite network. It also deletes the WooCommerce REST API key approved for TackQuote, but only when TackQuote confirms it let go of that key and the key still has the name WooCommerce gave it; otherwise the key stays under WooCommerce → Settings → Advanced → REST API for you to revoke. Kept on purpose: `_tack_email_unverified` (no personal data; deleting it would trust a self-changed email again), the rate-limit counters (they expire within ten minutes and have no fixed name), and order meta (orders are financial records).
 
 == Screenshots ==
 
@@ -440,6 +441,11 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= 1.14.0 =
+Released 2026-10-31. Full notes are in `changelog.txt`.
+
+* **Faster storefront pages.** Product pages and listings keep TackQuote's answers for one to two minutes per customer and currency; the cart, checkout, the quote list's re-pricing and every limit check still ask TackQuote live. On sites without a persistent object cache, those answers are stored as short-lived transients in `wp_options` (60 to 120 seconds), removed when read again after expiry or by WordPress's daily cleanup, which the plugin also runs at most once an hour.
 
 = 1.13.1 =
 Released 2026-10-27. Full notes are in `changelog.txt`.

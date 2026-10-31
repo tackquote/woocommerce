@@ -60,6 +60,20 @@ function remove_action( $hook, $callback, $priority = 10 ) {
 	$GLOBALS['TACK_REMOVED'][] = $hook . '|' . ( is_string( $callback ) ? $callback : 'closure' ) . '|' . $priority;
 	return true;
 }
+/**
+ * Removes what add_filter() registered for this callback (an equal [class, method]
+ * array or the same closure, as WordPress's unique id matches).
+ */
+function remove_filter( $hook, $callback, $priority = 10 ) {
+	$found = false;
+	foreach ( (array) ( $GLOBALS['TACK_FILTERS'][ $hook ] ?? array() ) as $i => $registered ) {
+		if ( $registered === $callback ) {
+			unset( $GLOBALS['TACK_FILTERS'][ $hook ][ $i ] );
+			$found = true;
+		}
+	}
+	return $found;
+}
 
 /**
  * Current-visitor state the tests drive directly. Real WordPress resolves these

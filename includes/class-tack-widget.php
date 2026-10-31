@@ -2747,11 +2747,47 @@ class Tack_Widget {
 	}
 
 	/**
+	 * Price a batch the way the cart is priced: TackQuote's answer now, never the
+	 * display cache (Tack_Storefront_Cache). The drawer is re-priced because the
+	 * buyer changed a quantity, so it must show what the cart will charge.
+	 *
+	 * The `tackquote_storefront_cache_bypass` filter is added for this one call only
+	 * and removed again, also when the call throws.
+	 *
+	 * @since 1.14.0
+	 *
+	 * @param Tack_Wholesale_Pricing $pricing Pricing reader.
+	 * @param array                  $asks    Array of array{sku:string,quantity:int}.
+	 * @return array<string, float|null> Keyed `sku|quantity`.
+	 */
+	public static function resolve_fresh( Tack_Wholesale_Pricing $pricing, array $asks ) {
+		$bypass = array( __CLASS__, 'bypass_storefront_cache' );
+		add_filter( 'tackquote_storefront_cache_bypass', $bypass );
+		try {
+			return $pricing->resolve( $asks );
+		} finally {
+			remove_filter( 'tackquote_storefront_cache_bypass', $bypass );
+		}
+	}
+
+	/**
+	 * `tackquote_storefront_cache_bypass` callback for resolve_fresh(). A method of its
+	 * own, so removing it never removes another plugin's `__return_true`.
+	 *
+	 * @since 1.14.0
+	 * @return bool
+	 */
+	public static function bypass_storefront_cache() {
+		return true;
+	}
+
+	/**
 	 * AJAX: re-price the quote list for a signed-in buyer at the line quantities.
 	 *
 	 * One batched `POST /storefront-pricing/resolve` through `Tack_Wholesale_Pricing`
-	 * — the same read that prices the cart, so the drawer and the cart cannot
-	 * disagree. Signed-in only (no `nopriv` route), and a no-op when the merchant
+	 * — the same read that prices the cart, and asked fresh like it (resolve_fresh()
+	 * skips the 1.14.0 display cache), so the drawer and the cart cannot disagree.
+	 * Signed-in only (no `nopriv` route), and a no-op when the merchant
 	 * has not switched TackQuote prices on. A line TackQuote does not price answers
 	 * `null`, which the script shows as the store price it already had.
 	 *
@@ -2813,8 +2849,7 @@ class Tack_Widget {
 			);
 		}
 
-		$pricing = new Tack_Wholesale_Pricing();
-		$prices  = $pricing->resolve( $asks );
+		$prices = self::resolve_fresh( new Tack_Wholesale_Pricing(), $asks );
 
 		$out = array();
 		foreach ( $resolved as $line ) {

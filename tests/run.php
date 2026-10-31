@@ -9,6 +9,13 @@ require __DIR__ . '/wp-stubs.php';
 // The application-form and checkout-link limits (1.10.0 standards audit) are switched off
 // for every suite that is not about them; standards-audit-test.php switches them back on.
 tack_test_without_rate_limits();
+// The 1.14.0 storefront cache is switched off for every suite but its own
+// (storefront-cache-test.php), so their request counts keep meaning what they say.
+$GLOBALS['TACK_PERSISTENT_FILTERS']['tackquote_storefront_cache_ttl'] = array(
+	function () {
+		return 0;
+	},
+);
 
 define( 'ABSPATH', '/' );
 define( 'TACK_QUOTES_FILE', dirname( __DIR__ ) . '/tackquote.php' );
@@ -259,6 +266,9 @@ require __DIR__ . '/store-settings-test.php';
 
 // 1.13.1: the signed-in requester's WordPress user id, to a `requester_identity` server.
 require __DIR__ . '/requester-identity-1131-test.php';
+
+// 1.14.0: storefront lookups cached per customer and currency, never at checkout.
+require __DIR__ . '/storefront-cache-test.php';
 
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

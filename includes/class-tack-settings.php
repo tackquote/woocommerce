@@ -275,6 +275,78 @@ class Tack_Settings {
 	}
 
 	/**
+	 * Every option the settings page can save, on any TackQuote server (the 1.13.0
+	 * server-driven switches and their "turn off on this store" boxes included).
+	 *
+	 * 1.14.0: Tack_Storefront_Cache::init() forgets the storefront cache when any of
+	 * these changes on ANY request, so a change made with WP-CLI, the REST API or
+	 * another plugin shows on the next page view, not only one saved on this page.
+	 * register_settings() registers a subset of these (tests/storefront-cache-test.php
+	 * checks that none is missing here).
+	 *
+	 * @since 1.14.0
+	 * @return string[]
+	 */
+	public static function option_names() {
+		$names = array(
+			'tack_quotes_api_key',
+			'tack_quotes_api_url',
+			Tack_Catalog_Mode::OPT_MODE,
+			Tack_Catalog_Mode::OPT_SCOPE,
+			Tack_Catalog_Mode::OPT_ROLES,
+			Tack_Catalog_Mode::OPT_HIDE_PRICE,
+			Tack_Catalog_Mode::OPT_PRICE_TEXT,
+			'tack_quotes_enable_widget',
+			'tack_quotes_show_add_to_quote',
+			'tack_quotes_show_request_quote',
+			'tack_quotes_button_label',
+			'tack_quotes_request_button_label',
+			'tack_quotes_checkout_button_label',
+			Tack_Widget::OPT_CARD_BUTTONS,
+			Tack_Widget::OPT_CART_BUTTON,
+			Tack_Widget::OPT_CART_BUTTON_LABEL,
+			Tack_Widget::OPT_OPENS,
+			Tack_Widget::OPT_PAGE_URL,
+			Tack_Widget::OPT_FAB_POSITION,
+			Tack_Widget::OPT_FAB_OFFSET_X,
+			Tack_Widget::OPT_FAB_OFFSET_Y,
+			Tack_Widget::OPT_FAB_PAGES,
+			Tack_Widget::OPT_FAB_LABEL,
+			Tack_Widget::OPT_FAB_ICON_ONLY,
+			Tack_Widget::OPT_FAB_SHOW_COUNT,
+			Tack_Widget::OPT_FAB_SIZE,
+			Tack_Widget::OPT_FAB_HIDE_MOBILE,
+			Tack_Widget::OPT_THEME_STYLES_ONLY,
+			Tack_Widget::OPT_ACCENT_COLOR,
+			Tack_Attachments::OPTION_ENABLED,
+			Tack_Wholesale_Pricing::OPTION_SHOW_BREAKS,
+			Tack_Wholesale_Pricing::OPTION_ENABLED,
+			Tack_B2B_Notices::OPTION_ORDER_LIMITS,
+			Tack_B2B_Notices::OPTION_BUYER_GROUP,
+			Tack_Tax_Exempt::OPTION_ENABLED,
+			self::OPTION_GROUP_CODES,
+			Tack_Group_Restrictions::OPTION_ENABLED,
+			Tack_Group_Restrictions::OPTION_PAYMENT_MAP,
+			Tack_Group_Restrictions::OPTION_SHIPPING_MAP,
+			Tack_Group_Restrictions::OPTION_DISCOUNTS_ENABLED,
+			Tack_Group_Restrictions::OPTION_DISCOUNT_MAP,
+			Tack_Catalog_Visibility::OPTION_ENABLED,
+			Tack_Catalog_Visibility::OPTION_HIDE_WHEN_UNKNOWN,
+			Tack_Catalog_Visibility::OPTION_MAP,
+			Tack_Role_Mirror::OPTION_ENABLED,
+			Tack_Storefront_Forms::OPTION_FORM_SLUG,
+			Tack_Storefront_Forms::OPTION_WHOLESALE_TAB,
+			Tack_Storefront_Forms::OPTION_NET_TERMS_TAB,
+			'tack_quotes_enable_order_sync',
+		);
+		foreach ( Tack_Store_Settings::features() as $feature ) {
+			$names[] = $feature['legacy'];
+			$names[] = $feature['off'];
+		}
+		return array_values( array_unique( $names ) );
+	}
+
+	/**
 	 * Admin URL of a tab.
 	 *
 	 * @param string $tab Tab slug.
@@ -307,6 +379,11 @@ class Tack_Settings {
 	 */
 	private function setting( $tab, $option, $callback ) {
 		register_setting( self::option_group( $tab ), $option, array( 'sanitize_callback' => $callback ) );
+		// 1.14.0: saving any TackQuote setting forgets the storefront lookups cached
+		// for page views (Tack_Storefront_Cache), so a change shows on the next view.
+		// Tack_Storefront_Cache::init() registers the same hooks for option_names() on
+		// every request; WordPress keeps one copy of a callback per hook and priority.
+		Tack_Storefront_Cache::flush_on_change( $option );
 	}
 
 	/**

@@ -12,6 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 require_once TACK_QUOTES_DIR . 'includes/class-tack-settings.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-connect.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-api-client.php';
+require_once TACK_QUOTES_DIR . 'includes/class-tack-storefront-cache.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-rate-limit.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-block-product.php';
 require_once TACK_QUOTES_DIR . 'includes/class-tack-templates.php';
@@ -92,6 +93,9 @@ final class Tack_Quotes {
 		// 1.13.0: the settings TackQuote owns (order sync, features, groups, wholesale form),
 		// read on the same background refresh, never on a shopper's request.
 		Tack_Store_Settings::init();
+		// 1.14.0: storefront lookups cached for page views are forgotten when the
+		// connection or TackQuote's store settings change (Tack_Storefront_Cache).
+		Tack_Storefront_Cache::init();
 		// Why shoppers' quote requests fail, for administrators (the shopper sees a calm sentence).
 		add_action( 'admin_notices', array( 'Tack_Widget', 'failure_notice' ) );
 		$updater = TACK_QUOTES_DIR . 'includes/class-tack-release-updates.php';
