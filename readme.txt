@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.14.0
+Stable tag: 1.15.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -442,6 +442,14 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 
 == Changelog ==
 
+= 1.15.0 =
+Released 2026-11-05. Full notes are in `changelog.txt`.
+
+* **Ready to take quotes after you connect.** The first time your store connects to TackQuote, "Add to Quote" on product cards and "Request a quote for your cart" switch on, beside the product-page buttons. A switch you already set is left as you set it, and a store that was connected before keeps its settings. Change them under TackQuote → Settings → Storefront.
+* The quote form's "I am buying as" now starts on "A company". Shoppers buying for themselves can still choose "An individual".
+* When the API key saved in the plugin is missing a permission TackQuote needs, the settings page, the Dashboard and the Connection tab name it (for example `quotes:write`) and say how to get a key that has it.
+* Lists of settings in the plugin's messages use your site language's separators.
+
 = 1.14.0 =
 Released 2026-10-31. Full notes are in `changelog.txt`.
 
@@ -476,3 +484,8 @@ Released 2026-10-26. Full notes for this and earlier releases are in `changelog.
 * Store details (name, address, time zone, currency) and variation keys go to a TackQuote server that asks for them.
 * Fixes from live testing: calmer shopper messages when the store's connection fails, a truthful Connection tab, quick order and card layout, the designed form's company field, optional addresses, and wording.
 * WordPress and WooCommerce coding standards throughout; new storefront text in the seven bundled languages.
+
+== Upgrade Notice ==
+
+= 1.15.0 =
+Stores connecting for the first time get the product-card and cart quote buttons switched on; existing stores keep their settings. The quote form now starts on "A company".

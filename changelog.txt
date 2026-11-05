@@ -1,6 +1,15 @@
 TackQuote: Request a Quote & B2B Wholesale for WooCommerce. Full changelog, newest first.
 The latest releases are listed in readme.txt.
 
+= 1.15.0 =
+Released 2026-11-05.
+
+* **Quote buttons on after the first connection.** The first time the store connects to TackQuote (Connect with TackQuote, or a pasted key whose connection test passes), "Add to Quote" on product cards and "Request a quote for your cart" switch on, with the product-page buttons and the floating quote list. Only switches you never saved are set, and only once per site: a switch you already set is left alone, and a store that was connected before 1.15.0 keeps its settings. Nothing that changes prices, tax, the cart or checkout, WordPress roles, My Account tabs, order sync or attachments is switched on. The success message says what was switched on and where to change it. Deleting the plugin removes the one option that records this.
+* **"I am buying as" starts on "A company".** When your registration settings allow both, the quote form starts with the company choice and its company fields; "An individual" stays one click away and hides them.
+* **A missing API key permission is named.** When TackQuote refuses the saved key because it lacks a permission (`insufficient_scope`), the plugin says which one (for example `quotes:write`) and how to fix it: on the settings page when TackQuote's store settings cannot be read (the last settings stay in force, and the page waits ten minutes before asking again), when a store-settings change is refused, on TackQuote → Dashboard (it no longer says the store was disconnected), and on the Connection tab's catalogue and order sync card.
+* A refused change to several store settings lists them with your site language's separators.
+* TackQuote's own text in a refused settings change is escaped before it is shown.
+
 = 1.14.0 =
 Released 2026-10-31.
 

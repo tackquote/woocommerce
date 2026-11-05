@@ -147,6 +147,13 @@ class Tack_Connect {
 		add_action( 'update_option_tack_quotes_api_key', array( __CLASS__, 'mark_pasted' ) );
 		// `add_option_{$option}` fires only when the option did not exist: the first key
 		// this site ever saved (update_option() on a missing option calls add_option()).
+		// Deliberately NOT also hooked on update_option: a row that exists holding '' (an
+		// earlier save left it empty) fires only `update_option_…`, and an update is also
+		// what every key rotation on a connected store looks like, which must never count
+		// as a first connect. Connect covers the empty-row case itself (finish() marks the
+		// first key when the saved one is ''); a pasted key over an empty row is not marked,
+		// which errs on leaving the merchant's switches alone. Do not "fix" this by hooking
+		// update_option.
 		add_action( 'add_option_tack_quotes_api_key', array( __CLASS__, 'mark_first_key' ) );
 	}
 
@@ -243,10 +250,26 @@ class Tack_Connect {
 	 * @return string '' when nothing was.
 	 */
 	public static function first_connect_defaults_notice( array $added ) {
-		if ( empty( $added ) ) {
+		// Name only what was switched on NOW: a switch saved before connecting (for example
+		// the cart button saved off) was left alone and must not be claimed.
+		$places = array();
+		if ( array_intersect( $added, array( 'tack_quotes_enable_widget', 'tack_quotes_show_add_to_quote', 'tack_quotes_show_request_quote' ) ) ) {
+			$places[] = __( 'product pages', 'tackquote' );
+		}
+		if ( in_array( Tack_Widget::OPT_CARD_BUTTONS, $added, true ) ) {
+			$places[] = __( 'product cards', 'tackquote' );
+		}
+		if ( in_array( Tack_Widget::OPT_CART_BUTTON, $added, true ) ) {
+			$places[] = __( 'the cart', 'tackquote' );
+		}
+		if ( array() === $places ) {
 			return '';
 		}
-		return __( 'The quote buttons are now on (product pages, product cards and the cart). Change them under Settings → Storefront.', 'tackquote' );
+		return sprintf(
+			/* translators: %s: where quote buttons were switched on, as a list, e.g. "product cards and the cart". */
+			__( 'Quote buttons are now on for %s. Change them under Settings → Storefront.', 'tackquote' ),
+			wp_sprintf_l( '%l', $places )
+		);
 	}
 
 	/**
