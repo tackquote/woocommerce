@@ -47,6 +47,10 @@ check( '1440 fresh connect: a value the merchant saved before connecting is kept
 check( '1440 fresh connect: order sync is not touched', false === get_option( 'tack_quotes_enable_order_sync' ) );
 check( '1440 fresh connect: the marker says done', 'done' === get_option( Tack_Connect::OPTION_FIRST_DEFAULTS ) );
 check( '1440 fresh connect: the notice says what was switched on and where', false !== strpos( $fcd_out['message'], 'Storefront' ), $fcd_out['message'] );
+// The product-page switches and the cards were never saved, so they were switched on now;
+// the cart was saved off before connecting, so the notice must not claim it.
+check( '1440 fresh connect: the notice names only what was switched on now (cards, not the cart saved off)', false !== strpos( $fcd_out['message'], 'Quote buttons are now on for product pages and product cards.' ) && false === strpos( $fcd_out['message'], 'the cart' ), $fcd_out['message'] );
+check( '1440 notice: built from what was added', 'Quote buttons are now on for the cart. Change them under Settings → Storefront.' === Tack_Connect::first_connect_defaults_notice( array( Tack_Widget::OPT_CART_BUTTON ) ) && '' === Tack_Connect::first_connect_defaults_notice( array() ) && '' === Tack_Connect::first_connect_defaults_notice( array( 'something_else' ) ) );
 
 // 2. The merchant switches one off afterwards; a later passing test leaves it off.
 tack_test_set_option( Tack_Widget::OPT_CARD_BUTTONS, 'no' );
