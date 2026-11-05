@@ -48,6 +48,13 @@ Tack_Store_Settings::render_refusal_notice();
 $sr_html = (string) ob_get_clean();
 check( '1450 read refused: printed as an error notice, escaped', false !== strpos( $sr_html, 'notice-error' ) && false !== strpos( $sr_html, 'quotes:write' ) && false === strpos( $sr_html, '<b>' ) );
 check( '1450 wiring: the settings page prints it', false !== strpos( (string) file_get_contents( TACK_QUOTES_DIR . 'includes/class-tack-settings.php' ), 'Tack_Store_Settings::render_refusal_notice();' ) );
+// The kept answer is stale, so without the refusal the page would ask again.
+$sr_snap            = get_option( Tack_Store_Settings::OPTION );
+$sr_snap['fetched'] = time() - Tack_Store_Settings::TTL - 1;
+update_option( Tack_Store_Settings::OPTION, $sr_snap );
+$sr_gets = count( tack_ss_calls( '/integrations/woocommerce/store-settings' ) );
+Tack_Store_Settings::refresh_for_admin();
+check( '1450 read refused: the settings page does not ask again within the TTL', count( tack_ss_calls( '/integrations/woocommerce/store-settings' ) ) === $sr_gets );
 tack_test_set_option( 'tack_quotes_api_key', 'tq_another_key_000000000000' );
 check( '1450 read refused: a refusal recorded for another key is not shown', '' === Tack_Store_Settings::refusal_message() );
 tack_test_set_option( 'tack_quotes_api_key', $ss_key );

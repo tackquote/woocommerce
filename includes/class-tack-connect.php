@@ -162,6 +162,13 @@ class Tack_Connect {
 	 * WordPress roles (role mirror), My Account tabs, or sends data the merchant has not
 	 * chosen to send (order sync, shopper file attachments).
 	 *
+	 * Activation already adds the first three as 'yes'; they are listed for a store whose
+	 * activation hook never ran. In practice the change is the card and cart buttons.
+	 *
+	 * Relies on add_option() seeing a saved 'no' as existing: never register a `default`
+	 * for these options (register_setting() or a `default_option_{$option}` filter), or a
+	 * saved value equal to that default would read as missing and be overwritten.
+	 *
 	 * @since 1.15.0
 	 * @return array<string, string> Option name => value.
 	 */
@@ -182,6 +189,14 @@ class Tack_Connect {
 	 * @since 1.15.0
 	 */
 	public static function mark_first_key() {
+		// A store connected before 1.15.0 whose key was removed before the upgrade has no
+		// marker; what its earlier connection left behind says it is not a first connect.
+		foreach ( array( 'tack_quotes_store_settings', 'tack_quotes_wc_rest_key_id', 'tack_quotes_order_sync_block' ) as $left_behind ) {
+			if ( false !== get_option( $left_behind, false ) ) {
+				add_option( self::OPTION_FIRST_DEFAULTS, 'done', '', false );
+				return;
+			}
+		}
 		add_option( self::OPTION_FIRST_DEFAULTS, 'pending', '', false );
 	}
 

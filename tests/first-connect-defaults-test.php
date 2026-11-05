@@ -16,6 +16,8 @@ function tack_fcd_clean() {
 		unset( $GLOBALS['TACK_OPTIONS'][ $fcd_opt ] );
 	}
 	unset( $GLOBALS['TACK_OPTIONS'][ Tack_Connect::OPTION_FIRST_DEFAULTS ] );
+	// What an earlier connection leaves behind (Tack_Connect::mark_first_key()).
+	unset( $GLOBALS['TACK_OPTIONS']['tack_quotes_store_settings'], $GLOBALS['TACK_OPTIONS']['tack_quotes_wc_rest_key_id'], $GLOBALS['TACK_OPTIONS']['tack_quotes_order_sync_block'] );
 }
 
 $fcd_set = Tack_Connect::first_connect_defaults();
@@ -90,6 +92,14 @@ tack_fcd_clean();
 Tack_Connect::mark_first_key();
 Tack_Connect::note_key_removed();
 check( '1440 removal while pending: still pending', 'pending' === get_option( Tack_Connect::OPTION_FIRST_DEFAULTS ) );
+
+// 6. Connected before 1.15.0, key removed BEFORE the upgrade (no marker): what the earlier
+// connection left behind keeps the next key from being "first".
+tack_fcd_clean();
+tack_test_set_option( 'tack_quotes_wc_rest_key_id', 42 );
+Tack_Connect::mark_first_key();
+check( '1440 key removed before the upgrade: a later key is not "first"', 'done' === get_option( Tack_Connect::OPTION_FIRST_DEFAULTS ) );
+unset( $GLOBALS['TACK_OPTIONS']['tack_quotes_wc_rest_key_id'] );
 
 // Wiring: the paste path marks on add_option, the remove path notes the removal, and
 // uninstall deletes the marker.

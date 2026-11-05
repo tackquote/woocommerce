@@ -2261,7 +2261,8 @@ class Tack_Settings {
 					_n( '%1$s was not changed: TackQuote did not save it (%2$s).', '%1$s were not changed: TackQuote did not save them (%2$s).', count( $names ), 'tackquote' ),
 					// 1.15.0: WordPress's own translated list separators, not a literal ', '.
 					wp_sprintf_l( '%l', $names ),
-					$result->get_error_message()
+					// settings_errors() prints the message as HTML; TackQuote's text is not.
+					esc_html( $result->get_error_message() )
 				)
 			);
 			return $saved;
@@ -2364,7 +2365,7 @@ class Tack_Settings {
 					Tack_Storefront_Forms::OPTION_FORM_SLUG,
 					'tack_store_settings_write',
 					/* translators: %s: TackQuote's reason. */
-					sprintf( __( 'The wholesale form was not changed: TackQuote did not save it (%s).', 'tackquote' ), $result->get_error_message() )
+					sprintf( __( 'The wholesale form was not changed: TackQuote did not save it (%s).', 'tackquote' ), esc_html( $result->get_error_message() ) )
 				);
 				return $stored;
 			}

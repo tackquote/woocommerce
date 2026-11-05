@@ -516,6 +516,7 @@ class Tack_Store_Settings {
 			array(
 				'key'    => self::fingerprint(),
 				'scopes' => $scopes,
+				'at'     => time(),
 			),
 			false
 		);
@@ -617,6 +618,13 @@ class Tack_Store_Settings {
 	 * For the settings page: refresh when stale (an administrator is looking, not a shopper).
 	 */
 	public static function refresh_for_admin() {
+		// 1.15.0: TackQuote refused this key for a missing scope within TTL; asking again on
+		// every page view only earns more refusals (and its 429). A new key, or the next
+		// background refresh, asks again.
+		$refusal = get_option( self::REFUSAL_OPTION, null );
+		if ( is_array( $refusal ) && ( $refusal['key'] ?? '' ) === self::fingerprint() && time() - (int) ( $refusal['at'] ?? 0 ) < self::TTL ) {
+			return;
+		}
 		if ( self::is_stale() && false !== self::server_offers() ) {
 			// An administrator looking, never a shopper; the standing ping cache serves the
 			// capability check, so this costs one read.
