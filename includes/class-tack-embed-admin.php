@@ -444,6 +444,18 @@ class Tack_Embed_Admin {
 		}
 
 		$answer = $this->open( 'frame' );
+		// 1.15.0: a key without the scope is a key to replace, not a disconnected store.
+		$scope = Tack_Api_Client::missing_scope_message( $answer );
+		if ( '' !== $scope ) {
+			self::notice(
+				'error',
+				__( 'TackQuote refused to open the dashboard here.', 'tackquote' ) . ' ' . $scope,
+				$settings_url,
+				__( 'Open the Connection tab', 'tackquote' )
+			);
+			echo '</div>';
+			return;
+		}
 		if ( self::is_disconnected( $answer ) ) {
 			// The key was revoked or the store was disconnected: no code was minted.
 			$this->client()->forget_capabilities();

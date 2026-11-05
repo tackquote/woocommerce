@@ -225,6 +225,40 @@ function get_option( $key, $default = false ) {
 	return array_key_exists( $key, (array) $GLOBALS['TACK_OPTIONS'] ) ? $GLOBALS['TACK_OPTIONS'][ $key ] : $default;
 }
 function update_option( $key, $value ) { $GLOBALS['TACK_OPTIONS'][ $key ] = $value; return true; }
+if ( ! function_exists( 'wp_sprintf_l' ) ) {
+	/** WordPress's wp_sprintf_l() with its English delimiters (the `wp_sprintf_l` filter applies). */
+	function wp_sprintf_l( $pattern, $args ) {
+		if ( 0 !== strpos( $pattern, '%l' ) ) {
+			return $pattern;
+		}
+		if ( empty( $args ) ) {
+			return '';
+		}
+		$l = apply_filters( 'wp_sprintf_l', array( 'between' => ', ', 'between_last_two' => ', and ', 'between_only_two' => ' and ' ) );
+		$args   = array_values( (array) $args );
+		$result = array_shift( $args );
+		if ( 1 === count( $args ) ) {
+			$result .= $l['between_only_two'] . array_shift( $args );
+		}
+		$i = count( $args );
+		while ( $i ) {
+			$arg = array_shift( $args );
+			--$i;
+			$result .= ( 0 === $i ? $l['between_last_two'] : $l['between'] ) . $arg;
+		}
+		return $result . substr( $pattern, 2 );
+	}
+}
+if ( ! function_exists( 'add_option' ) ) {
+	/** WordPress's add_option(): writes only an option that does not exist yet. */
+	function add_option( $key, $value = '', $deprecated = '', $autoload = null ) {
+		if ( array_key_exists( $key, (array) $GLOBALS['TACK_OPTIONS'] ) ) {
+			return false;
+		}
+		$GLOBALS['TACK_OPTIONS'][ $key ] = $value;
+		return true;
+	}
+}
 function current_user_can( $cap ) { return in_array( $cap, (array) $GLOBALS['TACK_CAPS'], true ); }
 
 function add_menu_page( $page_title, $menu_title, $capability, $menu_slug, $callback = null, $icon = null, $position = null ) {

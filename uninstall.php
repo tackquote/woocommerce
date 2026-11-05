@@ -27,6 +27,10 @@ $tack_quotes_options = array(
 	'tack_quotes_show_request_quote',
 	'tack_quotes_enable_widget',
 	'tack_quotes_enable_order_sync',
+	// First-connect defaults marker (Tack_Connect::OPTION_FIRST_DEFAULTS) — 1.15.0.
+	'tack_quotes_first_connect_defaults',
+	// Store-settings scope refusal (Tack_Store_Settings::REFUSAL_OPTION) — 1.15.0.
+	'tack_quotes_store_settings_refused',
 	// Written by activation up to 1.12.0 and never read; removed so old rows go too.
 	'tack_quotes_schema_version',
 

@@ -150,7 +150,9 @@ check('P2: seller form asks the company name, policy requires nothing else -> se
 check('P2: that section is EMPTY markup (no whitespace), so the stylesheet\'s :empty rule drops its divider', () => {
   const q = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: [] });
   const html = q.sellerPolicyFields({ roles: { buyer_company: 'org' } });
-  assert.match(html, /<div class="tack-quote-company-section" hidden><\/div>/);
+  // 1438: the radio starts on "A company", so the section is no longer rendered hidden;
+  // it must still be EMPTY so the :empty rule applies.
+  assert.match(html, /<div class="tack-quote-company-section"><\/div>/);
   const css = read('../css/tack-quotes.css');
   assert.match(css, /\.tack-quote-company-section:empty\s*\{[^}]*border-block-start:\s*0;[^}]*\}/);
 });

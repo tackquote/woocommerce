@@ -9,9 +9,11 @@
  *    product immediately.
  *  - "Checkout as Quote" (floating quote-list drawer, shown site-wide) —
  *    submits every item currently in the quote list as one TackQuote request.
- *  - Since 1.10.0, all OFF by default: "Add to Quote" on product cards in the
- *    shop/category/search loops, "Request a quote for your cart" on the cart
- *    page (classic template and Cart block), the launcher's position, size,
+ *  - Since 1.10.0: "Add to Quote" on product cards in the shop/category/search
+ *    loops and "Request a quote for your cart" on the cart page (classic
+ *    template and Cart block), both off until the store's first successful
+ *    connection switches them on (1.15.0, Tack_Connect::first_connect_defaults(),
+ *    never over a saved value); settings for the launcher's position, size,
  *    label, pages and mobile behaviour, and a quote PAGE rendered by the
  *    `[tackquote_quote_page]` shortcode that shares the drawer's list and adds
  *    quantity editing, an optional target price per line and a message.
@@ -203,7 +205,7 @@ class Tack_Widget {
 		( new Tack_Quick_Order() )->init();
 
 		/*
-		 * Product cards (1.10.0, off by default). `woocommerce_after_shop_loop_item`
+		 * Product cards (1.10.0; on after the first connection since 1.15.0). `woocommerce_after_shop_loop_item`
 		 * is the hook WooCommerce's own loop button uses, at priority 10
 		 * (templates/content-product.php: "@hooked woocommerce_template_loop_add_to_cart
 		 * - 10"); 11 puts the quote control directly after it. The callback checks the
@@ -223,7 +225,7 @@ class Tack_Widget {
 		add_filter( 'render_block_woocommerce/product-button', array( $this, 'append_card_to_product_button' ), 10, 3 );
 
 		/*
-		 * Cart page (1.10.0, off by default). The classic cart fires
+		 * Cart page (1.10.0; on after the first connection since 1.15.0). The classic cart fires
 		 * `woocommerce_proceed_to_checkout` inside `.wc-proceed-to-checkout`
 		 * (templates/cart/cart-totals.php) with the Proceed button at priority 20
 		 * (includes/wc-template-hooks.php); 25 places the quote control under it. The
@@ -1221,7 +1223,7 @@ class Tack_Widget {
 
 	/**
 	 * "Add to Quote" on a product card in the shop, category and search loops
-	 * (off by default; `OPT_CARD_BUTTONS`).
+	 * (`OPT_CARD_BUTTONS`; unset reads as off, and the first connection sets it on).
 	 *
 	 * A simple product is added to the quote list directly, quantity 1. A product
 	 * whose card cannot name what would be quoted — variable (which size?),
@@ -1503,7 +1505,7 @@ class Tack_Widget {
 
 	/**
 	 * "Request a quote for your cart" under the classic cart's Proceed button
-	 * (off by default; `OPT_CART_BUTTON`).
+	 * (`OPT_CART_BUTTON`; unset reads as off, and the first connection sets it on).
 	 *
 	 * @since 1.10.0
 	 */

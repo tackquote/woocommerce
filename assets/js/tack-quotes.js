@@ -709,6 +709,8 @@
 	// Only offer the individual/company choice when the seller actually allows both.
 	// A company_only or buyer_only policy has nothing to choose, and rendering a
 	// single-option radio group is noise that implies a choice the seller does not offer.
+	// "A company" is the default (owner 2026-11-05): TackQuote is a B2B tool, and most
+	// shoppers asking for a quote buy for a business. "An individual" stays one click away.
 	function buildBuyingAs() {
 		const i18n = TackQuotes.i18n;
 		let html = '';
@@ -719,11 +721,11 @@
 				'<legend>' +
 				escapeHtml( i18n.buyingAsLabel ) +
 				'</legend>' +
-				'<label><input type="radio" name="buyingAs" value="individual" checked /> ' +
-				escapeHtml( i18n.buyingAsIndividual ) +
-				'</label>' +
-				'<label><input type="radio" name="buyingAs" value="company" /> ' +
+				'<label><input type="radio" name="buyingAs" value="company" checked /> ' +
 				escapeHtml( i18n.buyingAsCompany ) +
+				'</label>' +
+				'<label><input type="radio" name="buyingAs" value="individual" /> ' +
+				escapeHtml( i18n.buyingAsIndividual ) +
 				'</label>' +
 				'</fieldset>';
 		}
@@ -756,8 +758,9 @@
 		}
 		const i18n = TackQuotes.i18n;
 		// company_only means every shopper is a company, so the section is always shown and
-		// always required. When both modes are allowed it starts hidden and the radio reveals it.
-		const alwaysCompany = ! r.allowIndividual;
+		// always required. When both modes are allowed the radio starts on "A company"
+		// (buildBuyingAs), so the section starts visible too; syncCompanySection hides
+		// and disables it when the shopper picks "An individual".
 		const required = Array.isArray( r.requiredCompanyFields )
 			? r.requiredCompanyFields
 			: [];
@@ -799,9 +802,7 @@
 		// company name itself, under a policy with no required company fields, left a
 		// heading over nothing (live QA 2026-10-26).
 		return (
-			'<div class="tack-quote-company-section"' +
-			( alwaysCompany ? '' : ' hidden' ) +
-			'>' +
+			'<div class="tack-quote-company-section">' +
 			( fields
 				? '<h3 class="tack-quote-company-heading">' +
 				  escapeHtml( i18n.companyHeading ) +

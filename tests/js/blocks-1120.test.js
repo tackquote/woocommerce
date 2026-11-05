@@ -175,6 +175,25 @@ check('seller form + both allowed: the individual/company choice is offered', ()
   const api = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: [] });
   assert.match(api.sellerPolicyFields({ roles: {} }), /name="buyingAs"/);
 });
+// IMPROVEMENTS 1438 (owner 2026-11-05): a B2B tool, so "I am buying as" starts on
+// "A company"; "An individual" is still offered. The company section therefore renders
+// visible, not hidden until the radio moves.
+check('1438: both allowed -> "A company" is the checked default, "An individual" still offered', () => {
+  const api = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: [] });
+  const html = api.sellerPolicyFields({ roles: {} });
+  const radios = html.match(/<input type="radio" name="buyingAs"[^>]*>/g) || [];
+  assert.equal(radios.length, 2);
+  const company = radios.find((r) => /value="company"/.test(r));
+  const individual = radios.find((r) => /value="individual"/.test(r));
+  assert.ok(company && /\bchecked\b/.test(company), 'company radio is checked');
+  assert.ok(individual && !/\bchecked\b/.test(individual), 'individual radio is not checked');
+});
+check('1438: both allowed -> the company section is not rendered hidden', () => {
+  const api = quotesApi({ allowCompany: true, allowIndividual: true, requiredCompanyFields: ['taxId'] });
+  const html = api.sellerPolicyFields({ roles: {} });
+  assert.match(html, /<div class="tack-quote-company-section">/);
+  assert.equal(api.companyChosen({ hasSection: true, hasRadio: true, radio: 'company', formCompany: '' }), true);
+});
 check('seller form + individuals only: nothing is added', () => {
   const api = quotesApi({ allowCompany: false, allowIndividual: true });
   assert.equal(api.sellerPolicyFields({ roles: {} }), '');

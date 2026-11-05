@@ -267,6 +267,70 @@ class Tack_Api_Client {
 	const STATE_FAILED     = 'failed';
 
 	/**
+	 * The scope TackQuote's WooCommerce plugin routes (store settings, the embedded
+	 * dashboard, REST-key status) require, named when a refusal carries no list.
+	 */
+	const PLUGIN_SCOPE = 'quotes:write';
+
+	/**
+	 * The scopes a request was refused for, or null when it was not a scope refusal.
+	 *
+	 * TackQuote's ApiKeyGuard answers a key without the route's scope with a JSON
+	 * `403 {code: "insufficient_scope", message, requiredScopes}` (a `429` with the same
+	 * code once the same refusal repeats). request() keeps `code` and `requiredScopes` in
+	 * the WP_Error data. Only TackQuote's own JSON counts: a proxy's 403 page is not one.
+	 *
+	 * @since 1.15.0
+	 *
+	 * @param mixed $error A request() result.
+	 * @return string[]|null The required scopes (PLUGIN_SCOPE when none was listed).
+	 */
+	public static function refused_scopes( $error ) {
+		if ( ! is_wp_error( $error ) ) {
+			return null;
+		}
+		$data = $error->get_error_data();
+		if ( ! is_array( $data ) || empty( $data['json'] ) || 'insufficient_scope' !== ( $data['code'] ?? '' )
+			|| ! in_array( (int) ( $data['status'] ?? 0 ), array( 403, 429 ), true ) ) {
+			return null;
+		}
+		$scopes = array();
+		foreach ( (array) ( $data['requiredScopes'] ?? array() ) as $scope ) {
+			// TackQuote's scope names are `resource:action`; anything else is not shown.
+			if ( is_string( $scope ) && preg_match( '/^[a-z][a-z0-9_]{0,40}:[a-z][a-z0-9_]{0,40}$/', $scope ) && ! in_array( $scope, $scopes, true ) ) {
+				$scopes[] = $scope;
+			}
+		}
+		return array() !== $scopes ? $scopes : array( self::PLUGIN_SCOPE );
+	}
+
+	/**
+	 * The merchant-facing sentence for a scope refusal: which scope the saved key lacks
+	 * and how to get a key that has it. '' when `$error` is not a scope refusal.
+	 *
+	 * @since 1.15.0
+	 *
+	 * @param mixed $error A request() result.
+	 * @return string Translated, unescaped.
+	 */
+	public static function missing_scope_message( $error ) {
+		$scopes = self::refused_scopes( $error );
+		if ( null === $scopes ) {
+			return '';
+		}
+		return sprintf(
+			/* translators: %s: one API key scope, or a list of them, e.g. "quotes:write". */
+			_n(
+				'The API key saved on this site does not have the %s scope this needs. Press Connect with TackQuote on the Connection tab, or create a key with that scope in TackQuote under Settings → Developer → API keys and save it here.',
+				'The API key saved on this site does not have the %s scopes this needs. Press Connect with TackQuote on the Connection tab, or create a key with those scopes in TackQuote under Settings → Developer → API keys and save it here.',
+				count( $scopes ),
+				'tackquote'
+			),
+			wp_sprintf_l( '%l', $scopes )
+		);
+	}
+
+	/**
 	 * Check the saved key against TackQuote's authenticated ping.
 	 *
 	 * Only a 2xx ping passes. `GET /health` is PUBLIC (it never reads the key), so it is

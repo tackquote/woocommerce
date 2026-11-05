@@ -5,7 +5,7 @@
 Add a **Request a Quote** button to your WooCommerce store and sync orders with your [TackQuote](https://tackquote.com) B2B quoting account.
 
 - 🧾 "Add to Quote" and "Request a Quote" buttons on product pages, plus a floating quote list with "Checkout as Quote"
-- 🛒 **More places to start a quote** (each off by default): "Add to Quote" on product cards (shop pages and, since 1.12.0, block product grids such as Product Collection), "Request a quote for your cart" on the classic cart and inside the Cart block (above Proceed to checkout, through the Blocks Integration API), and a quote page via `[tackquote_quote_page]` with quantities, target prices and a message
+- 🛒 **More places to start a quote** (product cards and the cart switch on at the store's first successful connection, unless already saved off; the quote page is yours to place): "Add to Quote" on product cards (shop pages and, since 1.12.0, block product grids such as Product Collection), "Request a quote for your cart" on the classic cart and inside the Cart block (above Proceed to checkout, through the Blocks Integration API), and a quote page via `[tackquote_quote_page]` with quantities, target prices and a message
 - 📝 **The seller's own quote request form** (since 1.12.0): the form designed in TackQuote replaces the built-in modal fields when the server lists `quote-form`; the built-in form stays otherwise
 - ⚡ **Quick order** (since 1.12.0): `[tackquote_quick_order]` and the "TackQuote quick order" block; SKUs matched in the store's own catalogue, then added to the cart (WooCommerce's own add-to-cart rules) or to the quote list
 - 🎯 **Floating launcher settings** — position, offsets, label, icon only, count, size, pages, hide on mobile; defaults match the 1.8 launcher
