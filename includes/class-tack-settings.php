@@ -2257,9 +2257,10 @@ class Tack_Settings {
 				self::option_group( $tab ),
 				'tack_store_settings_write',
 				sprintf(
-					/* translators: 1: one feature or a comma-separated list, e.g. "Order limits, Buyer group badge"; 2: TackQuote's reason. */
+					/* translators: 1: one feature or a list in the site language's list style, e.g. "Order limits and Buyer group badge"; 2: TackQuote's reason. */
 					_n( '%1$s was not changed: TackQuote did not save it (%2$s).', '%1$s were not changed: TackQuote did not save them (%2$s).', count( $names ), 'tackquote' ),
-					implode( ', ', $names ),
+					// 1.15.0: WordPress's own translated list separators, not a literal ', '.
+					wp_sprintf_l( '%l', $names ),
 					$result->get_error_message()
 				)
 			);
@@ -2567,6 +2568,8 @@ class Tack_Settings {
 				$this->action_result = Tack_Connect::take_notice();
 			}
 			$this->render_action_result();
+			// 1.15.0: the key lacks the scope the settings read needs.
+			Tack_Store_Settings::render_refusal_notice();
 			// 1.12.0: "Update available", from WordPress's own update check or the newest
 			// release TackQuote names.
 			Tack_Update_Notice::render();
@@ -2748,6 +2751,7 @@ class Tack_Settings {
 			// itself). A pasted key is only deleted from this site, as before: the
 			// merchant made it in TackQuote and may use it elsewhere.
 			$revoked = Tack_Connect::revoke_saved_key();
+			Tack_Connect::note_key_removed();
 			delete_option( 'tack_quotes_api_key' );
 			delete_option( Tack_Connect::OPTION_VIA );
 			delete_option( Tack_Connect::OPTION_AT );
@@ -2788,7 +2792,7 @@ class Tack_Settings {
 	 *
 	 * @since 1.11.0
 	 *
-	 * @return array{type:string,message:string,ok:bool}
+	 * @return array{type:string,message:string,ok:bool,defaults:string[]}
 	 */
 	public static function record_connection_test() {
 		$client = new Tack_Api_Client();
@@ -2818,6 +2822,13 @@ class Tack_Settings {
 			),
 			DAY_IN_SECONDS
 		);
+		// 1.15.0: the first passing test after this site's first key switches the quote
+		// buttons on (Tack_Connect::apply_first_connect_defaults(): once, never over a
+		// value the merchant saved).
+		$outcome['defaults'] = $ok ? Tack_Connect::apply_first_connect_defaults() : array();
+		if ( ! empty( $outcome['defaults'] ) ) {
+			$outcome['message'] .= ' ' . Tack_Connect::first_connect_defaults_notice( $outcome['defaults'] );
+		}
 		return $outcome;
 	}
 

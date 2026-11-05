@@ -83,6 +83,12 @@ class Tack_Store_Settings {
 	const BUYER_GROUP  = 'buyer_group';
 	const TAX_EXEMPT   = 'tax_exempt';
 
+	/**
+	 * The last scope refusal of the settings read, for the saved key (1.15.0): TackQuote
+	 * answered `insufficient_scope`, so the settings shown are the last ones it gave.
+	 */
+	const REFUSAL_OPTION = 'tack_quotes_store_settings_refused';
+
 	/** The settings paths. */
 	const GET_PATH   = '/integrations/woocommerce/store-settings';
 	const SEED_PATH  = '/integrations/woocommerce/store-settings/seed';
@@ -455,7 +461,11 @@ class Tack_Store_Settings {
 			return false;
 		}
 
-		$settings = self::normalise( $client->request( 'GET', self::GET_PATH, null, $timeout ) );
+		$answer = $client->request( 'GET', self::GET_PATH, null, $timeout );
+		if ( self::note_refusal( $answer ) ) {
+			return false;
+		}
+		$settings = self::normalise( $answer );
 		if ( null === $settings ) {
 			return false;
 		}
@@ -464,7 +474,11 @@ class Tack_Store_Settings {
 		// it only while it holds nothing, so a repeat is harmless. TackQuote's empty answer is
 		// never taken as "everything off": that would switch off what the store has on.
 		if ( '' === $settings['updatedAt'] ) {
-			$settings = self::normalise( $client->request( 'POST', self::SEED_PATH, self::local_values(), $timeout ) );
+			$answer = $client->request( 'POST', self::SEED_PATH, self::local_values(), $timeout );
+			if ( self::note_refusal( $answer ) ) {
+				return false;
+			}
+			$settings = self::normalise( $answer );
 			if ( null === $settings || '' === $settings['updatedAt'] ) {
 				return false;
 			}
@@ -479,7 +493,70 @@ class Tack_Store_Settings {
 			),
 			true
 		);
+		delete_option( self::REFUSAL_OPTION );
 		return true;
+	}
+
+	/**
+	 * Remember a scope refusal of the settings read for the saved key (the last answer
+	 * stays in force: fail closed), or report that this answer was not one.
+	 *
+	 * @since 1.15.0
+	 *
+	 * @param mixed $answer A request() result.
+	 * @return bool Whether TackQuote refused it for a missing scope.
+	 */
+	private static function note_refusal( $answer ) {
+		$scopes = Tack_Api_Client::refused_scopes( $answer );
+		if ( null === $scopes ) {
+			return false;
+		}
+		update_option(
+			self::REFUSAL_OPTION,
+			array(
+				'key'    => self::fingerprint(),
+				'scopes' => $scopes,
+			),
+			false
+		);
+		return true;
+	}
+
+	/**
+	 * The admin sentence for a scope refusal of the settings read, for the saved key;
+	 * '' when there is none (a refusal recorded for another key is stale).
+	 *
+	 * @since 1.15.0
+	 * @return string Translated, unescaped.
+	 */
+	public static function refusal_message() {
+		$refusal = get_option( self::REFUSAL_OPTION, null );
+		if ( ! is_array( $refusal ) || ( $refusal['key'] ?? '' ) !== self::fingerprint() || '' === self::fingerprint() ) {
+			return '';
+		}
+		$error = new WP_Error(
+			'tack_http_403',
+			'',
+			array(
+				'status'         => 403,
+				'json'           => true,
+				'code'           => 'insufficient_scope',
+				'requiredScopes' => is_array( $refusal['scopes'] ?? null ) ? $refusal['scopes'] : array(),
+			)
+		);
+		return __( 'TackQuote refused to send this store’s settings, so the ones shown may be out of date.', 'tackquote' ) . ' ' . Tack_Api_Client::missing_scope_message( $error );
+	}
+
+	/**
+	 * Print the scope-refusal notice on the settings page, if there is one.
+	 *
+	 * @since 1.15.0
+	 */
+	public static function render_refusal_notice() {
+		$message = self::refusal_message();
+		if ( '' !== $message ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $message ) );
+		}
 	}
 
 	/**
@@ -510,7 +587,9 @@ class Tack_Store_Settings {
 		}
 		$answer = $client->request( 'PUT', self::WRITE_PATH, $change, Tack_Api_Client::INTERACTIVE_TIMEOUT );
 		if ( is_wp_error( $answer ) ) {
-			return $answer;
+			// 1.15.0: a key without the route's scope is named, not TackQuote's English text.
+			$scope = Tack_Api_Client::missing_scope_message( $answer );
+			return '' !== $scope ? new WP_Error( 'tack_insufficient_scope', $scope, $answer->get_error_data() ) : $answer;
 		}
 		$settings = self::normalise( $answer );
 		if ( null === $settings ) {

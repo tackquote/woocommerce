@@ -157,6 +157,10 @@ class Tack_Rest_Keys {
 				return self::notice( 'error', __( 'Could not reach TackQuote, so nothing was changed. Try again in a few minutes.', 'tackquote' ) );
 			}
 			$message = __( 'TackQuote did not start catalogue and order sync, so nothing was changed.', 'tackquote' );
+			$scope   = Tack_Api_Client::missing_scope_message( $answer );
+			if ( '' !== $scope ) {
+				return self::notice( 'error', $message . ' ' . $scope );
+			}
 			return self::notice( 'error', '' !== $said ? $message . ' ' . $said : $message );
 		}
 		$url = isset( $answer['authorizeUrl'] ) && is_string( $answer['authorizeUrl'] ) ? $answer['authorizeUrl'] : '';
@@ -270,9 +274,10 @@ class Tack_Rest_Keys {
 		}
 		$answer = $this->client()->request( 'GET', '/integrations/woocommerce/rest-keys/status', null, Tack_Api_Client::INTERACTIVE_TIMEOUT );
 		if ( is_wp_error( $answer ) ) {
+			// 1.15.0: a scope refusal is named (not cached: a new key fixes it at once).
 			return array(
 				'status'  => 'unknown',
-				'message' => '',
+				'message' => Tack_Api_Client::missing_scope_message( $answer ),
 			);
 		}
 		$status = isset( $answer['status'] ) && in_array( $answer['status'], array( 'none', 'pending', 'connected', 'failed' ), true ) ? $answer['status'] : 'unknown';
@@ -317,6 +322,8 @@ class Tack_Rest_Keys {
 			echo '<p>' . esc_html__( 'Quotes, prices, forms and orders already work through this plugin. Allow catalogue and order sync so TackQuote can also bring in your products, stock and categories, receive store webhooks for Flows, and write orders back to WooCommerce.', 'tackquote' ) . '</p>';
 			if ( 'failed' === $status['status'] ) {
 				echo '<p class="tack-field-error">' . esc_html__( 'The last attempt did not work:', 'tackquote' ) . ' ' . esc_html( '' !== $status['message'] ? $status['message'] : __( 'no reason was given.', 'tackquote' ) ) . '</p>';
+			} elseif ( 'unknown' === $status['status'] && '' !== $status['message'] ) {
+				echo '<p class="tack-field-error">' . esc_html( $status['message'] ) . '</p>';
 			}
 
 			/*

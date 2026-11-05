@@ -202,6 +202,10 @@ require __DIR__ . '/connection-test-test.php';
 echo "\n-- connect with TackQuote --\n";
 require __DIR__ . '/connect-test.php';
 
+// IMPROVEMENTS 1440: the quote buttons switch on after the first successful Connect.
+echo "\n-- first-connect defaults --\n";
+require __DIR__ . '/first-connect-defaults-test.php';
+
 // 1.10.0 standards audit: email trust on every path, rate limits, quotable products,
 // no redirects with the key, uninstall completeness, privacy exporter/eraser.
 echo "\n-- standards audit (W7) --\n";
@@ -263,6 +267,10 @@ require __DIR__ . '/live-qa-2-test.php';
 
 echo "\n-- 1.13.0 one place: store settings from TackQuote, one menu, registration questions --\n";
 require __DIR__ . '/store-settings-test.php';
+
+// IMPROVEMENTS 1450/1406: a key without the needed scope is named; translated list separators.
+echo "\n-- scope refusals --\n";
+require __DIR__ . '/scope-refusal-test.php';
 
 // 1.13.1: the signed-in requester's WordPress user id, to a `requester_identity` server.
 require __DIR__ . '/requester-identity-1131-test.php';

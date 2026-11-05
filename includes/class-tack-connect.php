@@ -64,6 +64,15 @@ class Tack_Connect {
 	const VIA_KEY     = 'key';
 
 	/**
+	 * Marker for the first-connect defaults (1.15.0): absent on a store that predates
+	 * them, `pending` once this site saved its first API key, `done` once they ran (or
+	 * can no longer be "first": the key of an older store was removed).
+	 *
+	 * @since 1.15.0
+	 */
+	const OPTION_FIRST_DEFAULTS = 'tack_quotes_first_connect_defaults';
+
+	/**
 	 * `admin-post.php` actions.
 	 */
 	const START_ACTION  = 'tackquote_connect_start';
@@ -136,6 +145,93 @@ class Tack_Connect {
 		// after it stores its key, so it wins over this.
 		add_action( 'add_option_tack_quotes_api_key', array( __CLASS__, 'mark_pasted' ) );
 		add_action( 'update_option_tack_quotes_api_key', array( __CLASS__, 'mark_pasted' ) );
+		// `add_option_{$option}` fires only when the option did not exist: the first key
+		// this site ever saved (update_option() on a missing option calls add_option()).
+		add_action( 'add_option_tack_quotes_api_key', array( __CLASS__, 'mark_first_key' ) );
+	}
+
+	/**
+	 * The switches a store gets after its first successful connection (1.15.0, owner
+	 * decision 2026-11-05: a fresh install showed every switch off).
+	 *
+	 * Only the quote buttons: the master switch, the product page's two buttons, "Add to
+	 * Quote" on product cards and "Request a quote for your cart". They add a way to ask
+	 * for a quote and change nothing else. Deliberately NOT here: anything that changes
+	 * prices (wholesale pricing, group discounts), tax (tax exemption), the cart or checkout
+	 * (order limits, payment/shipping restrictions, quote-only mode, catalogue visibility),
+	 * WordPress roles (role mirror), My Account tabs, or sends data the merchant has not
+	 * chosen to send (order sync, shopper file attachments).
+	 *
+	 * @since 1.15.0
+	 * @return array<string, string> Option name => value.
+	 */
+	public static function first_connect_defaults() {
+		return array(
+			'tack_quotes_enable_widget'      => 'yes',
+			'tack_quotes_show_add_to_quote'  => 'yes',
+			'tack_quotes_show_request_quote' => 'yes',
+			Tack_Widget::OPT_CARD_BUTTONS    => 'yes',
+			Tack_Widget::OPT_CART_BUTTON     => 'yes',
+		);
+	}
+
+	/**
+	 * The first API key this site saved: the defaults wait for a passing connection test.
+	 * A store whose marker already says `done` stays done.
+	 *
+	 * @since 1.15.0
+	 */
+	public static function mark_first_key() {
+		add_option( self::OPTION_FIRST_DEFAULTS, 'pending', '', false );
+	}
+
+	/**
+	 * The saved key is being removed. A store that predates the marker was connected
+	 * before, so a later key is never its "first": mark it done. A store still waiting
+	 * (its first key never passed the test) keeps waiting.
+	 *
+	 * @since 1.15.0
+	 */
+	public static function note_key_removed() {
+		add_option( self::OPTION_FIRST_DEFAULTS, 'done', '', false );
+	}
+
+	/**
+	 * After a passing connection test: switch on the first-connect defaults, once.
+	 *
+	 * Only options the merchant never saved are written (add_option() leaves an existing
+	 * value alone, including an explicit "no" saved before connecting), and only while the
+	 * marker is `pending`, so a choice made afterwards is never overridden.
+	 *
+	 * @since 1.15.0
+	 * @return string[] The options switched on now (empty when nothing changed).
+	 */
+	public static function apply_first_connect_defaults() {
+		if ( 'pending' !== get_option( self::OPTION_FIRST_DEFAULTS, '' ) ) {
+			return array();
+		}
+		update_option( self::OPTION_FIRST_DEFAULTS, 'done', false );
+		$added = array();
+		foreach ( self::first_connect_defaults() as $option => $value ) {
+			if ( add_option( $option, $value ) ) {
+				$added[] = $option;
+			}
+		}
+		return $added;
+	}
+
+	/**
+	 * The sentence a notice adds when the first-connect defaults switched something on.
+	 *
+	 * @since 1.15.0
+	 * @param string[] $added Options switched on.
+	 * @return string '' when nothing was.
+	 */
+	public static function first_connect_defaults_notice( array $added ) {
+		if ( empty( $added ) ) {
+			return '';
+		}
+		return __( 'The quote buttons are now on (product pages, product cards and the cart). Change them under Settings → Storefront.', 'tackquote' );
 	}
 
 	/**
@@ -546,6 +642,11 @@ class Tack_Connect {
 			return self::notice( 'error', __( 'TackQuote answered without a usable API key, so nothing was changed. Press Connect with TackQuote again, or paste an API key.', 'tackquote' ) );
 		}
 
+		// The first key this site ever saved waits for the first-connect defaults. The
+		// add_option hook marks it too; this also covers a key option left empty.
+		if ( '' === (string) get_option( 'tack_quotes_api_key', '' ) ) {
+			self::mark_first_key();
+		}
 		// The same option, sanitiser and masked display as a pasted key.
 		update_option( 'tack_quotes_api_key', $api_key );
 		update_option( self::OPTION_VIA, self::VIA_CONNECT );
@@ -564,6 +665,9 @@ class Tack_Connect {
 				/* translators: %s: TackQuote workspace name. */
 				? sprintf( __( 'Connected to TackQuote (workspace: %s). The connection test passed.', 'tackquote' ), $workspace )
 				: __( 'Connected to TackQuote. The connection test passed.', 'tackquote' );
+			if ( ! empty( $test['defaults'] ) ) {
+				$message .= ' ' . self::first_connect_defaults_notice( $test['defaults'] );
+			}
 			return self::notice( 'success', $message );
 		}
 		return self::notice(

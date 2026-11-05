@@ -24,6 +24,7 @@
       "assets/js/tack-quick-order.js"
     ],
     "notStorefront": {
+      "The API key saved on this site does not have the %s scope this needs. Press Connect with TackQuote on the Connection tab, or create a key with that scope in TackQuote under Settings → Developer → API keys and save it here.": "scope refusal named on the TackQuote settings, dashboard and Connection screens (Tack_Api_Client::missing_scope_message), seen by the shop manager only",
       "Ask for an optional PO number at checkout (any payment method) and send it to TackQuote with the order": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
       "Description": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",
       "Enable/Disable": "payment-gateway settings screen (WooCommerce > Settings > Payments), seen by the shop manager only",

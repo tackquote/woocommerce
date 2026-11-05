@@ -398,6 +398,24 @@ tack_cx_routes(
 tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'no', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
 $ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
 check( 'actor: with no fresh capability list the server is asked, and wpUserId still goes', is_array( $ss_body ) && 9 === ( $ss_body['wpUserId'] ?? null ) );
+// IMPROVEMENTS 1406: no fresh capability list AND the ping fails -> the save still goes,
+// without wpUserId (an older server would refuse the field; it cannot be confirmed).
+tack_ss_caps( null );
+$GLOBALS['TACK_CURRENT_USER_ID'] = 9;
+tack_cx_routes(
+	array(
+		'/integrations/woocommerce/ping' => array( 503, array( 'statusCode' => 503, 'message' => 'Service Unavailable' ) ),
+		// TackQuote's answer keeps every switch where the previous case left it, so the
+		// cases after this one see the same state.
+		'/store-settings/from-plugin'    => array( 200, tack_ss_answer( array( 'features' => array( 'orderLimits' => true, 'buyerGroupBadge' => false, 'taxExempt' => true, 'prices' => false ) ) ) ),
+	)
+);
+$GLOBALS['TACK_SETTINGS_ERRORS'] = array();
+tack_ss_save( 'pricing', $ss_pricing( array( 'tack_quotes_enable_wholesale_pricing' => 'yes', 'tack_quotes_enable_order_limits' => 'yes', 'tack_quotes_enable_buyer_group' => 'no', 'tack_quotes_apply_tax_exempt' => 'yes' ) ) );
+$ss_body = json_decode( (string) ( $ss_put()[0]['args']['body'] ?? '' ), true );
+check( '1406 actor: the ping was asked (no fresh list)', 1 <= count( tack_ss_calls( '/integrations/woocommerce/ping' ) ) );
+check( '1406 actor: the ping failed -> the save is still sent, with no wpUserId', 1 === count( $ss_put() ) && is_array( $ss_body ) && ! array_key_exists( 'wpUserId', $ss_body ) && isset( $ss_body['features']['prices'] ), wp_json_encode( $ss_body ) );
+check( '1406 actor: ...and it saved without an error, as TackQuote answered', array() === $GLOBALS['TACK_SETTINGS_ERRORS'] && 'no' === get_option( 'tack_quotes_enable_wholesale_pricing' ) );
 // Fable 4: nobody signed in (user id 0) -> no wpUserId at all.
 tack_ss_caps( array( Tack_Store_Settings::CAPABILITY, Tack_Store_Settings::WRITE_CAPABILITY, Tack_Store_Settings::ACTOR_CAPABILITY ) );
 $GLOBALS['TACK_CURRENT_USER_ID'] = 0;
