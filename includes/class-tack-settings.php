@@ -3393,7 +3393,7 @@ class Tack_Settings {
 		echo '<p>' . esc_html__( 'The floating button that opens the shopper\'s quote list. Defaults match the launcher the plugin always had.', 'tackquote' ) . '</p>';
 		$this->learn_more(
 			array(
-				__( 'Where else shoppers can start a quote, and how the floating quote-list launcher looks. Everything here is off, or set to the layout the plugin always had, until you change it. Every control uses your theme\'s own button styling.', 'tackquote' ),
+				__( 'Where else shoppers can start a quote, and how the floating quote-list launcher looks. Product cards and the cart page switch on when the store first connects to TackQuote; everything else is off, or set to the layout the plugin always had, until you change it. Every control uses your theme\'s own button styling.', 'tackquote' ),
 				__( 'Defaults match the launcher the plugin always had: bottom right, 20 px from each edge, "Quote list (n)", regular size, every page. On phones narrower than 480 px the launcher is always compact and sits above the device\'s home indicator.', 'tackquote' ),
 			)
 		);
