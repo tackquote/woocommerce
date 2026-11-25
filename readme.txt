@@ -5,7 +5,7 @@ Requires at least: 6.4
 Requires Plugins: woocommerce
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.15.0
+Stable tag: 1.16.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -185,8 +185,8 @@ TackQuote confirms it let go of it.
 
 16. **Plugin deactivated or deleted** (since 1.12.0) — `POST /integrations/woocommerce/plugin-lifecycle`.
 Sent once when the plugin is deactivated or deleted (not when WordPress updates it), so TackQuote
-pauses a connection that runs through the plugin only. Sends `deactivated` or `uninstalled` and the
-headers above.
+pauses a connection that runs through the plugin only. Sends `deactivated` or `uninstalled`, the
+headers above, `pluginVersion` and any deactivation answer (FAQ).
 
 17. **Update check of the zip from the TackQuote website** (since 1.12.0; not in the WordPress.org
 build) — `GET https://api.github.com/repos/tackquote/woocommerce/releases/latest`, at most every
@@ -393,6 +393,10 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Item meta — the variation attributes and any custom item fields your store records on a line (for example "Size: Large", "Colour: Blue"). If your checkout writes customer-supplied text onto a line item, it is included here
 * Shipping lines: method title and cost. Fee lines: name and amount
 
+= What does the deactivation question send? =
+
+Since 1.16.0, "Deactivate" on Plugins may ask, optionally, why you are deactivating. It is offered only when an API key is saved and the TackQuote server takes the answer. "Skip and deactivate" sends no answer, and Cancel deactivates nothing. Only "Send and deactivate" adds your answer to that one deactivation's notice (External services, item 16): one reason from a fixed list, the note you typed (at most 4,000 characters; TackQuote removes email addresses and phone numbers from it) and whether you would like help. An answer is never sent with a later deactivation, a bulk deactivation or WP-CLI. If you ask for help, someone from the TackQuote team gets in touch by email. To a server that takes the answer, the deactivation and deletion notices also carry the plugin version (`pluginVersion`). Each notice waits at most 3 seconds per call and never stops the deactivation. The plugin never logs the answer.
+
 = What does the plugin store on my site, and what does deleting it remove? =
 
 * Plugin settings, as WordPress options: the TackQuote API key, API URL, button labels, and the feature toggles.
@@ -416,6 +420,7 @@ transaction ID is a reference the gateway issued, not an instrument.
 * Since 1.12.0, transients: `tack_quotes_quote_form_cache` (your quote request form, five minutes, served up to 30 minutes longer while one request refreshes it, one minute after a failure); `tack_quotes_qf_refresh_*` (a 30-second lock so only one request refreshes it); `tack_quotes_quote_form_file_fallback` (one day, so the log notes once that the built-in form was shown); `tack_quotes_rest_keys_status` (the catalogue and order sync status, five minutes); the site transient `tack_quotes_github_release` (the latest GitHub release of the plugin, twelve hours, one hour after a failure; only in the zip from the TackQuote website); `tack_qo_*` and `tack_qa_*` (quick-order rate limits per visitor, five minutes, keyed on a salted hash of the IP address, never the address).
 * Since 1.12.0: user meta `_tackquote_embed_secret` — a random per-user secret for TackQuote inside WooCommerce admin, sent only to TackQuote, server to server.
 * Since 1.14.0: `tack_sfc_*` transients — TackQuote's answers for product pages and listings (order limits, buyer group, quantity breaks and prices), kept 60 to 120 seconds per customer and currency under a hashed name that carries no email; options `tack_quotes_storefront_cache_gen` (a counter that makes every kept answer unreadable when a setting changes) and `tack_quotes_storefront_cache_swept` (when expired transients were last removed).
+* Since 1.16.0: `tack_quotes_deactivation_feedback_<user id>` — a transient holding the answer to the optional deactivation question (reason, note, whether you would like help) readable for at most two minutes, and only by the deactivation "Send and deactivate" leads to (it carries a random token); deleted when read.
 
 * User meta `_tack_known_email` (a copy of the account email), `_tack_email_unverified`, `_tack_mirrored_roles`, `_tack_role_mirror_checked`, `_tack_wholesale_applied` (when a wholesale application sent from the store was answered "pending"); product meta `_tackquote_quote_only`. Tools → Export/Erase Personal Data covers the user meta, and WooCommerce's order export covers the order meta above. Erasure deletes only the purchase-order number, and only when WooCommerce's "Remove personal data from orders on request" is on; the quote reference, quote number and net terms are business records and stay.
 
@@ -441,6 +446,11 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 16. With an accent colour set, the quote buttons blend into Twenty Twenty-Four.
 
 == Changelog ==
+
+= 1.16.0 =
+Full notes are in `changelog.txt`.
+
+* **An optional question when you deactivate.** On a TackQuote server that offers it, "Deactivate" on Plugins asks why, with a reason, an optional note and "I would like help from TackQuote". "Skip and deactivate" is the default and sends no answer; Cancel deactivates nothing.
 
 = 1.15.0 =
 Released 2026-11-05. Full notes are in `changelog.txt`.
@@ -469,23 +479,12 @@ Released 2026-10-26. Full notes are in `changelog.txt`.
 * Fixed: on phones, "Add to Quote" in product cards takes less side padding, so it fits beside a theme's wide buttons (Twenty Twenty-Five).
 * Fixed: the quote form asks the seller's own registration questions, so a seller with a required question no longer gets every request refused. The order-sync box no longer shows ticked before it was ever saved.
 
-= 1.12.0 =
-Released 2026-10-26. Full notes for this and earlier releases are in `changelog.txt` in the plugin folder.
-
-* **Your own quote request form**, designed in TackQuote, in the quote modal (when your TackQuote server offers it).
-* **Quick order** by SKU (shortcode `[tackquote_quick_order]` and block), to the cart or the quote list.
-* **Add to Quote on block product grids**, and **Request a quote for your cart** inside the Cart block.
-* **Net terms in the Checkout block** follow the cart, and the method always has a label.
-* **Catalogue and order sync with one approval**, through a WooCommerce REST API key that WooCommerce sends to TackQuote directly (https only).
-* **TackQuote inside WooCommerce admin**: each person links their own WordPress login and is signed in as themselves.
-* **Disconnect stand-down**: when TackQuote revokes the store's key, the storefront quote features hide until the store is connected again. Deactivating or deleting the plugin tells TackQuote.
-* **Update available** notice, and the website's zip now receives WordPress updates.
-* Quote lines for every product type: a grouped product is quoted as its products, one line each; a variation's "Any" choice stays on its line; quote-only, out-of-stock and external products get a quantity; a product sold individually is quoted as one.
-* Store details (name, address, time zone, currency) and variation keys go to a TackQuote server that asks for them.
-* Fixes from live testing: calmer shopper messages when the store's connection fails, a truthful Connection tab, quick order and card layout, the designed form's company field, optional addresses, and wording.
-* WordPress and WooCommerce coding standards throughout; new storefront text in the seven bundled languages.
+Notes for 1.12.0 and earlier releases are in `changelog.txt` in the plugin folder.
 
 == Upgrade Notice ==
+
+= 1.16.0 =
+Deactivating the plugin can now ask, optionally, why. Skipping sends no answer.
 
 = 1.15.0 =
 Stores connecting for the first time get the product-card and cart quote buttons switched on; existing stores keep their settings. The quote form now starts on "A company".

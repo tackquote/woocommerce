@@ -55,6 +55,8 @@ jobs:
           node tests/js/live-qa-2.test.js
           node tests/js/one-place.test.js
           node tests/js/rc-1130.test.js
+          node --check assets/js/tack-deactivate-feedback.js
+          node tests/js/deactivate-feedback.test.js
 
       - name: Build release artifact(s)
         run: bash scripts/package.sh dist

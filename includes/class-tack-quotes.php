@@ -83,6 +83,9 @@ final class Tack_Quotes {
 		// TackQuote → Dashboard (1.12.0 under WooCommerce; 1.13.0 in the TackQuote menu).
 		if ( is_admin() ) {
 			( new Tack_Embed_Admin() )->init();
+			// 1.16.0: the optional "Why are you deactivating?" dialog on Plugins and its
+			// admin-post.php handler (admin-post.php defines WP_ADMIN, so is_admin() holds).
+			Tack_Lifecycle::init();
 		}
 
 		// 1.12.0: catalogue and order sync through WooCommerce's own key approval, the

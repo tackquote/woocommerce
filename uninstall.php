@@ -213,14 +213,46 @@ $tack_quotes_transients = array(
 );
 
 /**
+ * Send one plugin-lifecycle request (3 s per call, no redirects).
+ *
+ * @since 1.16.0
+ *
+ * @param string $api  API base URL (https).
+ * @param string $key  API key.
+ * @param array  $body JSON body.
+ * @return array|WP_Error
+ */
+function tack_quotes_post_lifecycle( $api, $key, array $body ) {
+	return wp_remote_request(
+		$api . '/integrations/woocommerce/plugin-lifecycle',
+		array(
+			'method'      => 'POST',
+			'timeout'     => 3,
+			'redirection' => 0,
+			'headers'     => array(
+				'X-Api-Key'            => $key,
+				'Content-Type'         => 'application/json',
+				'Accept'               => 'application/json',
+				'X-TackQuote-Site-Url' => home_url(),
+			),
+			'body'        => wp_json_encode( $body ),
+		)
+	);
+}
+
+/**
  * Tell TackQuote the plugin was deleted (1.12.0), so it stands this store's connection
  * down and revokes a key that Connect with TackQuote issued.
  *
  * The same request Tack_Lifecycle sends on deactivation, written out here because
- * uninstall.php runs without the plugin's own classes. Best effort and short (3 s).
- * Skipped when the server's last cached capability list exists and lacks `lifecycle`
- * (an older server has no such route); with no cached list it is sent anyway, because a
- * server without the route only answers 404.
+ * uninstall.php runs without the plugin's own classes. Best effort and short (3 s per
+ * call). Skipped when the server's last cached capability list exists and lacks
+ * `lifecycle` (an older server has no such route); with no cached list it is sent anyway,
+ * because a server without the route only answers 404.
+ *
+ * 1.16.0: to a server whose last cached ping listed `lifecycle_feedback`, the body also
+ * carries `pluginVersion`. If TackQuote answers 400 to that body, the bare
+ * `{ "event": "uninstalled" }` is sent once more (3 s), so the stand-down still happens.
  *
  * @return bool Whether TackQuote answered 2xx and released the REST keys it held.
  */
@@ -234,27 +266,27 @@ function tack_quotes_notify_uninstalled() {
 	if ( is_array( $caps ) && isset( $caps['caps'] ) && is_array( $caps['caps'] ) && ! in_array( 'lifecycle', $caps['caps'], true ) ) {
 		return false;
 	}
-	$response = wp_remote_request(
-		$api . '/integrations/woocommerce/plugin-lifecycle',
-		array(
-			'method'      => 'POST',
-			'timeout'     => 3,
-			'redirection' => 0,
-			'headers'     => array(
-				'X-Api-Key'            => $key,
-				'Content-Type'         => 'application/json',
-				'Accept'               => 'application/json',
-				'X-TackQuote-Site-Url' => home_url(),
-			),
-			'body'        => wp_json_encode( array( 'event' => 'uninstalled' ) ),
-		)
-	);
+	$body = array( 'event' => 'uninstalled' );
+	// 1.16.0: the plugin's version, only to a server whose last cached ping listed
+	// `lifecycle_feedback` (an older one refuses the whole request over an unknown field).
+	// Read from the plugin header: uninstall.php runs without the plugin's constants.
+	if ( is_array( $caps ) && isset( $caps['caps'] ) && is_array( $caps['caps'] ) && in_array( 'lifecycle_feedback', $caps['caps'], true ) ) {
+		$header = get_file_data( __DIR__ . '/tackquote.php', array( 'Version' => 'Version' ) );
+		$ver    = isset( $header['Version'] ) ? (string) $header['Version'] : '';
+		if ( 1 === preg_match( '/^[0-9A-Za-z][0-9A-Za-z.+_-]{0,39}$/', $ver ) ) {
+			$body['pluginVersion'] = $ver;
+		}
+	}
+	$response = tack_quotes_post_lifecycle( $api, $key, $body );
+	if ( ! is_wp_error( $response ) && 400 === (int) wp_remote_retrieve_response_code( $response ) && count( $body ) > 1 ) {
+		$response = tack_quotes_post_lifecycle( $api, $key, array( 'event' => 'uninstalled' ) );
+	}
 	if ( is_wp_error( $response ) ) {
 		return false;
 	}
-	$code = (int) wp_remote_retrieve_response_code( $response );
-	$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
-	return $code >= 200 && $code < 300 && is_array( $body ) && true === ( $body['restKeysReleased'] ?? false );
+	$code   = (int) wp_remote_retrieve_response_code( $response );
+	$answer = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+	return $code >= 200 && $code < 300 && is_array( $answer ) && true === ( $answer['restKeysReleased'] ?? false );
 }
 
 /**
@@ -293,6 +325,10 @@ function tack_quotes_delete_wc_rest_key() {
  * that cache, expire within two minutes, and the generation option deleted with the
  * other options already makes every one of them unreadable.
  *
+ * Since 1.16.0 the same statement removes an unread deactivation answer
+ * (`tack_quotes_deactivation_feedback_<user id>`, Tack_Lifecycle), which is per user
+ * for the same reason; in an object cache it expires within ten minutes.
+ *
  * @return void
  */
 function tack_quotes_delete_storefront_cache() {
@@ -300,9 +336,12 @@ function tack_quotes_delete_storefront_cache() {
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- WordPress has no API to delete transients by prefix; one bounded DELETE at uninstall.
 	$wpdb->query(
 		$wpdb->prepare(
-			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s OR option_name LIKE %s",
 			$wpdb->esc_like( '_transient_tack_sfc_' ) . '%',
-			$wpdb->esc_like( '_transient_timeout_tack_sfc_' ) . '%'
+			$wpdb->esc_like( '_transient_timeout_tack_sfc_' ) . '%',
+			// 1.16.0: an unread deactivation answer, per user (Tack_Lifecycle::FEEDBACK_TRANSIENT; ten minutes at most).
+			$wpdb->esc_like( '_transient_tack_quotes_deactivation_feedback_' ) . '%',
+			$wpdb->esc_like( '_transient_timeout_tack_quotes_deactivation_feedback_' ) . '%'
 		)
 	);
 }

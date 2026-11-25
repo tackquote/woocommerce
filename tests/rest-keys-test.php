@@ -457,4 +457,4 @@ check( 'after Connect, an older server: no detour', '' === ( new Tack_Test_Rest_
 // ── 9. Uninstall deletes the WooCommerce key only after TackQuote released it ───
 $tack_rk_uninstall = (string) file_get_contents( TACK_QUOTES_DIR . 'uninstall.php' );
 check( 'uninstall: the WooCommerce key is deleted only inside the released-branch', 1 === preg_match( '/if \( tack_quotes_notify_uninstalled\(\) \) \{\s*tack_quotes_delete_wc_rest_key\(\);/', $tack_rk_uninstall ) );
-check( 'uninstall: released means 2xx AND restKeysReleased true', false !== strpos( $tack_rk_uninstall, "true === ( \$body['restKeysReleased'] ?? false )" ) );
+check( 'uninstall: released means 2xx AND restKeysReleased true', false !== strpos( $tack_rk_uninstall, "true === ( \$answer['restKeysReleased'] ?? false )" ) );
