@@ -14,7 +14,7 @@
  * show anything: WordPress runs it after the merchant confirmed the deletion, so the
  * question is asked only here, on Plugins > Deactivate.
  *
- * Best effort and short: a deactivation must never hang on TackQuote. Sent only when the
+ * Best effort and short (3 s per call): a deactivation must never hang on TackQuote. Sent only when the
  * server lists the `lifecycle` capability (an older server has no such route); with no
  * cached capability list it pings once with the same 3-second limit, never the longer
  * page-view timeout.
@@ -26,10 +26,13 @@
  * TackQuote server that lists `lifecycle_feedback`; the dialog is not offered otherwise,
  * nor without an API key, nor in the network admin, nor without JavaScript or `<dialog>`
  * support (the link then works as it always did). The answer is posted to admin-post.php
- * (nonce + `activate_plugins`), kept for ten minutes in a transient for that user only,
- * and read once by the deactivation below, which carries it in the same
- * `plugin-lifecycle` call. Nothing is logged. A failed call never blocks the
- * deactivation and is never reported as sent.
+ * (nonce + `deactivate_plugin` for this plugin) and kept, with a random token, in a
+ * transient for that user only, for at most two minutes. The redirect to WordPress's own
+ * deactivation carries the token (`tackquote_fb`), and the deactivation below sends the
+ * answer only when its request carries the SAME token (hash_equals): a later "Skip and
+ * deactivate", a bulk deactivation or WP-CLI never sends it, and it is deleted on read
+ * either way. The answer rides the same `plugin-lifecycle` call. Nothing is logged. A
+ * failed call never blocks the deactivation and is never reported as sent.
  *
  * Sources (developer.wordpress.org, read 2026-11-25): Plugin Handbook "Activation /
  * Deactivation Hooks" and "Uninstall Methods" (deactivation runs on the deactivating
@@ -73,11 +76,27 @@ class Tack_Lifecycle {
 	const FEEDBACK_TRANSIENT = 'tack_quotes_deactivation_feedback_';
 
 	/**
-	 * Seconds an answer waits for the deactivation it belongs to.
+	 * Seconds an answer waits for the deactivation it belongs to: one redirect away, so
+	 * two minutes is plenty, and a forgotten answer does not wait for a later deactivation.
 	 *
 	 * @since 1.16.0
 	 */
-	const FEEDBACK_TTL = 600;
+	const FEEDBACK_TTL = 120;
+
+	/**
+	 * Query parameter that carries the answer's token from admin-post.php to plugins.php.
+	 *
+	 * @since 1.16.0
+	 */
+	const HOP_PARAM = 'tackquote_fb';
+
+	/**
+	 * The Plugins list views WordPress names (`plugin_action_links` `$context`). Only
+	 * these are carried back onto the deactivation link; anything else is dropped.
+	 *
+	 * @since 1.16.0
+	 */
+	const PLUGIN_STATUSES = array( 'all', 'active', 'inactive', 'recently_activated', 'upgrade', 'mustuse', 'dropins', 'search' );
 
 	/**
 	 * The longest note TackQuote accepts (`details`, 4000 characters). TackQuote strips
@@ -136,7 +155,7 @@ class Tack_Lifecycle {
 
 	/**
 	 * Whether to offer the question to the current user on this request: they can
-	 * deactivate plugins, a key is saved, this is not the network admin, and the last
+	 * deactivate this plugin, a key is saved, this is not the network admin, and the last
 	 * cached ping listed `lifecycle_feedback`. No ping is made for a page view: with no
 	 * cached list the question is simply not asked.
 	 *
@@ -146,7 +165,7 @@ class Tack_Lifecycle {
 	 * @return bool
 	 */
 	public static function should_ask( $client = null ) {
-		if ( ! current_user_can( 'activate_plugins' ) ) {
+		if ( ! current_user_can( 'deactivate_plugin', plugin_basename( TACK_QUOTES_FILE ) ) ) {
 			return false;
 		}
 		if ( function_exists( 'is_network_admin' ) && is_network_admin() ) {
@@ -204,7 +223,11 @@ class Tack_Lifecycle {
 		if ( ! self::$armed ) {
 			return;
 		}
-		echo self::dialog_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- every value is escaped inside dialog_html().
+		// The list view the merchant is on, allowlisted (view_args()), so WordPress returns
+		// them to it after the deactivation. Read-only; nothing is changed by it.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only read of the Plugins list view; every value is allowlisted in view_args().
+		$view = self::view_args( (array) wp_unslash( $_GET ) );
+		echo self::dialog_html( $view ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- every value is escaped inside dialog_html().
 	}
 
 	/**
@@ -212,15 +235,19 @@ class Tack_Lifecycle {
 	 *
 	 * @since 1.16.0
 	 *
+	 * @param array $view Allowlisted Plugins list view (view_args()), sent back as hidden fields.
 	 * @return string
 	 */
-	public static function dialog_html() {
-		$html  = '<dialog id="tackquote-deactivate-feedback" class="tackquote-deactivate-feedback" aria-labelledby="tackquote-deactivate-feedback-title">';
+	public static function dialog_html( array $view = array() ) {
+		$html  = '<dialog id="tackquote-deactivate-feedback" class="tackquote-deactivate-feedback" aria-labelledby="tackquote-deactivate-feedback-title" aria-describedby="tackquote-deactivate-feedback-intro">';
 		$html .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		$html .= '<input type="hidden" name="action" value="' . esc_attr( self::FEEDBACK_ACTION ) . '" />';
 		$html .= '<input type="hidden" name="_wpnonce" value="' . esc_attr( wp_create_nonce( self::FEEDBACK_ACTION ) ) . '" />';
+		foreach ( self::view_args( $view ) as $name => $value ) {
+			$html .= '<input type="hidden" name="' . esc_attr( $name ) . '" value="' . esc_attr( $value ) . '" />';
+		}
 		$html .= '<h2 id="tackquote-deactivate-feedback-title">' . esc_html__( 'Before you deactivate TackQuote', 'tackquote' ) . '</h2>';
-		$html .= '<p>' . esc_html__( 'If you have a moment, tell us why. This is optional: "Skip and deactivate" sends no answer.', 'tackquote' ) . '</p>';
+		$html .= '<p id="tackquote-deactivate-feedback-intro">' . esc_html__( 'If you have a moment, tell us why. This is optional: "Skip and deactivate" sends no answer.', 'tackquote' ) . '</p>';
 		$html .= '<fieldset><legend>' . esc_html__( 'Why are you deactivating?', 'tackquote' ) . '</legend>';
 		foreach ( self::reasons() as $value => $label ) {
 			$html .= '<label><input type="radio" name="reason" value="' . esc_attr( $value ) . '" /> ' . esc_html( $label ) . '</label>';
@@ -264,32 +291,71 @@ class Tack_Lifecycle {
 	 * @return string
 	 */
 	public static function process_feedback_request( array $post ) {
-		if ( ! current_user_can( 'activate_plugins' ) ) {
+		if ( ! current_user_can( 'deactivate_plugin', plugin_basename( TACK_QUOTES_FILE ) ) ) {
 			return '';
 		}
 		$nonce = isset( $post['_wpnonce'] ) && is_string( $post['_wpnonce'] ) ? sanitize_text_field( $post['_wpnonce'] ) : '';
 		if ( '' === $nonce || ! wp_verify_nonce( $nonce, self::FEEDBACK_ACTION ) ) {
 			return '';
 		}
-		self::store_feedback( $post );
-		return self::deactivate_url();
+		$hop = self::store_feedback( $post );
+		return self::deactivate_url( $hop, self::view_args( $post ) );
+	}
+
+	/**
+	 * The Plugins list view to return to, allowlisted: `plugin_status` one of
+	 * PLUGIN_STATUSES, `paged` a page number, `s` plain text of at most 100 characters.
+	 * Anything else is dropped, never passed on raw.
+	 *
+	 * @since 1.16.0
+	 *
+	 * @param array $input Unslashed request fields.
+	 * @return array<string,string>
+	 */
+	public static function view_args( array $input ) {
+		$out    = array();
+		$status = isset( $input['plugin_status'] ) && is_string( $input['plugin_status'] ) ? $input['plugin_status'] : '';
+		if ( in_array( $status, self::PLUGIN_STATUSES, true ) ) {
+			$out['plugin_status'] = $status;
+		}
+		$paged = isset( $input['paged'] ) && is_string( $input['paged'] ) ? $input['paged'] : '';
+		if ( 1 === preg_match( '/^[1-9][0-9]{0,5}$/', $paged ) ) {
+			$out['paged'] = $paged;
+		}
+		$search = isset( $input['s'] ) && is_string( $input['s'] ) ? trim( sanitize_text_field( $input['s'] ) ) : '';
+		if ( '' !== $search ) {
+			$out['s'] = function_exists( 'mb_substr' ) ? mb_substr( $search, 0, 100, 'UTF-8' ) : substr( $search, 0, 100 );
+		}
+		return $out;
 	}
 
 	/**
 	 * WordPress's own deactivation link for this plugin (`plugins.php?action=deactivate`,
-	 * nonce `deactivate-plugin_<file>`, the pattern WP_Plugins_List_Table::single_row()
-	 * uses for its links). Built here rather than taken from the form, so the redirect
-	 * can go nowhere else.
+	 * nonce `deactivate-plugin_<file>`, as WP_Plugins_List_Table::single_row() builds it),
+	 * with the allowlisted list view and the answer's token. Built here rather than taken
+	 * from the form, so the redirect can go nowhere else.
 	 *
 	 * @since 1.16.0
 	 *
+	 * @param string $hop  The answer's token, or '' when no answer was kept.
+	 * @param array  $view Allowlisted list view (view_args()).
 	 * @return string
 	 */
-	public static function deactivate_url() {
+	public static function deactivate_url( $hop = '', array $view = array() ) {
 		$file = plugin_basename( TACK_QUOTES_FILE );
-		// Written out as core writes it (`'&plugin=' . urlencode( $plugin_file )`): core's
-		// add_query_arg() does not encode values, so the encoding is done here, once.
-		return admin_url( 'plugins.php?action=deactivate&plugin=' . rawurlencode( $file ) . '&_wpnonce=' . rawurlencode( wp_create_nonce( 'deactivate-plugin_' . $file ) ) );
+		// Encoded here, once: core's add_query_arg() does not encode values. Core builds
+		// this link with urlencode(); rawurlencode() differs from it only for a space
+		// (`+` vs `%20`), which a plugin basename never contains, and in `s`, where
+		// PHP decodes both the same way.
+		$query = 'action=deactivate&plugin=' . rawurlencode( $file );
+		foreach ( self::view_args( $view ) as $name => $value ) {
+			$query .= '&' . $name . '=' . rawurlencode( $value );
+		}
+		if ( is_string( $hop ) && '' !== $hop ) {
+			$query .= '&' . self::HOP_PARAM . '=' . rawurlencode( $hop );
+		}
+		$query .= '&_wpnonce=' . rawurlencode( wp_create_nonce( 'deactivate-plugin_' . $file ) );
+		return admin_url( 'plugins.php?' . $query );
 	}
 
 	/**
@@ -334,42 +400,73 @@ class Tack_Lifecycle {
 	}
 
 	/**
-	 * Keep the current user's answer for the deactivation that follows.
+	 * Keep the current user's answer, with a fresh random token, for the deactivation
+	 * that follows.
 	 *
 	 * @since 1.16.0
 	 *
 	 * @param array $post The unslashed POST fields.
-	 * @return bool Whether an answer was kept.
+	 * @return string The token to carry on the redirect, or '' when nothing was kept.
 	 */
 	public static function store_feedback( array $post ) {
 		$key = self::feedback_key();
 		if ( '' === $key ) {
-			return false;
+			return '';
 		}
 		$feedback = self::clean_feedback( $post );
 		if ( empty( $feedback ) ) {
 			delete_transient( $key );
-			return false;
+			return '';
 		}
-		set_transient( $key, $feedback, self::FEEDBACK_TTL );
-		return true;
+		$hop = wp_generate_password( 32, false, false );
+		set_transient(
+			$key,
+			array(
+				'hop'    => $hop,
+				'answer' => $feedback,
+			),
+			self::FEEDBACK_TTL
+		);
+		return $hop;
 	}
 
 	/**
-	 * Read the current user's answer once (it is deleted on read).
+	 * The token on this request (`tackquote_fb`), letters and digits only, or ''.
 	 *
 	 * @since 1.16.0
 	 *
+	 * @return string
+	 */
+	public static function hop_from_request() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read inside WordPress's own deactivation, which has already checked its `deactivate-plugin_<file>` nonce; the value is only compared, with hash_equals().
+		$raw = isset( $_GET[ self::HOP_PARAM ] ) && is_string( $_GET[ self::HOP_PARAM ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::HOP_PARAM ] ) ) : '';
+		return (string) preg_replace( '/[^A-Za-z0-9]/', '', (string) $raw );
+	}
+
+	/**
+	 * Read the current user's answer once (it is deleted on read), and only when `$hop`
+	 * is the token it was kept with. Any other deactivation (Skip, bulk, WP-CLI, a later
+	 * one) drops it unsent.
+	 *
+	 * @since 1.16.0
+	 *
+	 * @param string $hop The token on this request.
 	 * @return array
 	 */
-	public static function take_feedback() {
+	public static function take_feedback( $hop ) {
 		$key = self::feedback_key();
 		if ( '' === $key ) {
 			return array();
 		}
 		$stored = get_transient( $key );
 		delete_transient( $key );
-		return is_array( $stored ) ? self::clean_feedback( $stored ) : array();
+		if ( ! is_array( $stored ) || ! isset( $stored['hop'], $stored['answer'] ) || ! is_string( $stored['hop'] ) || ! is_array( $stored['answer'] ) ) {
+			return array();
+		}
+		if ( ! is_string( $hop ) || '' === $hop || '' === $stored['hop'] || ! hash_equals( $stored['hop'], $hop ) ) {
+			return array();
+		}
+		return self::clean_feedback( $stored['answer'] );
 	}
 
 	/**
@@ -380,8 +477,9 @@ class Tack_Lifecycle {
 	 * @return bool Whether TackQuote accepted it.
 	 */
 	public static function notify_deactivated( $client = null ) {
-		// Read (and so delete) the answer first: it belongs to this deactivation only.
-		$feedback = self::take_feedback();
+		// Read (and so delete) the answer first: it belongs to this deactivation only, and
+		// only when this request carries its token.
+		$feedback = self::take_feedback( self::hop_from_request() );
 		if ( '' === (string) get_option( 'tack_quotes_api_key', '' ) ) {
 			return false;
 		}

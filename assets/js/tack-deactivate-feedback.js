@@ -6,7 +6,8 @@
  * "Skip and deactivate" (focused first) follows WordPress's own deactivation link
  * unchanged; Cancel or Esc closes it and deactivates nothing; "Send and deactivate"
  * posts the form to admin-post.php. Without `<dialog>` support this script does
- * nothing and the link works as it always did.
+ * nothing and the link works as it always did; if opening the dialog throws, the
+ * click deactivates as it always did (the question must never block deactivation).
  */
 ( function ( root ) {
 	'use strict';
@@ -31,8 +32,13 @@
 				return;
 			}
 			event.preventDefault();
-			dialog.showModal();
-			skip.focus();
+			try {
+				dialog.showModal();
+				skip.focus();
+			} catch ( e ) {
+				// Never stand between the merchant and the deactivation they asked for.
+				win.location.href = href;
+			}
 		} );
 		skip.addEventListener( 'click', function () {
 			win.location.href = href;
@@ -40,13 +46,22 @@
 		cancel.addEventListener( 'click', function () {
 			dialog.close();
 		} );
-		form.addEventListener( 'submit', function () {
-			// One answer per click: a second press would post it twice.
+		function setDisabled( disabled ) {
 			var buttons = form.querySelectorAll( 'button' );
 			for ( var i = 0; i < buttons.length; i++ ) {
-				buttons[ i ].disabled = true;
+				buttons[ i ].disabled = disabled;
 			}
+		}
+		form.addEventListener( 'submit', function () {
+			// One answer per click: a second press would post it twice.
+			setDisabled( true );
 		} );
+		// Back from the next page (back/forward cache): the buttons work again.
+		if ( typeof win.addEventListener === 'function' ) {
+			win.addEventListener( 'pageshow', function () {
+				setDisabled( false );
+			} );
+		}
 		return true;
 	}
 

@@ -16,14 +16,17 @@
 $GLOBALS['TACK_REGISTERED_PAGES'] = array();
 
 function admin_url( $path = '' ) { return 'https://shop.example/wp-admin/' . $path; }
-function esc_url( $url ) { return $url; }
+// Like core's esc_url(): characters a URL cannot carry are removed and `'` is encoded, so
+// an unescaped attribute cannot pass by accident. (`&` is left alone: core turns it into
+// `&#038;` only for display, and the suites compare URLs.)
+function esc_url( $url ) { return str_replace( "'", '&#039;', (string) preg_replace( '|[^a-z0-9-~+_.?#=!&;,/:%@$\|*\'()\[\]\x80-\xff]|i', '', (string) $url ) ); }
 // WordPress escapes; an identity stub would let an unescaped renderer pass (W1-forms).
 function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8', false ); }
 function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8', false ); }
 // A test can load a "translation" into TACK_TRANSLATIONS (msgid => msgstr) to prove a
 // string really goes through gettext at render time; empty by default, so identity.
 $GLOBALS['TACK_TRANSLATIONS'] = array();
-function esc_html__( $text, $domain = null ) { return __( $text, $domain ); }
+function esc_html__( $text, $domain = null ) { return esc_html( __( $text, $domain ) ); }
 function __( $text, $domain = null ) { $GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1; return $GLOBALS['TACK_TRANSLATIONS'][ $text ] ?? $text; }
 $GLOBALS['TACK_HOOKS']   = array();
 $GLOBALS['TACK_REMOVED'] = array();
@@ -103,7 +106,7 @@ function wp_get_current_user() {
 function checked( $a, $b = true, $echo = true ) { return (string) $a === (string) $b ? "checked='checked'" : ''; }
 function sanitize_key( $k ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $k ) ); }
 function sanitize_text_field( $t ) { return trim( (string) $t ); }
-function esc_attr__( $t, $d = null ) { $GLOBALS['TACK_I18N_CALLS'] = ( $GLOBALS['TACK_I18N_CALLS'] ?? 0 ) + 1; return $t; }
+function esc_attr__( $t, $d = null ) { return esc_attr( __( $t, $d ) ); }
 function wc_add_notice( $msg, $type = 'success' ) { $GLOBALS['TACK_NOTICES'][] = $msg; }
 
 class TackStubRoles {

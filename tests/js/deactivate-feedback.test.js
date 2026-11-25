@@ -42,7 +42,7 @@ function el(attrs) {
   );
 }
 
-function page({ withDialogSupport = true, withLink = true } = {}) {
+function page({ withDialogSupport = true, withLink = true, throwing = false } = {}) {
   const link = el({ href: 'plugins.php?action=deactivate&plugin=tackquote%2Ftackquote.php&_wpnonce=abc' });
   const skip = el();
   const cancel = el();
@@ -52,7 +52,10 @@ function page({ withDialogSupport = true, withLink = true } = {}) {
   const dialog = el();
   dialog.open = false;
   if (withDialogSupport) {
-    dialog.showModal = () => { dialog.open = true; };
+    dialog.showModal = () => {
+      if (throwing) throw new Error('InvalidStateError');
+      dialog.open = true;
+    };
     dialog.close = () => { dialog.open = false; };
   }
   dialog.querySelector = (sel) => ({ '[data-tackquote-skip]': skip, '[data-tackquote-cancel]': cancel, form }[sel] || null);
@@ -60,7 +63,12 @@ function page({ withDialogSupport = true, withLink = true } = {}) {
     querySelector: (sel) => (sel === 'a[data-tackquote-deactivate]' && withLink ? link : null),
     getElementById: (id) => (id === 'tackquote-deactivate-feedback' ? dialog : null),
   };
-  const win = { location: { href: 'plugins.php' } };
+  const winListeners = {};
+  const win = {
+    location: { href: 'plugins.php' },
+    addEventListener(type, fn) { (winListeners[type] = winListeners[type] || []).push(fn); },
+    fire(type) { (winListeners[type] || []).forEach((fn) => fn({})); },
+  };
   return { doc, win, link, skip, cancel, send, form, dialog };
 }
 
@@ -113,6 +121,31 @@ function click(extra) {
   setup(p.doc, p.win);
   p.form.fire('submit', {});
   check('Send: every button is disabled while the form posts', p.skip.disabled && p.send.disabled && p.cancel.disabled);
+}
+
+// showModal() throws (a dialog already open elsewhere, a browser quirk): deactivate anyway.
+{
+  const p = page({ throwing: true });
+  setup(p.doc, p.win);
+  const e = click();
+  try { p.link.fire('click', e); } catch (err) { /* reported by the check below */ }
+  check('showModal throws: the click still deactivates through WordPress\'s link', p.win.location.href === 'plugins.php?action=deactivate&plugin=tackquote%2Ftackquote.php&_wpnonce=abc');
+}
+// focus() throws: same.
+{
+  const p = page();
+  p.skip.focus = () => { throw new Error('focus'); };
+  setup(p.doc, p.win);
+  try { p.link.fire('click', click()); } catch (err) { /* reported by the check below */ }
+  check('focus throws: the click still deactivates', p.win.location.href === 'plugins.php?action=deactivate&plugin=tackquote%2Ftackquote.php&_wpnonce=abc');
+}
+// Back from the next page (bfcache): the buttons work again.
+{
+  const p = page();
+  setup(p.doc, p.win);
+  p.form.fire('submit', {});
+  p.win.fire('pageshow');
+  check('pageshow: the buttons are enabled again', !p.skip.disabled && !p.send.disabled && !p.cancel.disabled);
 }
 
 if (failures) {
