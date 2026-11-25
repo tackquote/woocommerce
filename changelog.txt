@@ -1,6 +1,14 @@
 TackQuote: Request a Quote & B2B Wholesale for WooCommerce. Full changelog, newest first.
 The latest releases are listed in readme.txt.
 
+= 1.16.0 =
+Not released yet.
+
+* **An optional question when you deactivate.** On a TackQuote server that lists the `lifecycle_feedback` capability (and only with an API key saved, outside the network admin, for a user who can deactivate plugins), "Deactivate" on this plugin in Plugins opens a dialog: one reason from a fixed list, an optional note (at most 4000 characters) and "I would like help from TackQuote with this store". "Skip and deactivate" has the focus and deactivates exactly as before, sending no answer; Cancel or Esc closes the dialog and deactivates nothing. "Send and deactivate" posts the answer to WordPress (admin-post.php, nonce and the `activate_plugins` capability), keeps it for that user for at most ten minutes, and goes on to WordPress's own deactivation, whose notice to TackQuote (`POST /integrations/woocommerce/plugin-lifecycle`) carries it as `reason`, `details` and `wantsHelp` (the JSON boolean `true`, only when ticked). Without JavaScript, without `<dialog>` support, or with a server that does not take the answer, Deactivate works as it did in 1.15.0.
+* The deactivation and deletion notices now carry the plugin version (`pluginVersion`) to a server that lists `lifecycle_feedback`; an older server still receives exactly `{ "event": ... }`.
+* If TackQuote refuses the answer (HTTP 400), the bare deactivation notice is sent once more so the connection is still paused. A network error or any other refusal never blocks the deactivation and is not reported as sent. The plugin logs nothing about the answer.
+* Deleting the plugin also removes an answer that was never sent.
+
 = 1.15.0 =
 Released 2026-11-05.
 

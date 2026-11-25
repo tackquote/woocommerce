@@ -278,5 +278,11 @@ require __DIR__ . '/requester-identity-1131-test.php';
 // 1.14.0: storefront lookups cached per customer and currency, never at checkout.
 require __DIR__ . '/storefront-cache-test.php';
 
+// 1.16.0: the optional "Why are you deactivating?" question, carried by the deactivation
+// notice to a `lifecycle_feedback` server. Last, because it signs in user 7.
+echo "\n-- deactivation question (lifecycle_feedback) --\n";
+require_once TACK_QUOTES_DIR . 'includes/class-tack-lifecycle.php';
+require __DIR__ . '/lifecycle-feedback-test.php';
+
 echo $failures ? "\n$failures failure(s)\n" : "\nAll checks passed\n";
 exit( $failures ? 1 : 0 );

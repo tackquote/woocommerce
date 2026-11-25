@@ -1,0 +1,46 @@
+/* TackQuote: the optional deactivation question on Plugins (1.16.0). */
+.tackquote-deactivate-feedback {
+	max-width: 520px;
+	width: calc(100% - 32px);
+	padding: 20px 24px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.tackquote-deactivate-feedback::backdrop {
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.tackquote-deactivate-feedback h2 {
+	margin-top: 0;
+}
+
+.tackquote-deactivate-feedback fieldset {
+	margin: 0 0 12px;
+}
+
+.tackquote-deactivate-feedback legend {
+	font-weight: 600;
+	margin-bottom: 6px;
+}
+
+.tackquote-deactivate-feedback fieldset label,
+.tackquote-deactivate-feedback .tackquote-deactivate-help {
+	display: block;
+	margin: 4px 0;
+}
+
+.tackquote-deactivate-feedback textarea {
+	display: block;
+	width: 100%;
+	margin: 4px 0 8px;
+}
+
+.tackquote-deactivate-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-top: 12px;
+}
