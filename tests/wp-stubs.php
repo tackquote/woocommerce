@@ -1167,7 +1167,14 @@ if ( ! function_exists( 'get_current_user_id' ) ) {
 if ( ! function_exists( 'wp_generate_password' ) ) {
 	/** @return string */
 	function wp_generate_password( $length = 12, $special = true, $extra = false ) {
-		return substr( str_repeat( 'abc123xyz789', 4 ), 0, (int) $length );
+		// Random like core's (wp_rand over the allowed characters), so a test can prove two
+		// calls differ. Letters and digits only, as with $special = false.
+		$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		$out   = '';
+		for ( $i = 0; $i < (int) $length; $i++ ) {
+			$out .= $chars[ random_int( 0, strlen( $chars ) - 1 ) ];
+		}
+		return $out;
 	}
 }
 $GLOBALS['TACK_ENQUEUED'] = array();

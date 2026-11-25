@@ -448,7 +448,7 @@ Deleting the plugin removes every option above, the fixed-name transients (and t
 == Changelog ==
 
 = 1.16.0 =
-Full notes are in `changelog.txt`.
+Released 2026-11-26. Full notes are in `changelog.txt`.
 
 * **An optional question when you deactivate.** On a TackQuote server that offers it, "Deactivate" on Plugins asks why, with a reason, an optional note and "I would like help from TackQuote". "Skip and deactivate" is the default and sends no answer; Cancel deactivates nothing.
 

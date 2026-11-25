@@ -91,12 +91,14 @@ class Tack_Lifecycle {
 	const HOP_PARAM = 'tackquote_fb';
 
 	/**
-	 * The Plugins list views WordPress names (`plugin_action_links` `$context`). Only
-	 * these are carried back onto the deactivation link; anything else is dropped.
+	 * The Plugins list views WordPress names: the keys WP_Plugins_List_Table::prepare_items()
+	 * initialises (`paused` and, when auto-updates are shown, `auto-update-enabled` and
+	 * `auto-update-disabled` included). Only these are carried back onto the deactivation
+	 * link; anything else is dropped.
 	 *
 	 * @since 1.16.0
 	 */
-	const PLUGIN_STATUSES = array( 'all', 'active', 'inactive', 'recently_activated', 'upgrade', 'mustuse', 'dropins', 'search' );
+	const PLUGIN_STATUSES = array( 'all', 'search', 'active', 'inactive', 'recently_activated', 'upgrade', 'mustuse', 'dropins', 'paused', 'auto-update-enabled', 'auto-update-disabled' );
 
 	/**
 	 * The longest note TackQuote accepts (`details`, 4000 characters). TackQuote strips
