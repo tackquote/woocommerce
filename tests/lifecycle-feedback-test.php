@@ -129,6 +129,10 @@ check(
 	$lf_url
 );
 check( 'handler: the answer is kept for this user only, with a token', is_array( $lf_stored ) && array( 'reason' => 'price', 'wantsHelp' => true ) === ( $lf_stored['answer'] ?? null ) && strlen( $lf_hop ) >= 20 );
+$lf_url_2    = Tack_Lifecycle::process_feedback_request( tack_lf_post( array( 'reason' => 'price' ) ) );
+$lf_stored_2 = get_transient( $lf_slot );
+$lf_hop_2    = is_array( $lf_stored_2 ) ? (string) ( $lf_stored_2['hop'] ?? '' ) : '';
+check( 'handler: every Send gets a fresh token, and the newer answer replaces the older', '' !== $lf_hop_2 && $lf_hop_2 !== $lf_hop && false !== strpos( $lf_url_2, Tack_Lifecycle::HOP_PARAM . '=' . $lf_hop_2 ) );
 check( 'handler: the redirect carries that token', false !== strpos( $lf_url, '&' . Tack_Lifecycle::HOP_PARAM . '=' . $lf_hop . '&' ) );
 check( 'handler: sending the answer made no request to TackQuote by itself', 0 === count( tack_cx_calls( 'plugin-lifecycle' ) ) );
 tack_lf_reset( $lf_ping_fb );
@@ -141,6 +145,10 @@ $lf_url = Tack_Lifecycle::process_feedback_request( tack_lf_post( array( 'plugin
 check( 'handler: plugin_status, paged and s come back on the link, encoded', false !== strpos( $lf_url, '&plugin_status=active&paged=2&s=quote%20list&' ), $lf_url );
 $lf_url = Tack_Lifecycle::process_feedback_request( tack_lf_post( array( 'plugin_status' => 'evil"><x', 'paged' => '0', 's' => array( 'x' ), 'redirect_to' => 'https://evil.example' ) ) );
 check( 'handler: an unknown view, a page 0, a non-string search and any other field are dropped', false === strpos( $lf_url, 'plugin_status' ) && false === strpos( $lf_url, 'paged' ) && false === strpos( $lf_url, '&s=' ) && false === strpos( $lf_url, 'evil' ), $lf_url );
+foreach ( array( 'paused', 'auto-update-enabled', 'auto-update-disabled', 'recently_activated', 'mustuse', 'dropins' ) as $lf_status ) {
+	check( 'view: core\'s "' . $lf_status . '" list view is kept', array( 'plugin_status' => $lf_status ) === Tack_Lifecycle::view_args( array( 'plugin_status' => $lf_status ) ) );
+}
+check( 'view: a look-alike status is dropped', array() === Tack_Lifecycle::view_args( array( 'plugin_status' => 'auto-update-enabled ' ) ) && array() === Tack_Lifecycle::view_args( array( 'plugin_status' => 'Paused' ) ) );
 check( 'view: a page number with letters is dropped', array() === Tack_Lifecycle::view_args( array( 'paged' => '2abc' ) ) );
 check( 'view: a search longer than 100 characters is cut', 100 === mb_strlen( Tack_Lifecycle::view_args( array( 's' => str_repeat( 'a', 300 ) ) )['s'] ?? '', 'UTF-8' ) );
 
